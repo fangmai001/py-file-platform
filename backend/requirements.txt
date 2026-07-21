@@ -4,3 +4,8 @@ sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
 pydantic-settings==2.7.0
+passlib[bcrypt]==1.7.4
+# passlib 1.7.4 (unmaintained) reads bcrypt's old `__about__.__version__` attr;
+# bcrypt>=4.1 dropped it, so pin to the last compatible release.
+bcrypt==4.0.1
+pyjwt==2.10.1
