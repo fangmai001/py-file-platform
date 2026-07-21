@@ -7,6 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Communicate with the user in Traditional Chinese (繁體中文) in this repository, matching README.md.
 Keep code, identifiers, and comments in English as usual.
 
+PR titles and descriptions must also be written in Traditional Chinese.
+
+`gh pr edit` fails on this repo with a `Projects (classic)` GraphQL deprecation error, even for
+unrelated field edits. Use `gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -f title=... -f body=...`
+instead.
+
 ## Project overview
 
 py-file-platform is a file management/sharing platform, positioned like a public document wall for a
