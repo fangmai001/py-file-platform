@@ -1,0 +1,17 @@
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/app/core/config.py -> project root is three levels up
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+
+    database_url: str = "postgresql+psycopg2://platform:platform@localhost:5432/platform"
+    upload_dir: str = "./uploads"
+    max_upload_size_mb: int = 50
+
+
+settings = Settings()
