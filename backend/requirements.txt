@@ -9,3 +9,4 @@ passlib[bcrypt]==1.7.4
 # bcrypt>=4.1 dropped it, so pin to the last compatible release.
 bcrypt==4.0.1
 pyjwt==2.10.1
+python-multipart==0.0.20
