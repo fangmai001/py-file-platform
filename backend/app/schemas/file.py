@@ -22,3 +22,12 @@ class FolderGroup(BaseModel):
 
 class FileUpdate(BaseModel):
     is_public: bool | None = None
+
+
+class FileVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    file_id: int
+    version_no: int
+    uploaded_at: datetime
