@@ -53,6 +53,12 @@ def update_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在")
 
+    if user.id == admin.id:
+        if payload.role is not None and payload.role != user.role:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="無法變更自己的角色")
+        if payload.is_active is not None and not payload.is_active:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="無法停用自己的帳號")
+
     changes: list[str] = []
     if payload.role is not None and payload.role != user.role:
         changes.append(f"role: {user.role} -> {payload.role}")

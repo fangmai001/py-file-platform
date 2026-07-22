@@ -72,6 +72,35 @@ def test_admin_cannot_delete_self(client, db_session):
     assert response.status_code == 400
 
 
+def test_admin_cannot_demote_self(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.patch(
+        f"/api/admin/users/{admin.id}", headers=auth_headers(admin), json={"role": "user"}
+    )
+    assert response.status_code == 400
+    assert db_session.get(User, admin.id).role == "admin"
+
+
+def test_admin_cannot_deactivate_self(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.patch(
+        f"/api/admin/users/{admin.id}", headers=auth_headers(admin), json={"is_active": False}
+    )
+    assert response.status_code == 400
+    assert db_session.get(User, admin.id).is_active is True
+
+
+def test_admin_can_update_own_password(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.patch(
+        f"/api/admin/users/{admin.id}", headers=auth_headers(admin), json={"password": "new-s3cret-pw"}
+    )
+    assert response.status_code == 200
+
+
 def test_admin_cannot_delete_user_who_owns_files(client, db_session):
     from tests.test_files import _upload
 
