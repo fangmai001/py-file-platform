@@ -1,12 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ComponentType } from "react";
+import { ClipboardList, FolderTree, History, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { deleteFile, downloadFile, listFiles, updateFileVisibility, uploadFile } from "../api/files";
+import { deleteFile, downloadFile, listFiles, updateFileVisibility } from "../api/files";
 import type { FileItem, FolderGroup } from "../api/types";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Checkbox } from "../components/ui/checkbox";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
 
 function formatSize(bytes: number): string {
@@ -23,14 +22,39 @@ function formatSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[unitIndex]}`;
 }
 
+interface Highlight {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}
+
+const highlights: Highlight[] = [
+  {
+    icon: ShieldCheck,
+    title: "公開／私密控管",
+    description: "每個檔案可獨立設定可見度，公開檔案訪客免登入即可下載，私密檔案僅本人與管理員可見。",
+  },
+  {
+    icon: History,
+    title: "版本歷史",
+    description: "同名檔案重新上傳不會覆蓋，舊版本會保留完整歷史紀錄，方便回溯查閱。",
+  },
+  {
+    icon: FolderTree,
+    title: "資料夾分類",
+    description: "檔案依資料夾分組呈現，瀏覽時可依主題或用途快速找到需要的文件。",
+  },
+  {
+    icon: ClipboardList,
+    title: "稽核紀錄",
+    description: "刪除、權限變更等高權限操作皆會記錄稽核紀錄，操作歷程有跡可循。",
+  },
+];
+
 function HomePage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<FolderGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isPublic, setIsPublic] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   async function loadFiles() {
     try {
@@ -45,24 +69,6 @@ function HomePage() {
   useEffect(() => {
     loadFiles();
   }, [user]);
-
-  async function handleUpload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedFile) {
-      return;
-    }
-    setIsUploading(true);
-    setUploadError(null);
-    try {
-      await uploadFile(selectedFile, isPublic);
-      setSelectedFile(null);
-      await loadFiles();
-    } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : "上傳失敗");
-    } finally {
-      setIsUploading(false);
-    }
-  }
 
   async function handleDownload(file: FileItem) {
     try {
@@ -99,47 +105,71 @@ function HomePage() {
 
   const hasFiles = groups !== null && groups.some((group) => group.files.length > 0);
 
+  const stats =
+    groups === null
+      ? null
+      : {
+          files: groups.reduce((sum, group) => sum + group.files.length, 0),
+          folders: groups.filter((group) => group.folder !== null).length,
+          totalSize: groups.reduce(
+            (sum, group) => sum + group.files.reduce((s, file) => s + file.size, 0),
+            0,
+          ),
+        };
+
   return (
     <div className="page">
-      <section className="py-6 text-center">
+      <section className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-gradient-to-b from-accent/50 to-transparent px-6 py-14 text-center">
         <h1>公開檔案牆</h1>
         <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">
           瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。
         </p>
+        <div className="flex flex-wrap justify-center gap-3">
+          <a href="#file-list" className={buttonVariants({ size: "lg" })}>
+            瀏覽公開檔案
+          </a>
+          {user ? (
+            <Link to="/upload" className={buttonVariants({ variant: "outline", size: "lg" })}>
+              上傳檔案
+            </Link>
+          ) : (
+            <Link to="/login" className={buttonVariants({ variant: "outline", size: "lg" })}>
+              登入以管理檔案
+            </Link>
+          )}
+        </div>
+
+        {stats && (
+          <dl className="mt-2 flex flex-wrap justify-center gap-10">
+            <div className="flex flex-col items-center gap-0.5">
+              <dt className="text-sm text-muted-foreground">可瀏覽檔案</dt>
+              <dd className="text-2xl font-semibold text-foreground">{stats.files}</dd>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <dt className="text-sm text-muted-foreground">資料夾分類</dt>
+              <dd className="text-2xl font-semibold text-foreground">{stats.folders}</dd>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <dt className="text-sm text-muted-foreground">總容量</dt>
+              <dd className="text-2xl font-semibold text-foreground">{formatSize(stats.totalSize)}</dd>
+            </div>
+          </dl>
+        )}
       </section>
 
-      {user && (
-        <Card>
-          <CardContent className="flex flex-col gap-4 text-left">
-            <h2>上傳檔案</h2>
-            <form className="flex flex-col gap-4" onSubmit={handleUpload}>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="upload">選擇檔案（pdf / doc / xls / docx / xlsx）</Label>
-                <Input
-                  id="upload"
-                  type="file"
-                  accept=".pdf,.doc,.xls,.docx,.xlsx"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="is-public"
-                  checked={isPublic}
-                  onCheckedChange={(checked) => setIsPublic(checked === true)}
-                />
-                <Label htmlFor="is-public">公開（取消勾選則僅本人與管理員可檢視）</Label>
-              </div>
-              {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-              <Button type="submit" disabled={!selectedFile || isUploading}>
-                {isUploading ? "上傳中…" : "上傳"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {highlights.map(({ icon: Icon, title, description }) => (
+          <Card key={title}>
+            <CardContent className="flex flex-col gap-2 text-left">
+              <Icon className="size-5 text-foreground" />
+              <h3 className="text-base font-medium text-foreground">{title}</h3>
+              <p className="text-sm text-muted-foreground">{description}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
 
-      <Card>
+      <Card id="file-list">
         <CardContent className="flex flex-col gap-4 text-left">
           <h2>檔案列表</h2>
           {error && <p className="text-sm text-destructive">{error}</p>}

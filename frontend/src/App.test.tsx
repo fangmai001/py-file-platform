@@ -77,3 +77,39 @@ describe("admin route gating", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "登入" })).toBeInTheDocument());
   });
 });
+
+describe("upload route gating", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it("redirects a guest (no token) away from /upload", async () => {
+    render(
+      <MemoryRouter initialEntries={["/upload"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "登入" })).toBeInTheDocument());
+  });
+
+  it("lets a logged-in user reach the upload page", async () => {
+    localStorage.setItem("access_token", "tok");
+    vi.mocked(fetchCurrentUser).mockResolvedValue({
+      id: 1,
+      username: "alice",
+      role: "user",
+      is_active: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/upload"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "上傳檔案" })).toBeInTheDocument());
+  });
+});
