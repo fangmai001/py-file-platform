@@ -163,12 +163,6 @@ code {
   gap: 24px;
 }
 
-.page-center {
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
 .muted {
   color: var(--text);
   font-size: 15px;
@@ -194,17 +188,6 @@ code {
   background: var(--bg);
   box-shadow: var(--shadow);
   text-align: left;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 360px;
-  text-align: center;
-}
-
-.auth-title {
-  margin: 0 0 4px;
-  font-size: 32px;
 }
 
 .empty-state {
