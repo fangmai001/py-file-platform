@@ -5,14 +5,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from fastapi import File as UploadFileParam
 from fastapi.responses import FileResponse as FileDownloadResponse
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_current_user_optional
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import File, FileVersion, User
-from app.schemas.file import FileResponse, FileUpdate, FolderGroup
+from app.schemas.file import FileResponse, FileUpdate, FileVersionResponse, FolderGroup
 
 router = APIRouter()
 
@@ -32,6 +32,19 @@ _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
 
 def _content_matches_extension(extension: str, header: bytes) -> bool:
     return any(header.startswith(sig) for sig in _MAGIC_SIGNATURES[extension])
+
+
+def _assert_can_view(file_row: File, current_user: User | None) -> None:
+    if file_row.is_public:
+        return
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="需要登入才能檢視此檔案",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if current_user.id != file_row.owner_id and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限檢視此檔案")
 
 
 @router.post("/upload", response_model=FileResponse, status_code=status.HTTP_201_CREATED)
@@ -78,11 +91,30 @@ def upload_file(
         dest_path.unlink(missing_ok=True)
         raise
 
+    stored_path = f"{current_user.id}/{stored_name}"
+
+    # Same filename from the same owner is treated as a new version of the existing file,
+    # not a separate upload, so past versions stay downloadable instead of being overwritten.
+    existing_file = (
+        db.query(File)
+        .filter(File.owner_id == current_user.id, File.filename == upload.filename)
+        .first()
+    )
+    if existing_file is not None:
+        latest_version_no = (
+            db.query(func.max(FileVersion.version_no)).filter(FileVersion.file_id == existing_file.id).scalar()
+            or 0
+        )
+        db.add(FileVersion(file_id=existing_file.id, version_no=latest_version_no + 1, stored_path=stored_path))
+        existing_file.size = size
+        db.commit()
+        db.refresh(existing_file)
+        return existing_file
+
     file_row = File(owner_id=current_user.id, filename=upload.filename, size=size, is_public=is_public)
     db.add(file_row)
     db.flush()
 
-    stored_path = f"{current_user.id}/{stored_name}"
     db.add(FileVersion(file_id=file_row.id, version_no=1, stored_path=stored_path))
     db.commit()
     db.refresh(file_row)
@@ -99,15 +131,7 @@ def download_file(
     if file_row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案不存在")
 
-    if not file_row.is_public:
-        if current_user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="需要登入才能下載此檔案",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        if current_user.id != file_row.owner_id and current_user.role != "admin":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限下載此檔案")
+    _assert_can_view(file_row, current_user)
 
     latest_version = (
         db.query(FileVersion)
@@ -146,6 +170,55 @@ def update_file(
     db.commit()
     db.refresh(file_row)
     return file_row
+
+
+@router.get("/{file_id}/versions", response_model=list[FileVersionResponse])
+def list_file_versions(
+    file_id: int,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> list[FileVersion]:
+    file_row = db.get(File, file_id)
+    if file_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案不存在")
+
+    _assert_can_view(file_row, current_user)
+
+    return (
+        db.query(FileVersion)
+        .filter(FileVersion.file_id == file_id)
+        .order_by(FileVersion.version_no.desc())
+        .all()
+    )
+
+
+@router.get("/{file_id}/versions/{version_no}/download")
+def download_file_version(
+    file_id: int,
+    version_no: int,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> FileDownloadResponse:
+    file_row = db.get(File, file_id)
+    if file_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案不存在")
+
+    _assert_can_view(file_row, current_user)
+
+    version = (
+        db.query(FileVersion)
+        .filter(FileVersion.file_id == file_id, FileVersion.version_no == version_no)
+        .first()
+    )
+    if version is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="版本不存在")
+
+    disk_path = Path(settings.upload_dir) / version.stored_path
+    if not disk_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案內容不存在")
+
+    media_type = mimetypes.guess_type(file_row.filename)[0] or "application/octet-stream"
+    return FileDownloadResponse(disk_path, media_type=media_type, filename=file_row.filename)
 
 
 @router.get("", response_model=list[FolderGroup])
