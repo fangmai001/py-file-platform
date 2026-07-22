@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -34,6 +35,9 @@ function HeaderNav() {
       <NavLink to="/" end className={navLinkClass}>
         首頁
       </NavLink>
+      <NavLink to="/about" className={navLinkClass}>
+        關於
+      </NavLink>
       {user?.role === "admin" && (
         <NavLink to="/admin" className={navLinkClass}>
           管理
@@ -67,6 +71,7 @@ function AppShell() {
       <main className="site-main">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/admin"
