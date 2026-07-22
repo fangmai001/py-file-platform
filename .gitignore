@@ -19,3 +19,6 @@ uploads/*
 .vscode/
 .idea/
 .DS_Store
+
+# Claude Code local state (settings, worktrees)
+.claude/
