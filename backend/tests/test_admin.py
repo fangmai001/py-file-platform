@@ -110,3 +110,46 @@ def test_admin_cannot_delete_user_who_owns_files(client, db_session):
 
     response = client.delete(f"/api/admin/users/{bob.id}", headers=auth_headers(admin))
     assert response.status_code == 409
+
+
+def test_non_admin_cannot_list_audit_logs(client, db_session):
+    user = make_user(db_session, username="alice")
+
+    response = client.get("/api/admin/audit-logs", headers=auth_headers(user))
+    assert response.status_code == 403
+
+
+def test_admin_can_list_audit_logs(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw"},
+    )
+    bob = db_session.query(User).filter(User.username == "bob").one()
+    client.patch(f"/api/admin/users/{bob.id}", headers=auth_headers(admin), json={"is_active": False})
+
+    response = client.get("/api/admin/audit-logs", headers=auth_headers(admin))
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) == 2
+    # newest first
+    assert logs[0]["action"] == "user.update"
+    assert logs[1]["action"] == "user.create"
+    assert logs[0]["actor_username"] == "root"
+    assert logs[1]["target"] == "bob"
+
+
+def test_audit_logs_pagination_limit_is_clamped(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    for i in range(3):
+        client.post(
+            "/api/admin/users",
+            headers=auth_headers(admin),
+            json={"username": f"user{i}", "password": "s3cret-pw"},
+        )
+
+    response = client.get("/api/admin/audit-logs?limit=2", headers=auth_headers(admin))
+    assert response.status_code == 200
+    assert len(response.json()) == 2

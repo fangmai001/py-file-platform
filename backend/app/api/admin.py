@@ -5,7 +5,8 @@ from app.api.deps import require_admin
 from app.core.audit import write_audit_log
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.models import File, User
+from app.models import AuditLog, File, User
+from app.schemas.audit_log import AuditLogResponse
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
@@ -95,3 +96,36 @@ def delete_user(
     write_audit_log(db, actor_id=admin.id, action="user.delete", target=user.username)
     db.delete(user)
     db.commit()
+
+
+@router.get("/audit-logs", response_model=list[AuditLogResponse])
+def list_audit_logs(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> list[AuditLogResponse]:
+    skip = max(skip, 0)
+    limit = min(max(limit, 1), 200)
+
+    rows = (
+        db.query(AuditLog, User.username)
+        .join(User, AuditLog.actor_id == User.id)
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        AuditLogResponse(
+            id=log.id,
+            actor_id=log.actor_id,
+            actor_username=actor_username,
+            action=log.action,
+            target=log.target,
+            detail=log.detail,
+            created_at=log.created_at,
+        )
+        for log, actor_username in rows
+    ]
