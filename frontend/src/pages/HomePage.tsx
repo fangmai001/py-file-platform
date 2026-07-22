@@ -2,6 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "../api/client";
 import { deleteFile, downloadFile, listFiles, updateFileVisibility, uploadFile } from "../api/files";
 import type { FileItem, FolderGroup } from "../api/types";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
 
 function formatSize(bytes: number): string {
@@ -96,90 +101,96 @@ function HomePage() {
 
   return (
     <div className="page">
-      <section className="hero">
+      <section className="py-6 text-center">
         <h1>公開檔案牆</h1>
-        <p className="lede">
+        <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">
           瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。
         </p>
       </section>
 
       {user && (
-        <section className="card">
-          <h2>上傳檔案</h2>
-          <form className="form" onSubmit={handleUpload}>
-            <div className="field">
-              <label htmlFor="upload">選擇檔案（pdf / doc / xls / docx / xlsx）</label>
-              <input
-                id="upload"
-                type="file"
-                accept=".pdf,.doc,.xls,.docx,.xlsx"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
-            <div className="field field-inline">
-              <label htmlFor="is-public">
-                <input
-                  id="is-public"
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
+        <Card>
+          <CardContent className="flex flex-col gap-4 text-left">
+            <h2>上傳檔案</h2>
+            <form className="flex flex-col gap-4" onSubmit={handleUpload}>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="upload">選擇檔案（pdf / doc / xls / docx / xlsx）</Label>
+                <Input
+                  id="upload"
+                  type="file"
+                  accept=".pdf,.doc,.xls,.docx,.xlsx"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                 />
-                {" "}公開（取消勾選則僅本人與管理員可檢視）
-              </label>
-            </div>
-            {uploadError && <p className="error-text">{uploadError}</p>}
-            <button type="submit" className="btn btn-primary" disabled={!selectedFile || isUploading}>
-              {isUploading ? "上傳中…" : "上傳"}
-            </button>
-          </form>
-        </section>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is-public"
+                  checked={isPublic}
+                  onCheckedChange={(checked) => setIsPublic(checked === true)}
+                />
+                <Label htmlFor="is-public">公開（取消勾選則僅本人與管理員可檢視）</Label>
+              </div>
+              {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+              <Button type="submit" disabled={!selectedFile || isUploading}>
+                {isUploading ? "上傳中…" : "上傳"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      <section className="card">
-        <h2>檔案列表</h2>
-        {error && <p className="error-text">{error}</p>}
-        {groups === null && !error && <p className="muted">載入中…</p>}
-        {groups !== null && !hasFiles && (
-          <div className="empty-state">
-            <p>目前沒有可檢視的檔案</p>
-            <p className="muted">登入後即可上傳檔案，公開的檔案會顯示在這裡。</p>
-          </div>
-        )}
-        {groups !== null &&
-          hasFiles &&
-          groups.map((group) => (
-            <div key={group.folder ?? "__root__"} className="folder-group">
-              <h3 className="folder-title">{group.folder ?? "未分類"}</h3>
-              <ul className="file-list">
-                {group.files.map((file) => (
-                  <li key={file.id} className="file-item">
-                    <div className="file-info">
-                      <span className="file-name">{file.filename}</span>
-                      <span className="muted file-meta">
-                        {formatSize(file.size)} &middot; {file.is_public ? "公開" : "私密"}
-                      </span>
-                    </div>
-                    <div className="file-actions">
-                      <button type="button" className="btn" onClick={() => handleDownload(file)}>
-                        下載
-                      </button>
-                      {canManage(file) && (
-                        <>
-                          <button type="button" className="btn" onClick={() => handleToggleVisibility(file)}>
-                            設為{file.is_public ? "私密" : "公開"}
-                          </button>
-                          <button type="button" className="btn" onClick={() => handleDelete(file)}>
-                            刪除
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>檔案列表</h2>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {groups === null && !error && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {groups !== null && !hasFiles && (
+            <div className="rounded-md border border-dashed border-border p-8 text-center">
+              <p className="mb-1 font-medium text-foreground">目前沒有可檢視的檔案</p>
+              <p className="text-sm text-muted-foreground">登入後即可上傳檔案，公開的檔案會顯示在這裡。</p>
             </div>
-          ))}
-      </section>
+          )}
+          {groups !== null && hasFiles && (
+            <div className="flex flex-col gap-6">
+              {groups.map((group) => (
+                <div key={group.folder ?? "__root__"}>
+                  <h3 className="mb-2 text-base text-foreground">{group.folder ?? "未分類"}</h3>
+                  <ul className="flex flex-col gap-2">
+                    {group.files.map((file) => (
+                      <li
+                        key={file.id}
+                        className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-3"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{file.filename}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {formatSize(file.size)} &middot; {file.is_public ? "公開" : "私密"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleDownload(file)}>
+                            下載
+                          </Button>
+                          {canManage(file) && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => handleToggleVisibility(file)}>
+                                設為{file.is_public ? "私密" : "公開"}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDelete(file)}>
+                                刪除
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
