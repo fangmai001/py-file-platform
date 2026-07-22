@@ -72,33 +72,42 @@ backend container，確保上傳檔案在容器重建後仍保留。
 
 ## 📦 發布模式執行方式 (Production / Release Mode)
 
-> 目前 `docker compose up` 啟動的 frontend container 內部仍是跑 `npm run dev`（Vite dev
-> server），屬於開發用途；repo 尚未附上正式環境的靜態檔案伺服器／反向代理設定。以下是在現有工具下
-> 以正式環境方式執行的做法。
+`docker compose up`（即 `docker-compose.yml`）啟動的 frontend container 內部是跑 `npm run dev`
+（Vite dev server），只適合開發用途。正式環境改用獨立的 `docker-compose.prod.yml`（**不要**跟
+`docker-compose.yml` 疊加使用，兩者的 frontend/nginx 服務會同時啟動）：內含 db／backend／nginx 三個
+service，用 nginx（`nginx/nginx.conf`）取代 Vite dev server，直接靜態伺服 `frontend/dist/` 並將
+`/api/` 轉發給 backend，對外只暴露一個 port（80）。
 
-### 後端
-
-正式環境不要加 `--reload`，並視需要調整 worker 數／monitoring：
-
-```bash
-cd backend
-source venv/bin/activate
-alembic upgrade head
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-### 前端
-
-先建置正式版靜態檔案，再交由靜態伺服器（如 nginx）或反向代理服務，而不是跑 `npm run dev`：
+### 1. 建置前端靜態檔案
 
 ```bash
 cd frontend
 npm run build     # tsc -b && vite build，輸出到 frontend/dist/
-npm run preview   # 可先在本機用內建的 preview server 驗證 build 結果（預設 http://localhost:4173）
 ```
 
-正式部署時，應將 `frontend/dist/` 交給前面提到的 nginx／反向代理服務，並讓其將 `/api` 之類的請求轉發
-給 backend，藉此隱藏 backend port、統一對外的網域與 HTTPS。
+`docker-compose.prod.yml` 會把 `frontend/dist/` 以唯讀 volume 掛進 nginx container，所以每次改動前端
+程式碼後，部署前都要重新執行這個步驟。
+
+> 建置時**不要**設定 `VITE_API_BASE_URL`（開發用的 `.env` 只給 `npm run dev` 用）。這個情境下前端與
+> 後端是同一個 nginx origin，API client 沒抓到這個變數時會 fallback 成相對路徑 `/api/...`，直接交由
+> nginx 的 `location /api/` 轉發即可；若建置時不小心帶了開發用的 `http://localhost:8000`，前端會跳過
+> nginx 直接打 8000 port，但 `docker-compose.prod.yml` 並未對外開放該 port，會直接連線失敗。
+
+### 2. 啟動 db／backend／nginx
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+- `nginx` service：監聽 `:80`，靜態伺服 `frontend/dist/`；`location /api/` 轉發給 `backend:8000`；
+  非 `/api` 且非實際靜態檔案的路徑一律 fallback 回 `index.html`（支援 `react-router-dom` 的
+  client-side routing，重新整理 `/admin` 等子路徑不會 404）。
+- `backend`／`db` 不再對外暴露 port（`8000`／`5432`），只能透過 docker 內部網路被 `nginx` 存取，
+  對外僅開放 80。
+- backend container 啟動時一樣會自動跑 `alembic upgrade head`（見 `backend/Dockerfile`）。
+
+若需要調整 backend 的 worker 數／monitoring，修改 `backend/Dockerfile` 的啟動指令即可；此設定原本
+就不含 `--reload`，可直接用於正式環境。
 
 ## 🚀 部署 (Deployment)
 
