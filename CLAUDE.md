@@ -13,6 +13,12 @@ PR titles and descriptions must also be written in Traditional Chinese.
 unrelated field edits. Use `gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -f title=... -f body=...`
 instead.
 
+## Git workflow
+
+Land changes via a feature branch + PR, merged into `main` on GitHub — not direct commits to `main`.
+This applies even to small changes (e.g. doc-only updates). Every change so far, including prior
+doc-only updates, has followed this path.
+
 ## Project overview
 
 py-file-platform is a file management/sharing platform, positioned like a public document wall for a
