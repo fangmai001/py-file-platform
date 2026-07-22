@@ -5,13 +5,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi import File as UploadFileParam
 from fastapi.responses import FileResponse as FileDownloadResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_current_user_optional
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import File, FileVersion, User
-from app.schemas.file import FileResponse
+from app.schemas.file import FileResponse, FolderGroup
 
 router = APIRouter()
 
@@ -122,3 +123,23 @@ def download_file(
 
     media_type = mimetypes.guess_type(file_row.filename)[0] or "application/octet-stream"
     return FileDownloadResponse(disk_path, media_type=media_type, filename=file_row.filename)
+
+
+@router.get("", response_model=list[FolderGroup])
+def list_files(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> list[FolderGroup]:
+    query = db.query(File)
+    if current_user is None:
+        query = query.filter(File.is_public.is_(True))
+    else:
+        query = query.filter(or_(File.is_public.is_(True), File.owner_id == current_user.id))
+
+    files = query.order_by(File.folder.asc().nulls_first(), File.filename.asc()).all()
+
+    groups: dict[str | None, list[File]] = {}
+    for f in files:
+        groups.setdefault(f.folder, []).append(f)
+
+    return [FolderGroup(folder=folder, files=items) for folder, items in groups.items()]

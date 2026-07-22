@@ -13,3 +13,8 @@ class FileResponse(BaseModel):
     is_public: bool
     size: int
     created_at: datetime
+
+
+class FolderGroup(BaseModel):
+    folder: str | None
+    files: list[FileResponse]
