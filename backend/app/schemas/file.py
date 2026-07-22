@@ -18,3 +18,7 @@ class FileResponse(BaseModel):
 class FolderGroup(BaseModel):
     folder: str | None
     files: list[FileResponse]
+
+
+class FileUpdate(BaseModel):
+    is_public: bool | None = None

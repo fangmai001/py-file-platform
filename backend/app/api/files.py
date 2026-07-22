@@ -2,7 +2,7 @@ import mimetypes
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from fastapi import File as UploadFileParam
 from fastapi.responses import FileResponse as FileDownloadResponse
 from sqlalchemy import or_
@@ -12,7 +12,7 @@ from app.api.deps import get_current_user, get_current_user_optional
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import File, FileVersion, User
-from app.schemas.file import FileResponse, FolderGroup
+from app.schemas.file import FileResponse, FileUpdate, FolderGroup
 
 router = APIRouter()
 
@@ -37,6 +37,7 @@ def _content_matches_extension(extension: str, header: bytes) -> bool:
 @router.post("/upload", response_model=FileResponse, status_code=status.HTTP_201_CREATED)
 def upload_file(
     upload: UploadFile = UploadFileParam(...),
+    is_public: bool = Form(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> File:
@@ -77,7 +78,7 @@ def upload_file(
         dest_path.unlink(missing_ok=True)
         raise
 
-    file_row = File(owner_id=current_user.id, filename=upload.filename, size=size)
+    file_row = File(owner_id=current_user.id, filename=upload.filename, size=size, is_public=is_public)
     db.add(file_row)
     db.flush()
 
@@ -123,6 +124,28 @@ def download_file(
 
     media_type = mimetypes.guess_type(file_row.filename)[0] or "application/octet-stream"
     return FileDownloadResponse(disk_path, media_type=media_type, filename=file_row.filename)
+
+
+@router.patch("/{file_id}", response_model=FileResponse)
+def update_file(
+    file_id: int,
+    payload: FileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> File:
+    file_row = db.get(File, file_id)
+    if file_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案不存在")
+
+    if current_user.id != file_row.owner_id and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限編輯此檔案")
+
+    if payload.is_public is not None:
+        file_row.is_public = payload.is_public
+
+    db.commit()
+    db.refresh(file_row)
+    return file_row
 
 
 @router.get("", response_model=list[FolderGroup])
