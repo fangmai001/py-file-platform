@@ -9,6 +9,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_current_user_optional
+from app.core.audit import write_audit_log
 from app.core.config import settings
 from app.core.database import get_db
 from app.models import File, FileVersion, User
@@ -172,6 +173,41 @@ def update_file(
     return file_row
 
 
+@router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_file(
+    file_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    file_row = db.get(File, file_id)
+    if file_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="檔案不存在")
+
+    is_owner = current_user.id == file_row.owner_id
+    if not is_owner and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限刪除此檔案")
+
+    versions = db.query(FileVersion).filter(FileVersion.file_id == file_id).all()
+    for version in versions:
+        (Path(settings.upload_dir) / version.stored_path).unlink(missing_ok=True)
+        db.delete(version)
+
+    # Deleting someone else's file is only possible for admins, and is exactly the kind of
+    # high-privilege action the audit trail exists for (see #7); an owner deleting their own
+    # file is routine and doesn't need one.
+    if not is_owner:
+        write_audit_log(
+            db,
+            actor_id=current_user.id,
+            action="file.delete",
+            target=file_row.filename,
+            detail=f"owner_id={file_row.owner_id}",
+        )
+
+    db.delete(file_row)
+    db.commit()
+
+
 @router.get("/{file_id}/versions", response_model=list[FileVersionResponse])
 def list_file_versions(
     file_id: int,
@@ -229,8 +265,9 @@ def list_files(
     query = db.query(File)
     if current_user is None:
         query = query.filter(File.is_public.is_(True))
-    else:
+    elif current_user.role != "admin":
         query = query.filter(or_(File.is_public.is_(True), File.owner_id == current_user.id))
+    # admin: no filter, can see every file regardless of owner or visibility
 
     files = query.order_by(File.folder.asc().nulls_first(), File.filename.asc()).all()
 

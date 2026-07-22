@@ -1,0 +1,83 @@
+from app.models import AuditLog, User
+from tests.conftest import auth_headers, make_user
+
+
+def test_non_admin_cannot_access_admin_routes(client, db_session):
+    user = make_user(db_session, username="alice")
+
+    response = client.get("/api/admin/users", headers=auth_headers(user))
+    assert response.status_code == 403
+
+
+def test_admin_can_create_user_and_audit_log_is_written(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw", "role": "user"},
+    )
+    assert response.status_code == 201
+    assert response.json()["username"] == "bob"
+
+    logs = db_session.query(AuditLog).filter(AuditLog.action == "user.create").all()
+    assert len(logs) == 1
+    assert logs[0].actor_id == admin.id
+    assert logs[0].target == "bob"
+
+
+def test_create_user_duplicate_username_conflicts(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    make_user(db_session, username="bob")
+
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw"},
+    )
+    assert response.status_code == 409
+
+
+def test_admin_can_deactivate_user_and_audit_log_is_written(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+
+    response = client.patch(
+        f"/api/admin/users/{bob.id}", headers=auth_headers(admin), json={"is_active": False}
+    )
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+    logs = db_session.query(AuditLog).filter(AuditLog.action == "user.update").all()
+    assert len(logs) == 1
+    assert logs[0].target == "bob"
+
+
+def test_admin_can_delete_user(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+
+    response = client.delete(f"/api/admin/users/{bob.id}", headers=auth_headers(admin))
+    assert response.status_code == 204
+    assert db_session.get(User, bob.id) is None
+
+    logs = db_session.query(AuditLog).filter(AuditLog.action == "user.delete").all()
+    assert len(logs) == 1
+
+
+def test_admin_cannot_delete_self(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.delete(f"/api/admin/users/{admin.id}", headers=auth_headers(admin))
+    assert response.status_code == 400
+
+
+def test_admin_cannot_delete_user_who_owns_files(client, db_session):
+    from tests.test_files import _upload
+
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+    _upload(client, bob)
+
+    response = client.delete(f"/api/admin/users/{bob.id}", headers=auth_headers(admin))
+    assert response.status_code == 409
