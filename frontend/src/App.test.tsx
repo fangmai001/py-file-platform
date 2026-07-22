@@ -10,9 +10,16 @@ vi.mock("./api/auth", () => ({
 vi.mock("./api/files", () => ({
   listFiles: vi.fn().mockResolvedValue([]),
   uploadFile: vi.fn(),
+  updateFile: vi.fn(),
   updateFileVisibility: vi.fn(),
   deleteFile: vi.fn(),
   downloadFile: vi.fn(),
+}));
+vi.mock("./api/folders", () => ({
+  listFolders: vi.fn().mockResolvedValue([]),
+  createFolder: vi.fn(),
+  updateFolder: vi.fn(),
+  deleteFolder: vi.fn(),
 }));
 vi.mock("./api/admin", () => ({
   listUsers: vi.fn().mockResolvedValue([]),

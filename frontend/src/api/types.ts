@@ -1,15 +1,24 @@
+export interface FolderItem {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
 export interface FileItem {
   id: number;
   owner_id: number;
   filename: string;
-  folder: string | null;
+  display_name: string | null;
+  folder_id: number | null;
+  announced_at: string | null;
   is_public: boolean;
   size: number;
   created_at: string;
 }
 
 export interface FolderGroup {
-  folder: string | null;
+  folder: FolderItem | null;
   files: FileItem[];
 }
 

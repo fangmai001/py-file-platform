@@ -98,25 +98,30 @@ native and Docker dev — see `.env.example`. Notably:
 - `app/main.py` — FastAPI app entrypoint; mounts the single router from `app/api/router.py`.
 - `app/api/router.py` — `APIRouter(prefix="/api")` that includes the feature routers, each a separate
   module under `app/api/`: `auth.py` (login/JWT, `/me`), `files.py` (upload/download, versions,
-  visibility toggle, folder-grouped listing), `admin.py` (user management, gated by `require_admin` in
-  `deps.py`).
+  visibility toggle, folder-grouped listing), `folders.py` (card CRUD, admin-only writes via
+  `require_admin`), `admin.py` (user management, gated by `require_admin` in `deps.py`).
 - `app/core/config.py` — pydantic-settings `Settings`, loaded once as the module-level `settings`
   singleton and imported wherever config is needed.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
-- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `AuditLog`), all imported and
-  re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models import *` so
+- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `AuditLog`), all imported
+  and re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models import *` so
   every model must be added to that `__init__.py` to be picked up by autogenerate.
 
-Data model relationships: `File.owner_id` → `User.id`; `FileVersion.file_id` → `File.id` (one row per
-uploaded version of a file, enabling the "don't overwrite, keep version history" behavior described in
-the README); `AuditLog.actor_id` → `User.id` records high-privilege admin actions. File content itself
-lives on disk under `UPLOAD_DIR`/`uploads/` — the DB only stores metadata and `FileVersion.stored_path`.
+Data model relationships: `File.owner_id` → `User.id`; `File.folder_id` → `Folder.id` (nullable; a
+"card" grouping with name/description, admin-managed, that any file owner can assign their own files
+into); `FileVersion.file_id` → `File.id` (one row per uploaded version of a file, enabling the "don't
+overwrite, keep version history" behavior described in the README); `AuditLog.actor_id` → `User.id`
+records high-privilege admin actions. File content itself lives on disk under `UPLOAD_DIR`/`uploads/`
+— the DB only stores metadata and `FileVersion.stored_path`. `File.display_name` and
+`File.announced_at` are display-only metadata (editable by the owner or an admin via `PATCH
+/api/files/{id}`) and don't affect the real `filename` used for downloads or version matching.
 
 ## Frontend architecture
 
-Vite + React 19 + TypeScript + `react-router-dom` v7. Routing is defined in `App.tsx` with three
-top-level routes (`/`, `/login`, `/admin` → `HomePage`, `LoginPage`, `AdminPage`), all wired to the
-backend API via `src/api/` (`auth.ts`, `files.ts`, `admin.ts`, `client.ts`); `AuthContext.tsx` holds
-the logged-in user and JWT. `/admin` is gated client-side to admin users (redirects to `/login`
-otherwise). Linting uses `oxlint` (config in `.oxlintrc.json`), not eslint.
+Vite + React 19 + TypeScript + `react-router-dom` v7. Routing is defined in `App.tsx` with routes for
+`/`, `/login`, `/upload`, `/about`, and `/admin` (→ `HomePage`, `LoginPage`, `UploadPage`, `AboutPage`,
+`AdminPage`), all wired to the backend API via `src/api/` (`auth.ts`, `files.ts`, `folders.ts`,
+`admin.ts`, `client.ts`); `AuthContext.tsx` holds the logged-in user and JWT. `/upload` is gated to any
+logged-in user and `/admin` to admin users specifically (both redirect to `/login` otherwise, gated
+client-side). Linting uses `oxlint` (config in `.oxlintrc.json`), not eslint.
