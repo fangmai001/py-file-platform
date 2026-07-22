@@ -4,6 +4,7 @@ import AdminPage from "./pages/AdminPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return isActive ? "nav-link active" : "nav-link";
@@ -18,6 +19,23 @@ function RequireAdmin({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={isDark ? "切換為明亮模式" : "切換為暗黑模式"}
+      title={isDark ? "切換為明亮模式" : "切換為暗黑模式"}
+    >
+      {isDark ? "☀️" : "🌙"}
+    </button>
+  );
 }
 
 function HeaderNav() {
@@ -51,6 +69,7 @@ function HeaderNav() {
           登入
         </NavLink>
       )}
+      <ThemeToggle />
     </nav>
   );
 }
@@ -87,9 +106,11 @@ function AppShell() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
