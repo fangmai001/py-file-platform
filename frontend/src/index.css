@@ -1,3 +1,4 @@
+@layer theme, base, legacy, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -101,6 +102,8 @@
   filter: invert(1) brightness(2);
 }
 
+@layer legacy {
+
 body {
   margin: 0;
 }
@@ -163,12 +166,6 @@ code {
   gap: 24px;
 }
 
-.page-center {
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
 .muted {
   color: var(--text);
   font-size: 15px;
@@ -194,17 +191,6 @@ code {
   background: var(--bg);
   box-shadow: var(--shadow);
   text-align: left;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 360px;
-  text-align: center;
-}
-
-.auth-title {
-  margin: 0 0 4px;
-  font-size: 32px;
 }
 
 .empty-state {
@@ -401,6 +387,8 @@ code {
     padding-right: 20px;
   }
 }
+
+} /* end @layer legacy */
 
 @theme inline {
   --font-sans: var(--sans);
