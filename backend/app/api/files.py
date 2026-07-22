@@ -191,6 +191,11 @@ def delete_file(
     for version in versions:
         (Path(settings.upload_dir) / version.stored_path).unlink(missing_ok=True)
         db.delete(version)
+    # Flush the child-row deletes before deleting the file itself - file_versions.file_id
+    # has a FK to files.id, and without an explicit ORM relationship() between the two
+    # models, SQLAlchemy's unit-of-work won't infer the child-before-parent delete order
+    # on its own (Postgres then rejects it; SQLite in tests doesn't enforce the FK at all).
+    db.flush()
 
     # Deleting someone else's file is only possible for admins, and is exactly the kind of
     # high-privilege action the audit trail exists for (see #7); an owner deleting their own
