@@ -20,13 +20,14 @@ club or internal team: guests can browse and download public files without loggi
 only required to upload or manage files. It exists primarily to exercise a Python backend's CRUD/API
 handling against a React frontend.
 
-Planned features not yet implemented (see README.md for full details): per-file public/private
-visibility toggle, and upload notifications (email + in-app). Auth is planned to support both
-locally-created accounts and LDAP.
+Implemented: local-account login/JWT auth, file upload/download with per-file public/private
+visibility and version history, folder-grouped browsing, admin user management, and an audit log for
+high-privilege actions (see README.md for the full feature list). Not yet implemented: LDAP auth and
+upload notifications (email + in-app).
 
-Stack: FastAPI (backend) + React/Vite (frontend) + PostgreSQL, deployed via docker-compose. The repo
-is currently a skeleton — models and migrations exist, but there are no API routes, auth, or file
-upload/download logic yet, and the frontend pages are unwired placeholders.
+Stack: FastAPI (backend) + React/Vite (frontend) + PostgreSQL, deployed via docker-compose. Backend
+and frontend are both wired end-to-end (API routes, pages, and test suites all exist) rather than a
+skeleton.
 
 ## Commands
 
@@ -46,9 +47,10 @@ alembic upgrade head
 
 # create a new migration after changing a model in app/models/
 alembic revision --autogenerate -m "description"
-```
 
-There is no test suite yet.
+# run the test suite
+pytest
+```
 
 ### Frontend (`frontend/`)
 
@@ -58,9 +60,8 @@ npm install
 npm run dev      # vite dev server on :5173
 npm run build     # tsc -b && vite build
 npm run lint      # oxlint
+npm test          # vitest run
 ```
-
-There is no test suite yet.
 
 ### Full stack via Docker
 
@@ -89,9 +90,10 @@ native and Docker dev — see `.env.example`. Notably:
 ## Backend architecture
 
 - `app/main.py` — FastAPI app entrypoint; mounts the single router from `app/api/router.py`.
-- `app/api/router.py` — currently a placeholder `APIRouter(prefix="/api")` with no sub-routes. Future
-  feature routers (auth, files, admin) are meant to be added as separate modules under `app/api/` and
-  included here, per the comment in that file.
+- `app/api/router.py` — `APIRouter(prefix="/api")` that includes the feature routers, each a separate
+  module under `app/api/`: `auth.py` (login/JWT, `/me`), `files.py` (upload/download, versions,
+  visibility toggle, folder-grouped listing), `admin.py` (user management, gated by `require_admin` in
+  `deps.py`).
 - `app/core/config.py` — pydantic-settings `Settings`, loaded once as the module-level `settings`
   singleton and imported wherever config is needed.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
@@ -108,6 +110,7 @@ lives on disk under `UPLOAD_DIR`/`uploads/` — the DB only stores metadata and 
 ## Frontend architecture
 
 Vite + React 19 + TypeScript + `react-router-dom` v7. Routing is defined in `App.tsx` with three
-top-level routes (`/`, `/login`, `/admin` → `HomePage`, `LoginPage`, `AdminPage`), all currently
-placeholder components with no API calls wired up. Linting uses `oxlint` (config in
-`.oxlintrc.json`), not eslint.
+top-level routes (`/`, `/login`, `/admin` → `HomePage`, `LoginPage`, `AdminPage`), all wired to the
+backend API via `src/api/` (`auth.ts`, `files.ts`, `admin.ts`, `client.ts`); `AuthContext.tsx` holds
+the logged-in user and JWT. `/admin` is gated client-side to admin users (redirects to `/login`
+otherwise). Linting uses `oxlint` (config in `.oxlintrc.json`), not eslint.
