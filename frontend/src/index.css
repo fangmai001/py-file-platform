@@ -1,3 +1,4 @@
+@layer theme, base, legacy, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -101,6 +102,8 @@
   filter: invert(1) brightness(2);
 }
 
+@layer legacy {
+
 body {
   margin: 0;
 }
@@ -172,19 +175,6 @@ code {
 .muted {
   color: var(--text);
   font-size: 15px;
-}
-
-.hero {
-  text-align: center;
-  padding: 24px 0;
-}
-
-.lede {
-  max-width: 560px;
-  margin: 0 auto;
-  color: var(--text);
-  font-size: 17px;
-  line-height: 155%;
 }
 
 .card {
@@ -311,65 +301,10 @@ code {
   font-size: 14px;
 }
 
-.field-inline label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  color: var(--text-h);
-}
-
 .form-row {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-end;
-}
-
-.folder-group + .folder-group {
-  margin-top: 24px;
-}
-
-.folder-title {
-  font-size: 16px;
-  color: var(--text-h);
-  margin: 0 0 8px;
-}
-
-.file-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px;
-  border: 1px solid var(--legacy-border);
-  border-radius: 8px;
-  flex-wrap: wrap;
-}
-
-.file-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.file-name {
-  color: var(--text-h);
-  font-weight: 500;
-}
-
-.file-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .table {
@@ -401,6 +336,8 @@ code {
     padding-right: 20px;
   }
 }
+
+} /* end @layer legacy */
 
 @theme inline {
   --font-sans: var(--sans);
