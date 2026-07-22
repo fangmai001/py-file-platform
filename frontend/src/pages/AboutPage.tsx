@@ -2,7 +2,7 @@ function AboutPage() {
   return (
     <div className="page">
       <div className="card">
-        <h1>關於本專案</h1>
+        <h2>關於本專案</h2>
         <p className="muted">
           py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並下載公開檔案，登入後才能上傳與管理自己的檔案。
         </p>
