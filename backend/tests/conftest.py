@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -15,6 +15,18 @@ _engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+# SQLite ignores foreign key constraints unless a connection turns them on explicitly.
+# Postgres (the real target DB) always enforces them, so this keeps FK-violation bugs
+# (e.g. deleting a parent row before its children) reproducible in tests too.
+@event.listens_for(_engine, "connect")
+def _enable_sqlite_fk(dbapi_connection, _):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 _TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
 
