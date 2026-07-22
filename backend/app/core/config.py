@@ -17,5 +17,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 
+    # Optional: if both are set and no admin account exists yet, one is created at
+    # startup so there's a way to bootstrap the first admin (see app/core/seed.py).
+    initial_admin_username: str | None = None
+    initial_admin_password: str | None = None
+
 
 settings = Settings()

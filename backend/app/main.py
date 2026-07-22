@@ -1,9 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import router
+from app.core.database import SessionLocal
+from app.core.seed import seed_initial_admin
 
-app = FastAPI(title="py-file-platform")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = SessionLocal()
+    try:
+        seed_initial_admin(db)
+    finally:
+        db.close()
+    yield
+
+
+app = FastAPI(title="py-file-platform", lifespan=lifespan)
 
 # The frontend and backend run as separate origins in dev (Vite on :5173, uvicorn on
 # :8000) and across docker-compose services, so the browser needs CORS headers to call
