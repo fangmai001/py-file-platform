@@ -3,6 +3,12 @@ import { createUser, deleteUser, listUsers, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import type { FileItem, FolderGroup, UserItem } from "../api/types";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { useAuth } from "../context/AuthContext";
 
 function AdminPage() {
@@ -105,145 +111,167 @@ function AdminPage() {
   return (
     <div className="page">
       <h1>管理後台</h1>
-      <p className="muted">管理使用者帳號與所有人上傳的檔案。</p>
+      <p className="text-sm text-muted-foreground">管理使用者帳號與所有人上傳的檔案。</p>
 
-      <section className="stat-grid">
-        <div className="stat-card">
-          <span className="stat-value">{users?.length ?? "—"}</span>
-          <span className="stat-label">使用者總數</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{totalFiles ?? "—"}</span>
-          <span className="stat-label">檔案總數</span>
-        </div>
-      </section>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+        <Card>
+          <CardContent className="flex flex-col gap-1">
+            <span className="text-2xl font-semibold text-foreground">{users?.length ?? "—"}</span>
+            <span className="text-sm text-muted-foreground">使用者總數</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col gap-1">
+            <span className="text-2xl font-semibold text-foreground">{totalFiles ?? "—"}</span>
+            <span className="text-sm text-muted-foreground">檔案總數</span>
+          </CardContent>
+        </Card>
+      </div>
 
-      <section className="card">
-        <h2>新增使用者</h2>
-        <form className="form form-row" onSubmit={handleCreateUser}>
-          <div className="field">
-            <label htmlFor="new-username">帳號</label>
-            <input
-              id="new-username"
-              type="text"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="new-password">密碼</label>
-            <input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="new-role">角色</label>
-            <select id="new-role" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={isCreating}>
-            {isCreating ? "建立中…" : "新增"}
-          </button>
-        </form>
-      </section>
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>新增使用者</h2>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateUser}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-username">帳號</Label>
+              <Input
+                id="new-username"
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-password">密碼</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-role">角色</Label>
+              <Select value={newRole} onValueChange={(value) => value && setNewRole(value)}>
+                <SelectTrigger id="new-role" className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">user</SelectItem>
+                  <SelectItem value="admin">admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? "建立中…" : "新增"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-      <section className="card">
-        <h2>使用者列表</h2>
-        {usersError && <p className="error-text">{usersError}</p>}
-        {users === null && !usersError && <p className="muted">載入中…</p>}
-        {users !== null && users.length === 0 && (
-          <div className="empty-state">
-            <p>目前沒有使用者</p>
-          </div>
-        )}
-        {users !== null && users.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>帳號</th>
-                <th>角色</th>
-                <th>狀態</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>
-                    <select value={u.role} onChange={(e) => handleChangeRole(u, e.target.value)}>
-                      <option value="user">user</option>
-                      <option value="admin">admin</option>
-                    </select>
-                  </td>
-                  <td>{u.is_active ? "啟用" : "停用"}</td>
-                  <td className="table-actions">
-                    <button type="button" className="btn" onClick={() => handleToggleActive(u)}>
-                      {u.is_active ? "停用" : "啟用"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => handleDeleteUser(u)}
-                      disabled={currentUser?.id === u.id}
-                    >
-                      刪除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>使用者列表</h2>
+          {usersError && <p className="text-sm text-destructive">{usersError}</p>}
+          {users === null && !usersError && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {users !== null && users.length === 0 && (
+            <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+              目前沒有使用者
+            </div>
+          )}
+          {users !== null && users.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>帳號</TableHead>
+                  <TableHead>角色</TableHead>
+                  <TableHead>狀態</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell>{u.username}</TableCell>
+                    <TableCell>
+                      <Select value={u.role} onValueChange={(role) => role && handleChangeRole(u, role)}>
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">user</SelectItem>
+                          <SelectItem value="admin">admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>{u.is_active ? "啟用" : "停用"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
+                          {u.is_active ? "停用" : "啟用"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteUser(u)}
+                          disabled={currentUser?.id === u.id}
+                        >
+                          刪除
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-      <section className="card">
-        <h2>所有檔案</h2>
-        {filesError && <p className="error-text">{filesError}</p>}
-        {fileGroups === null && !filesError && <p className="muted">載入中…</p>}
-        {fileGroups !== null && totalFiles === 0 && (
-          <div className="empty-state">
-            <p>目前沒有檔案</p>
-          </div>
-        )}
-        {fileGroups !== null && totalFiles !== null && totalFiles > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>檔名</th>
-                <th>資料夾</th>
-                <th>擁有者 ID</th>
-                <th>可見度</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fileGroups.flatMap((group) =>
-                group.files.map((file) => (
-                  <tr key={file.id}>
-                    <td>{file.filename}</td>
-                    <td>{file.folder ?? "未分類"}</td>
-                    <td>{file.owner_id}</td>
-                    <td>{file.is_public ? "公開" : "私密"}</td>
-                    <td className="table-actions">
-                      <button type="button" className="btn" onClick={() => handleDeleteFile(file)}>
-                        刪除
-                      </button>
-                    </td>
-                  </tr>
-                )),
-              )}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>所有檔案</h2>
+          {filesError && <p className="text-sm text-destructive">{filesError}</p>}
+          {fileGroups === null && !filesError && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {fileGroups !== null && totalFiles === 0 && (
+            <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+              目前沒有檔案
+            </div>
+          )}
+          {fileGroups !== null && totalFiles !== null && totalFiles > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>檔名</TableHead>
+                  <TableHead>資料夾</TableHead>
+                  <TableHead>擁有者 ID</TableHead>
+                  <TableHead>可見度</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fileGroups.flatMap((group) =>
+                  group.files.map((file) => (
+                    <TableRow key={file.id}>
+                      <TableCell>{file.filename}</TableCell>
+                      <TableCell>{file.folder ?? "未分類"}</TableCell>
+                      <TableCell>{file.owner_id}</TableCell>
+                      <TableCell>{file.is_public ? "公開" : "私密"}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteFile(file)}>
+                          刪除
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )),
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
