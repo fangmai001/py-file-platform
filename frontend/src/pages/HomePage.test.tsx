@@ -102,6 +102,7 @@ describe("HomePage", () => {
       role: "user",
       is_active: true,
       email: null,
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",

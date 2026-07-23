@@ -34,6 +34,7 @@ def create_user(
     user = User(
         username=payload.username,
         email=payload.email,
+        full_name=payload.full_name,
         password_hash=hash_password(payload.password),
         role=payload.role,
     )
@@ -82,6 +83,9 @@ def update_user(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
         changes.append("email updated")
         user.email = payload.email
+    if payload.full_name is not None and payload.full_name != user.full_name:
+        changes.append("full_name updated")
+        user.full_name = payload.full_name
 
     if changes:
         write_audit_log(db, actor_id=admin.id, action="user.update", target=user.username, detail="; ".join(changes))
