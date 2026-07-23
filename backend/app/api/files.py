@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile, status
 from fastapi import File as UploadFileParam
 from fastapi.responses import FileResponse as FileDownloadResponse
 from sqlalchemy import func, or_
@@ -13,7 +13,8 @@ from app.api.deps import get_current_user, get_current_user_optional
 from app.core.audit import write_audit_log
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import File, FileVersion, Folder, User
+from app.core.notifications import notify_file_uploaded
+from app.models import File, FileVersion, Folder, Notification, User
 from app.schemas.file import FileResponse, FileUpdate, FileVersionResponse, FolderGroup
 from app.schemas.folder import FolderResponse
 
@@ -52,6 +53,7 @@ def _assert_can_view(file_row: File, current_user: User | None) -> None:
 
 @router.post("/upload", response_model=FileResponse, status_code=status.HTTP_201_CREATED)
 def upload_file(
+    background_tasks: BackgroundTasks,
     upload: UploadFile = UploadFileParam(...),
     is_public: bool = Form(True),
     folder_id: int | None = Form(None),
@@ -118,6 +120,7 @@ def upload_file(
         existing_file.size = size
         db.commit()
         db.refresh(existing_file)
+        notify_file_uploaded(db, background_tasks, existing_file, current_user)
         return existing_file
 
     file_row = File(
@@ -135,6 +138,7 @@ def upload_file(
     db.add(FileVersion(file_id=file_row.id, version_no=1, stored_path=stored_path))
     db.commit()
     db.refresh(file_row)
+    notify_file_uploaded(db, background_tasks, file_row, current_user)
     return file_row
 
 
@@ -220,10 +224,13 @@ def delete_file(
     for version in versions:
         (Path(settings.upload_dir) / version.stored_path).unlink(missing_ok=True)
         db.delete(version)
+    for notification in db.query(Notification).filter(Notification.file_id == file_id).all():
+        db.delete(notification)
     # Flush the child-row deletes before deleting the file itself - file_versions.file_id
-    # has a FK to files.id, and without an explicit ORM relationship() between the two
-    # models, SQLAlchemy's unit-of-work won't infer the child-before-parent delete order
-    # on its own (Postgres then rejects it; SQLite in tests doesn't enforce the FK at all).
+    # and notifications.file_id both have a FK to files.id, and without an explicit ORM
+    # relationship() between the models, SQLAlchemy's unit-of-work won't infer the
+    # child-before-parent delete order on its own (Postgres then rejects it; SQLite in
+    # tests doesn't enforce the FK at all).
     db.flush()
 
     # Deleting someone else's file is only possible for admins, and is exactly the kind of

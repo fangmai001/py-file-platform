@@ -22,14 +22,17 @@ class Settings(BaseSettings):
     initial_admin_username: str | None = None
     initial_admin_password: str | None = None
 
-    # SMTP for outgoing mail (password reset links, future upload notifications).
-    # When smtp_host is unset, app.core.email logs the message instead of sending it,
-    # so password reset works in local/dev without a real mail server.
+    # SMTP for outgoing mail (password reset links, upload notifications).
+    # When smtp_host is unset, app.core.email / app.core.mailer log the message instead
+    # of sending it, so both features work in local/dev without a real mail server.
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: str | None = None
     smtp_from_address: str | None = None
+    # Distinct default/field from smtp_from_address: app/core/mailer.py (upload
+    # notifications) was authored against this field rather than smtp_from_address.
+    smtp_from: str = "noreply@example.com"
     smtp_use_tls: bool = True
 
     # Used to build links (e.g. password reset) that point back at the frontend.
@@ -45,6 +48,5 @@ class Settings(BaseSettings):
     ldap_base_dn: str | None = None
     # {username} is substituted with the (filter-escaped) login username.
     ldap_user_search_filter: str = "(uid={username})"
-
 
 settings = Settings()
