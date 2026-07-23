@@ -26,4 +26,15 @@ export interface UserItem {
   role: string;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogItem {
+  id: number;
+  actor_id: number;
+  actor_username: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+  created_at: string;
 }
