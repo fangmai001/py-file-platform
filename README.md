@@ -5,9 +5,24 @@
 
 平台定位類似「社團／內部團隊」的公開文件分享空間（性質接近簡化版的 Facebook 貼文牆，但聚焦在檔案分享）：訪客無需登入，即可瀏覽並直接下載所有公開檔案；若要上傳或管理檔案，才需要登入帳號。
 
+## 📸 畫面截圖 (Screenshots)
+
+|                                                       |                                                         |
+| ----------------------------------------------------- | ------------------------------------------------------- |
+| **首頁公開檔案牆**（含檔案卡片與連結卡片分類）         | **登入頁**                                               |
+| ![首頁](docs/screenshots/home.png)                     | ![登入頁](docs/screenshots/login.png)                    |
+| **上傳頁**                                             | **管理後台－使用者**                                     |
+| ![上傳頁](docs/screenshots/upload.png)                 | ![管理後台使用者列表](docs/screenshots/admin-users.png)  |
+| **管理後台－卡片**                                     | **管理後台－連結卡片**                                   |
+| ![管理後台卡片列表](docs/screenshots/admin-folders.png) | ![管理後台連結卡片列表](docs/screenshots/admin-link-cards.png) |
+| **管理後台－檔案**                                     | **管理後台－操作紀錄**                                   |
+| ![管理後台檔案列表](docs/screenshots/admin-files.png)  | ![管理後台操作紀錄](docs/screenshots/admin-audit-logs.png) |
+| **管理後台－站台設定**                                 |                                                           |
+| ![管理後台站台設定](docs/screenshots/admin-site-settings.png) |                                                    |
+
 ## 🌟 專案特點
 
-*   **身分驗證與權限分級**：支援使用者登入，帳號可由管理員建立，或串接 LDAP 進行驗證。一般使用者可上傳與管理自己的檔案；管理員（Admin）擁有最高權限，可管理系統內所有使用者帳號（包含建立、編輯、停用、刪除其他使用者），並可檢視、管理所有使用者上傳的檔案。
+*   **身分驗證與權限分級**：支援使用者登入，帳號可由管理員建立，或串接 LDAP 進行驗證（規劃中，尚未實作）。一般使用者可上傳與管理自己的檔案；管理員（Admin）擁有最高權限，可管理系統內所有使用者帳號（包含建立、編輯、停用、刪除其他使用者），並可檢視、管理所有使用者上傳的檔案。
 *   **檔案公開／私密設定**：使用者上傳檔案時可選擇公開（訪客可瀏覽下載）或私密（僅限本人與管理員檢視），滿足不想公開分享的檔案需求。
 *   **檔案管理 API**：完整測試 Python 後端處理檔案上傳、讀取、更新與刪除的能力，並支援訪客直接下載公開檔案。
 *   **檔案類型防護**：上傳檔案以常見辦公室文件為主（如 doc/docx、pdf、xls/xlsx 等），後端會進行副檔名／類型基本檢查，降低惡意檔案上傳風險。
@@ -23,7 +38,9 @@
 ## 🛠️ 技術棧 (Tech Stack)
 
 *   **後端 (Backend)**: Python / FastAPI
-*   **前端 (Frontend)**: React
+*   **前端 (Frontend)**: React + TypeScript + Vite，UI 使用 Tailwind CSS v4 + shadcn（`base-nova`
+    style，元件基底為 `@base-ui/react`）+ `lucide-react` 圖示，樣式組合用
+    `class-variance-authority` / `tailwind-merge`
 *   **資料庫 (Database)**: PostgreSQL
 
 ## 🧑‍💻 本機執行方式 (Local Development)
@@ -70,6 +87,24 @@ docker compose up --build
 head` 再啟動 uvicorn，`:8000`）、`frontend`（Vite dev server，`:5173`）。此模式下 backend 讀取的
 `DATABASE_URL` 會由 `docker-compose.yml` 覆寫為指向 `db` 這個 service。`./uploads` 會掛載進
 backend container，確保上傳檔案在容器重建後仍保留。
+
+## ✅ 測試 (Testing)
+
+### 後端
+
+```bash
+cd backend
+source venv/bin/activate
+pytest
+```
+
+### 前端
+
+```bash
+cd frontend
+npm test        # vitest run
+npm run lint    # oxlint
+```
 
 ## 📦 發布模式執行方式 (Production / Release Mode)
 
