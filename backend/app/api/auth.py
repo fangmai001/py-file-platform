@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.audit import write_audit_log
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.ldap import authenticate_ldap
+from app.core.ldap_config import get_ldap_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import User
 from app.schemas.auth import LoginRequest, TokenResponse
@@ -31,7 +31,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
         # (auth_source == "local" above), so it can't be revived via LDAP.
         if user is not None and not user.is_active:
             raise _LOGIN_ERROR
-        if not settings.ldap_enabled or not authenticate_ldap(payload.username, payload.password):
+        ldap_config = get_ldap_settings(db)
+        if not ldap_config.enabled or not authenticate_ldap(payload.username, payload.password, ldap_config):
             raise _LOGIN_ERROR
 
         if user is None:
