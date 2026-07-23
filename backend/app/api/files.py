@@ -293,6 +293,8 @@ def download_file_version(
 
 @router.get("", response_model=list[FolderGroup])
 def list_files(
+    search: str | None = None,
+    folder_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> list[FolderGroup]:
@@ -302,6 +304,13 @@ def list_files(
     elif current_user.role != "admin":
         query = query.filter(or_(File.is_public.is_(True), File.owner_id == current_user.id))
     # admin: no filter, can see every file regardless of owner or visibility
+
+    if search:
+        keyword = f"%{search.strip()}%"
+        query = query.filter(or_(File.filename.ilike(keyword), File.display_name.ilike(keyword)))
+
+    if folder_id is not None:
+        query = query.filter(File.folder_id == folder_id)
 
     folders_by_id = {f.id: f for f in db.query(Folder).all()}
 

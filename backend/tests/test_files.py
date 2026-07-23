@@ -100,6 +100,64 @@ def test_owner_list_sees_own_private_files(client, db_session):
     assert names == {"private.pdf"}
 
 
+def test_list_filters_by_search_keyword(client, db_session):
+    owner = make_user(db_session, username="owner")
+    _upload(client, owner, filename="budget-report.pdf")
+    _upload(client, owner, filename="meeting-notes.pdf")
+
+    response = client.get("/api/files", params={"search": "budget"})
+    assert response.status_code == 200
+    names = {f["filename"] for group in response.json() for f in group["files"]}
+    assert names == {"budget-report.pdf"}
+
+
+def test_list_search_also_matches_display_name(client, db_session):
+    owner = make_user(db_session, username="owner")
+    file_id = _upload(client, owner, filename="report.pdf").json()["id"]
+    client.patch(
+        f"/api/files/{file_id}",
+        headers=auth_headers(owner),
+        json={"display_name": "年度預算"},
+    )
+
+    response = client.get("/api/files", params={"search": "預算"})
+    assert response.status_code == 200
+    names = {f["filename"] for group in response.json() for f in group["files"]}
+    assert names == {"report.pdf"}
+
+
+def test_list_search_respects_visibility(client, db_session):
+    owner = make_user(db_session, username="owner")
+    _upload(client, owner, filename="budget-private.pdf", is_public=False)
+
+    response = client.get("/api/files", params={"search": "budget"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_filters_by_folder_id(client, db_session):
+    owner = make_user(db_session)
+    folder = Folder(name="財務")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+
+    _upload(client, owner, filename="grouped.pdf")
+    _upload(client, owner, filename="ungrouped.pdf")
+    file_id = next(
+        f["id"]
+        for group in client.get("/api/files").json()
+        for f in group["files"]
+        if f["filename"] == "grouped.pdf"
+    )
+    client.patch(f"/api/files/{file_id}", headers=auth_headers(owner), json={"folder_id": folder.id})
+
+    response = client.get("/api/files", params={"folder_id": folder.id})
+    assert response.status_code == 200
+    names = {f["filename"] for group in response.json() for f in group["files"]}
+    assert names == {"grouped.pdf"}
+
+
 def test_owner_can_toggle_visibility(client, db_session):
     owner = make_user(db_session, username="owner")
     file_id = _upload(client, owner, is_public=True).json()["id"]
