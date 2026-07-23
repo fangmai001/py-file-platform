@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +46,7 @@ vi.mock("../api/site-settings", () => ({
 
 import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
-import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
+import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
 function renderAdminPage() {
@@ -293,6 +293,56 @@ describe("AdminPage", () => {
         description: null,
         url: "https://example.com",
         folder_id: null,
+      }),
+    );
+  });
+
+  it("edits and saves a link card's description", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listLinkCards).mockResolvedValue([
+      {
+        id: 1,
+        title: "社團官網",
+        description: null,
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateLinkCard).mockResolvedValue({
+      id: 1,
+      title: "社團官網",
+      description: "官方網站",
+      url: "https://example.com/",
+      folder_id: null,
+      is_public: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "連結卡片" }));
+
+    const titleInput = await screen.findByDisplayValue("社團官網");
+    const row = titleInput.closest("tr");
+    if (!row) {
+      throw new Error("link card row not found");
+    }
+    const descriptionInput = within(row).getAllByRole("textbox")[1];
+    await user.type(descriptionInput, "官方網站");
+    await user.click(within(row).getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateLinkCard).toHaveBeenCalledWith(1, {
+        title: "社團官網",
+        description: "官方網站",
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
       }),
     );
   });
