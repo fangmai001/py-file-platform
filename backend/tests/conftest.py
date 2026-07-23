@@ -76,6 +76,14 @@ def make_user(db_session, username="alice", password="s3cret-pw", role="user", i
     return user
 
 
+def make_ldap_user(db_session, username="alice", role="user", is_active=True) -> User:
+    user = User(username=username, password_hash=None, auth_source="ldap", role=role, is_active=is_active)
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 def auth_headers(user: User) -> dict[str, str]:
     token = create_access_token(subject=user.username)
     return {"Authorization": f"Bearer {token}"}

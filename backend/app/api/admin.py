@@ -71,6 +71,10 @@ def update_user(
         changes.append(f"is_active: {user.is_active} -> {payload.is_active}")
         user.is_active = payload.is_active
     if payload.password is not None:
+        if user.auth_source == "ldap":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="LDAP 帳號的密碼由 LDAP 伺服器管理，無法在此變更"
+            )
         user.password_hash = hash_password(payload.password)
         changes.append("password reset")
     if payload.email is not None and payload.email != user.email:
