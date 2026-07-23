@@ -958,7 +958,7 @@ function AdminPage() {
                 <h2>操作紀錄</h2>
                 <Select value={auditActionFilter} onValueChange={(value) => value && setAuditActionFilter(value)}>
                   <SelectTrigger className="w-48" aria-label="依動作類型篩選">
-                    <SelectValue />
+                    <SelectValue>{(value: string) => (value === ALL_ACTIONS ? "全部動作" : value)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_ACTIONS}>全部動作</SelectItem>
