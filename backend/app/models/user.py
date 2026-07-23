@@ -11,6 +11,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    # Display name shown in the UI instead of the login username; purely cosmetic.
+    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Nullable: without an address on file, upload-notification emails are simply
     # skipped for that user (the in-app notification still gets written either way).
     email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)

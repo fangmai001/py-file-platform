@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -58,7 +58,7 @@ vi.mock("../api/ldap-settings", () => ({
 import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
-import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
+import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
 function renderAdminPage() {
@@ -83,6 +83,7 @@ async function loginAsAdmin() {
     role: "admin",
     is_active: true,
     email: null,
+    full_name: null,
     auth_source: "local",
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -104,6 +105,7 @@ describe("AdminPage", () => {
         role: "user",
         is_active: true,
         email: null,
+        full_name: null,
         auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
@@ -114,6 +116,7 @@ describe("AdminPage", () => {
         role: "user",
         is_active: true,
         email: null,
+        full_name: null,
         auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
@@ -141,6 +144,7 @@ describe("AdminPage", () => {
       role: "user",
       is_active: true,
       email: "carol@example.com",
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -174,6 +178,7 @@ describe("AdminPage", () => {
         role: "user",
         is_active: true,
         email: null,
+        full_name: null,
         auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
@@ -185,6 +190,7 @@ describe("AdminPage", () => {
       role: "user",
       is_active: true,
       email: "bob@example.com",
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -196,9 +202,56 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
     const emailInput = screen.getByPlaceholderText("未設定");
     await user.type(emailInput, "bob@example.com");
-    await user.click(screen.getByRole("button", { name: "儲存 Email" }));
+    await user.click(screen.getByRole("button", { name: "儲存" }));
 
     await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
+  });
+
+  it("stages a role change and only saves it after confirming", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "bob",
+        role: "user",
+        is_active: true,
+        email: null,
+        full_name: null,
+        auth_source: "local",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 2,
+      username: "bob",
+      role: "admin",
+      is_active: true,
+      email: null,
+      full_name: null,
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
+    const roleCombobox = screen.getAllByRole("combobox").at(-1);
+    if (!roleCombobox) {
+      throw new Error("role combobox not found");
+    }
+    await user.click(roleCombobox);
+    await user.click(screen.getByRole("option", { name: "admin" }));
+
+    expect(updateUser).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+    await waitFor(() => expect(screen.getByText(/角色改為「admin」/)).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "確定" }));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { role: "admin" }));
   });
 
   it("asks for confirmation before deleting a user, and cancelling keeps it", async () => {
@@ -210,6 +263,7 @@ describe("AdminPage", () => {
         role: "user",
         is_active: true,
         email: null,
+        full_name: null,
         auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
@@ -305,6 +359,56 @@ describe("AdminPage", () => {
         description: null,
         url: "https://example.com",
         folder_id: null,
+      }),
+    );
+  });
+
+  it("edits and saves a link card's description", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listLinkCards).mockResolvedValue([
+      {
+        id: 1,
+        title: "社團官網",
+        description: null,
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateLinkCard).mockResolvedValue({
+      id: 1,
+      title: "社團官網",
+      description: "官方網站",
+      url: "https://example.com/",
+      folder_id: null,
+      is_public: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "連結卡片" }));
+
+    const titleInput = await screen.findByDisplayValue("社團官網");
+    const row = titleInput.closest("tr");
+    if (!row) {
+      throw new Error("link card row not found");
+    }
+    const descriptionInput = within(row).getAllByRole("textbox")[1];
+    await user.type(descriptionInput, "官方網站");
+    await user.click(within(row).getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateLinkCard).toHaveBeenCalledWith(1, {
+        title: "社團官網",
+        description: "官方網站",
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
       }),
     );
   });

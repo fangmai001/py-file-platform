@@ -62,10 +62,19 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def make_user(db_session, username="alice", password="s3cret-pw", role="user", is_active=True, email=None) -> User:
+def make_user(
+    db_session,
+    username="alice",
+    password="s3cret-pw",
+    role="user",
+    is_active=True,
+    email=None,
+    full_name=None,
+) -> User:
     user = User(
         username=username,
         email=email,
+        full_name=full_name,
         password_hash=hash_password(password),
         role=role,
         is_active=is_active,

@@ -23,10 +23,11 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 
 interface UserDraft {
   email: string;
+  role: string;
 }
 
 function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
-  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "" }]));
+  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "", role: u.role }]));
 }
 
 interface FolderDraft {
@@ -237,16 +238,30 @@ function AdminPage() {
     }
   }
 
-  async function handleSaveUserEmail(target: UserItem) {
-    const email = userDrafts[target.id]?.email.trim() || null;
-    if (email === (target.email ?? null)) {
+  async function handleSaveUser(target: UserItem) {
+    const draft = userDrafts[target.id];
+    const email = draft?.email.trim() || null;
+    const role = draft?.role ?? target.role;
+    const emailChanged = email !== (target.email ?? null);
+    const roleChanged = role !== target.role;
+    if (!emailChanged && !roleChanged) {
       return;
     }
+    if (roleChanged) {
+      const ok = await confirm({
+        title: "變更角色",
+        description: `確定要將使用者「${target.username}」的角色改為「${role}」嗎？`,
+        confirmLabel: "確定",
+      });
+      if (!ok) {
+        return;
+      }
+    }
     try {
-      await updateUser(target.id, { email });
+      await updateUser(target.id, { ...(emailChanged ? { email } : {}), ...(roleChanged ? { role } : {}) });
       await loadUsers();
       await loadAuditLogs();
-      toast.success(`已更新使用者「${target.username}」的 Email`);
+      toast.success(`已更新使用者「${target.username}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新使用者失敗";
       setUsersError(message);
@@ -270,30 +285,6 @@ function AdminPage() {
       await loadUsers();
       await loadAuditLogs();
       toast.success(`已${target.is_active ? "停用" : "啟用"}使用者「${target.username}」`);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "更新使用者失敗";
-      setUsersError(message);
-      toast.error(message);
-    }
-  }
-
-  async function handleChangeRole(target: UserItem, role: string) {
-    if (role === target.role) {
-      return;
-    }
-    const ok = await confirm({
-      title: "變更角色",
-      description: `確定要將使用者「${target.username}」的角色改為「${role}」嗎？`,
-      confirmLabel: "確定",
-    });
-    if (!ok) {
-      return;
-    }
-    try {
-      await updateUser(target.id, { role });
-      await loadUsers();
-      await loadAuditLogs();
-      toast.success(`已將「${target.username}」的角色改為「${role}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新使用者失敗";
       setUsersError(message);
@@ -692,13 +683,22 @@ function AdminPage() {
                             onChange={(e) =>
                               setUserDrafts((drafts) => ({
                                 ...drafts,
-                                [u.id]: { email: e.target.value },
+                                [u.id]: { ...drafts[u.id], email: e.target.value },
                               }))
                             }
                           />
                         </TableCell>
                         <TableCell>
-                          <Select value={u.role} onValueChange={(role) => role && handleChangeRole(u, role)}>
+                          <Select
+                            value={userDrafts[u.id]?.role ?? u.role}
+                            onValueChange={(role) =>
+                              role &&
+                              setUserDrafts((drafts) => ({
+                                ...drafts,
+                                [u.id]: { ...drafts[u.id], role },
+                              }))
+                            }
+                          >
                             <SelectTrigger className="w-28">
                               <SelectValue />
                             </SelectTrigger>
@@ -713,8 +713,8 @@ function AdminPage() {
                         <TableCell>{formatDateTime(u.updated_at)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleSaveUserEmail(u)}>
-                              儲存 Email
+                            <Button variant="outline" size="sm" onClick={() => handleSaveUser(u)}>
+                              儲存
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
                               {u.is_active ? "停用" : "啟用"}
@@ -915,6 +915,7 @@ function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>標題</TableHead>
+                      <TableHead>說明</TableHead>
                       <TableHead>網址</TableHead>
                       <TableHead>分類</TableHead>
                       <TableHead>公開</TableHead>
@@ -932,6 +933,18 @@ function AdminPage() {
                               setLinkCardDrafts((drafts) => ({
                                 ...drafts,
                                 [card.id]: { ...drafts[card.id], title: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={linkCardDrafts[card.id]?.description ?? ""}
+                            onChange={(e) =>
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], description: e.target.value },
                               }))
                             }
                           />

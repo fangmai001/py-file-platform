@@ -6,6 +6,7 @@ import AdminPage from "./pages/AdminPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import ProfilePage from "./pages/ProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UploadPage from "./pages/UploadPage";
 import NotificationBell from "./components/NotificationBell";
@@ -93,7 +94,9 @@ function HeaderNav() {
       )}
       {user ? (
         <>
-          <span className="px-1 py-1.5 text-sm text-foreground">{user.username}</span>
+          <NavLink to="/profile" className={navLinkClass}>
+            {user.full_name || user.username}
+          </NavLink>
           <NotificationBell />
           <Button variant="ghost" onClick={handleLogout}>
             登出
@@ -132,6 +135,14 @@ function AppShell() {
             element={
               <RequireAuth>
                 <UploadPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <ProfilePage />
               </RequireAuth>
             }
           />
