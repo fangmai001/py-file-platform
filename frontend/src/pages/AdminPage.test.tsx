@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../context/AuthContext";
 import { ConfirmDialogProvider } from "../context/ConfirmDialogContext";
+import { SiteSettingsProvider } from "../context/SiteSettingsContext";
 import AdminPage from "./AdminPage";
 
 vi.mock("../api/auth", () => ({
@@ -33,18 +34,30 @@ vi.mock("../api/link-cards", () => ({
   updateLinkCard: vi.fn(),
   deleteLinkCard: vi.fn(),
 }));
+vi.mock("../api/site-settings", () => ({
+  getSiteSettings: vi.fn().mockResolvedValue({
+    brand_name: null,
+    browser_title: null,
+    hero_title: null,
+    hero_subtitle: null,
+  }),
+  updateSiteSettings: vi.fn(),
+}));
 
 import { fetchCurrentUser } from "../api/auth";
 import { deleteUser, listUsers } from "../api/admin";
 import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
+import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
 function renderAdminPage() {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <ConfirmDialogProvider>
-          <AdminPage />
-        </ConfirmDialogProvider>
+        <SiteSettingsProvider>
+          <ConfirmDialogProvider>
+            <AdminPage />
+          </ConfirmDialogProvider>
+        </SiteSettingsProvider>
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -210,5 +223,42 @@ describe("AdminPage", () => {
     await user.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => expect(deleteLinkCard).toHaveBeenCalledWith(1));
+  });
+
+  it("saves site settings from the 站台設定 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getSiteSettings).mockResolvedValue({
+      brand_name: "舊名稱",
+      browser_title: "舊分頁標題",
+      hero_title: "舊主標題",
+      hero_subtitle: "舊副標",
+    });
+    vi.mocked(updateSiteSettings).mockResolvedValue({
+      brand_name: "我的社團",
+      browser_title: "舊分頁標題",
+      hero_title: "舊主標題",
+      hero_subtitle: "舊副標",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "站台設定" }));
+
+    const brandInput = await screen.findByDisplayValue("舊名稱");
+    await user.clear(brandInput);
+    await user.type(brandInput, "我的社團");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateSiteSettings).toHaveBeenCalledWith({
+        brand_name: "我的社團",
+        browser_title: "舊分頁標題",
+        hero_title: "舊主標題",
+        hero_subtitle: "舊副標",
+      }),
+    );
   });
 });
