@@ -8,6 +8,7 @@ class UserCreate(BaseModel):
     password: str
     role: str = "user"
     email: str | None = None
+    full_name: str | None = None
 
 
 class UserUpdate(BaseModel):
@@ -15,6 +16,7 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
     password: str | None = None
     email: str | None = None
+    full_name: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -22,9 +24,23 @@ class UserResponse(BaseModel):
 
     id: int
     username: str
+    full_name: str | None
     email: str | None
     role: str
     auth_source: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str | None = None
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class PasswordChangeResponse(BaseModel):
+    message: str

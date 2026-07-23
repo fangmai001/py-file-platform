@@ -42,6 +42,7 @@ export interface FileVersionItem {
 export interface UserItem {
   id: number;
   username: string;
+  full_name: string | null;
   email: string | null;
   role: string;
   auth_source: string;

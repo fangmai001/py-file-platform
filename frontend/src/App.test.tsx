@@ -44,6 +44,7 @@ describe("admin route gating", () => {
       role: "user",
       is_active: true,
       email: null,
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -66,6 +67,7 @@ describe("admin route gating", () => {
       role: "admin",
       is_active: true,
       email: null,
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -115,6 +117,7 @@ describe("upload route gating", () => {
       role: "user",
       is_active: true,
       email: null,
+      full_name: null,
       auth_source: "local",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -127,5 +130,45 @@ describe("upload route gating", () => {
     );
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "上傳檔案" })).toBeInTheDocument());
+  });
+});
+
+describe("profile route gating", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it("redirects a guest (no token) away from /profile", async () => {
+    render(
+      <MemoryRouter initialEntries={["/profile"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "登入" })).toBeInTheDocument());
+  });
+
+  it("lets a logged-in user reach the profile page", async () => {
+    localStorage.setItem("access_token", "tok");
+    vi.mocked(fetchCurrentUser).mockResolvedValue({
+      id: 1,
+      username: "alice",
+      role: "user",
+      is_active: true,
+      email: null,
+      full_name: null,
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/profile"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "個人資料" })).toBeInTheDocument());
   });
 });
