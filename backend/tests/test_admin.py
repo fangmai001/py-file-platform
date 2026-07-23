@@ -26,6 +26,25 @@ def test_admin_can_create_user_and_audit_log_is_written(client, db_session):
     assert logs[0].target == "bob"
 
 
+def test_admin_can_set_email_on_create_and_update(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    create_response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw", "email": "bob@example.com"},
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["email"] == "bob@example.com"
+
+    bob = db_session.query(User).filter(User.username == "bob").one()
+    update_response = client.patch(
+        f"/api/admin/users/{bob.id}", headers=auth_headers(admin), json={"email": "new@example.com"}
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["email"] == "new@example.com"
+
+
 def test_create_user_duplicate_username_conflicts(client, db_session):
     admin = make_user(db_session, username="root", role="admin")
     make_user(db_session, username="bob")
