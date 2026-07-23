@@ -64,4 +64,10 @@ describe("LoginPage", () => {
     await waitFor(() => expect(screen.getByText("帳號或密碼錯誤")).toBeInTheDocument());
     expect(localStorage.getItem("access_token")).toBeNull();
   });
+
+  it("links to the forgot-password page", () => {
+    renderLoginPage();
+
+    expect(screen.getByRole("link", { name: "忘記密碼？" })).toHaveAttribute("href", "/forgot-password");
+  });
 });

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
@@ -59,6 +59,9 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <Link to="/forgot-password" className="self-end text-sm text-muted-foreground hover:text-foreground">
+                忘記密碼？
+              </Link>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
