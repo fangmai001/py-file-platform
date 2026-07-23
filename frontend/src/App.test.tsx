@@ -44,6 +44,7 @@ describe("admin route gating", () => {
       role: "user",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
     });
 
     render(
@@ -63,6 +64,7 @@ describe("admin route gating", () => {
       role: "admin",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
     });
 
     render(
@@ -109,6 +111,7 @@ describe("upload route gating", () => {
       role: "user",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
     });
 
     render(

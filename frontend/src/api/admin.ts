@@ -1,5 +1,5 @@
 import { del, getJSON, patchJSON, postJSON } from "./client";
-import type { UserItem } from "./types";
+import type { AuditLogItem, UserItem } from "./types";
 
 export interface CreateUserInput {
   username: string;
@@ -27,4 +27,8 @@ export function updateUser(userId: number, input: UpdateUserInput): Promise<User
 
 export function deleteUser(userId: number): Promise<void> {
   return del(`/admin/users/${userId}`);
+}
+
+export function listAuditLogs(limit = 50): Promise<AuditLogItem[]> {
+  return getJSON<AuditLogItem[]>(`/admin/audit-logs?limit=${limit}`);
 }

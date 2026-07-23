@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { createUser, deleteUser, listUsers, updateUser } from "../api/admin";
+import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
-import type { FileItem, FolderGroup, FolderItem, UserItem } from "../api/types";
+import type { AuditLogItem, FileItem, FolderGroup, FolderItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -19,6 +19,12 @@ interface FolderDraft {
 
 function toFolderDrafts(items: FolderItem[]): Record<number, FolderDraft> {
   return Object.fromEntries(items.map((f) => [f.id, { name: f.name, description: f.description ?? "" }]));
+}
+
+const AUDIT_LOG_LIMIT = 50;
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString("zh-TW");
 }
 
 function AdminPage() {
@@ -40,6 +46,9 @@ function AdminPage() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderDescription, setNewFolderDescription] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[] | null>(null);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
 
   async function loadUsers() {
     try {
@@ -70,10 +79,20 @@ function AdminPage() {
     }
   }
 
+  async function loadAuditLogs() {
+    try {
+      setAuditLogs(await listAuditLogs(AUDIT_LOG_LIMIT));
+      setAuditLogsError(null);
+    } catch (err) {
+      setAuditLogsError(err instanceof ApiError ? err.message : "無法載入操作紀錄");
+    }
+  }
+
   useEffect(() => {
     loadUsers();
     loadFiles();
     loadFolders();
+    loadAuditLogs();
   }, []);
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
@@ -86,6 +105,7 @@ function AdminPage() {
       setNewPassword("");
       setNewRole("user");
       await loadUsers();
+      await loadAuditLogs();
     } catch (err) {
       setUsersError(err instanceof ApiError ? err.message : "建立使用者失敗");
     } finally {
@@ -97,6 +117,7 @@ function AdminPage() {
     try {
       await updateUser(target.id, { is_active: !target.is_active });
       await loadUsers();
+      await loadAuditLogs();
     } catch (err) {
       setUsersError(err instanceof ApiError ? err.message : "更新使用者失敗");
     }
@@ -106,6 +127,7 @@ function AdminPage() {
     try {
       await updateUser(target.id, { role });
       await loadUsers();
+      await loadAuditLogs();
     } catch (err) {
       setUsersError(err instanceof ApiError ? err.message : "更新使用者失敗");
     }
@@ -118,6 +140,7 @@ function AdminPage() {
     try {
       await deleteUser(target.id);
       await loadUsers();
+      await loadAuditLogs();
     } catch (err) {
       setUsersError(err instanceof ApiError ? err.message : "刪除使用者失敗");
     }
@@ -130,6 +153,7 @@ function AdminPage() {
     try {
       await deleteFile(file.id);
       await loadFiles();
+      await loadAuditLogs();
     } catch (err) {
       setFilesError(err instanceof ApiError ? err.message : "刪除檔案失敗");
     }
@@ -256,6 +280,8 @@ function AdminPage() {
                   <TableHead>帳號</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>狀態</TableHead>
+                  <TableHead>新增日期</TableHead>
+                  <TableHead>修改日期</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -275,6 +301,8 @@ function AdminPage() {
                       </Select>
                     </TableCell>
                     <TableCell>{u.is_active ? "啟用" : "停用"}</TableCell>
+                    <TableCell>{formatDateTime(u.created_at)}</TableCell>
+                    <TableCell>{formatDateTime(u.updated_at)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
@@ -434,6 +462,44 @@ function AdminPage() {
                     </TableRow>
                   )),
                 )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>操作紀錄</h2>
+          <p className="text-sm text-muted-foreground">高權限操作的稽核紀錄，僅顯示最近 {AUDIT_LOG_LIMIT} 筆。</p>
+          {auditLogsError && <p className="text-sm text-destructive">{auditLogsError}</p>}
+          {auditLogs === null && !auditLogsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {auditLogs !== null && auditLogs.length === 0 && (
+            <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+              目前沒有操作紀錄
+            </div>
+          )}
+          {auditLogs !== null && auditLogs.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>時間</TableHead>
+                  <TableHead>操作者</TableHead>
+                  <TableHead>動作</TableHead>
+                  <TableHead>對象</TableHead>
+                  <TableHead>詳情</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {auditLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell>{formatDateTime(log.created_at)}</TableCell>
+                    <TableCell>{log.actor_username}</TableCell>
+                    <TableCell>{log.action}</TableCell>
+                    <TableCell>{log.target ?? "—"}</TableCell>
+                    <TableCell>{log.detail ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
