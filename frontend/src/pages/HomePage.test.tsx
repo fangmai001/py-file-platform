@@ -124,4 +124,43 @@ describe("HomePage", () => {
 
     await waitFor(() => expect(deleteFile).toHaveBeenCalledWith(1));
   });
+
+  it("debounces the search input and calls listFiles with the search term", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(listFiles).toHaveBeenCalledWith({ search: undefined, folderId: undefined }));
+    vi.mocked(listFiles).mockClear();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("依檔名搜尋檔案"), "budget");
+
+    await waitFor(() => expect(listFiles).toHaveBeenCalledWith({ search: "budget", folderId: undefined }));
+  });
+
+  it("only renders the first page of files per folder group, with a load-more button", async () => {
+    const files = Array.from({ length: 25 }, (_, i) => ({
+      id: i + 1,
+      owner_id: 2,
+      filename: `file-${i + 1}.pdf`,
+      display_name: null,
+      folder_id: null,
+      announced_at: null,
+      is_public: true,
+      size: 1024,
+      created_at: "2024-01-01T00:00:00Z",
+    }));
+    vi.mocked(listFiles).mockResolvedValue([{ folder: null, files }]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("file-1.pdf")).toBeInTheDocument());
+    expect(screen.queryByText("file-25.pdf")).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /載入更多/ }));
+
+    await waitFor(() => expect(screen.getByText("file-25.pdf")).toBeInTheDocument());
+  });
 });

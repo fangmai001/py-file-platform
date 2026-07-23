@@ -14,8 +14,21 @@ export interface UpdateFileInput {
   announced_at?: string | null;
 }
 
-export function listFiles(): Promise<FolderGroup[]> {
-  return getJSON<FolderGroup[]>("/files");
+export interface ListFilesOptions {
+  search?: string;
+  folderId?: number | null;
+}
+
+export function listFiles(options: ListFilesOptions = {}): Promise<FolderGroup[]> {
+  const params = new URLSearchParams();
+  if (options.search) {
+    params.set("search", options.search);
+  }
+  if (options.folderId != null) {
+    params.set("folder_id", String(options.folderId));
+  }
+  const query = params.toString();
+  return getJSON<FolderGroup[]>(query ? `/files?${query}` : "/files");
 }
 
 export function uploadFile(file: File, isPublic: boolean, options: UploadFileOptions = {}): Promise<FileItem> {

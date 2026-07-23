@@ -15,6 +15,9 @@ import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../context/ConfirmDialogContext";
 
 const NO_FOLDER = "none";
+const ALL_FOLDERS = "__all__";
+const SEARCH_DEBOUNCE_MS = 300;
+const FILES_PAGE_SIZE = 20;
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) {
@@ -74,10 +77,17 @@ function HomePage() {
   const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft>({ displayName: "", announcedAt: "", folderId: NO_FOLDER });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [folderFilter, setFolderFilter] = useState(ALL_FOLDERS);
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
 
   async function loadFiles() {
     try {
-      const data = await listFiles();
+      const data = await listFiles({
+        search: search.trim() || undefined,
+        folderId: folderFilter === ALL_FOLDERS ? undefined : Number(folderFilter),
+      });
       setGroups(data);
       setError(null);
     } catch (err) {
@@ -87,15 +97,23 @@ function HomePage() {
 
   useEffect(() => {
     loadFiles();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, search, folderFilter]);
 
   useEffect(() => {
-    if (user) {
-      listFolders()
-        .then(setFolders)
-        .catch(() => setFolders([]));
-    }
-  }, [user]);
+    const timer = setTimeout(() => setSearch(searchInput), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setVisibleCounts({});
+  }, [search, folderFilter]);
+
+  useEffect(() => {
+    listFolders()
+      .then(setFolders)
+      .catch(() => setFolders([]));
+  }, []);
 
   async function handleDownload(file: FileItem) {
     try {
@@ -255,25 +273,63 @@ function HomePage() {
 
       <Card id="file-list">
         <CardContent className="flex flex-col gap-4 text-left">
-          <h2>檔案列表</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2>檔案列表</h2>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                type="search"
+                placeholder="依檔名搜尋…"
+                className="w-56"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                aria-label="依檔名搜尋檔案"
+              />
+              <Select value={folderFilter} onValueChange={(value) => value && setFolderFilter(value)}>
+                <SelectTrigger className="w-40" aria-label="依卡片分類篩選">
+                  <SelectValue>
+                    {(value: string) =>
+                      value === ALL_FOLDERS ? "全部分類" : (folders.find((f) => String(f.id) === value)?.name ?? "全部分類")
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FOLDERS}>全部分類</SelectItem>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={String(folder.id)}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           {groups === null && !error && <p className="text-sm text-muted-foreground">載入中…</p>}
           {groups !== null && !hasFiles && (
             <div className="rounded-md border border-dashed border-border p-8 text-center">
               <p className="mb-1 font-medium text-foreground">目前沒有可檢視的檔案</p>
-              <p className="text-sm text-muted-foreground">登入後即可上傳檔案，公開的檔案會顯示在這裡。</p>
+              <p className="text-sm text-muted-foreground">
+                {search || folderFilter !== ALL_FOLDERS
+                  ? "沒有符合搜尋條件的檔案。"
+                  : "登入後即可上傳檔案，公開的檔案會顯示在這裡。"}
+              </p>
             </div>
           )}
           {groups !== null && hasFiles && (
             <div className="flex flex-col gap-6">
-              {groups.map((group) => (
-                <div key={group.folder?.id ?? "__root__"}>
-                  <h3 className="mb-0.5 text-base text-foreground">{group.folder?.name ?? "未分類"}</h3>
-                  {group.folder?.description && (
-                    <p className="mb-2 text-sm text-muted-foreground">{group.folder.description}</p>
-                  )}
-                  <ul className="flex flex-col gap-2">
-                    {group.files.map((file) =>
+              {groups.map((group) => {
+                const groupKey = group.folder?.id !== undefined ? String(group.folder?.id ?? "__root__") : "__root__";
+                const visibleCount = visibleCounts[groupKey] ?? FILES_PAGE_SIZE;
+                const visibleFiles = group.files.slice(0, visibleCount);
+                const remaining = group.files.length - visibleFiles.length;
+                return (
+                  <div key={groupKey}>
+                    <h3 className="mb-0.5 text-base text-foreground">{group.folder?.name ?? "未分類"}</h3>
+                    {group.folder?.description && (
+                      <p className="mb-2 text-sm text-muted-foreground">{group.folder.description}</p>
+                    )}
+                    <ul className="flex flex-col gap-2">
+                      {visibleFiles.map((file) =>
                       editingFileId === file.id ? (
                         <li key={file.id} className="rounded-lg border border-border p-3">
                           <form
@@ -375,9 +431,26 @@ function HomePage() {
                         </li>
                       ),
                     )}
-                  </ul>
-                </div>
-              ))}
+                    </ul>
+                    {remaining > 0 && (
+                      <div className="mt-3 flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setVisibleCounts((counts) => ({
+                              ...counts,
+                              [groupKey]: visibleCount + FILES_PAGE_SIZE,
+                            }))
+                          }
+                        >
+                          載入更多（還有 {remaining} 筆）
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
