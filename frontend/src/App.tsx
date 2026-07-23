@@ -7,7 +7,9 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import UploadPage from "./pages/UploadPage";
 import { Button } from "./components/ui/button";
+import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ConfirmDialogProvider } from "./context/ConfirmDialogContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { cn } from "./lib/utils";
 
@@ -145,7 +147,10 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppShell />
+        <ConfirmDialogProvider>
+          <AppShell />
+          <Toaster position="bottom-right" duration={4000} visibleToasts={3} />
+        </ConfirmDialogProvider>
       </AuthProvider>
     </ThemeProvider>
   );
