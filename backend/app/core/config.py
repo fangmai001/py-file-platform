@@ -36,5 +36,15 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:5173"
     password_reset_token_expire_minutes: int = 30
 
+    # LDAP auth (see app/core/ldap.py). Disabled by default so environments without an
+    # LDAP server keep working exactly as before with only local accounts.
+    ldap_enabled: bool = False
+    ldap_server_uri: str | None = None
+    ldap_bind_dn: str | None = None
+    ldap_bind_password: str | None = None
+    ldap_base_dn: str | None = None
+    # {username} is substituted with the (filter-escaped) login username.
+    ldap_user_search_filter: str = "(uid={username})"
+
 
 settings = Settings()

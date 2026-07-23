@@ -24,6 +24,7 @@ class UserResponse(BaseModel):
     username: str
     email: str | None
     role: str
+    auth_source: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
