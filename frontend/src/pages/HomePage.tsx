@@ -14,6 +14,7 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../context/ConfirmDialogContext";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 
 const NO_FOLDER = "none";
 const ALL_FOLDERS = "__all__";
@@ -72,6 +73,7 @@ interface EditDraft {
 function HomePage() {
   const { user } = useAuth();
   const confirm = useConfirm();
+  const { heroTitle, heroSubtitle } = useSiteSettings();
   const [groups, setGroups] = useState<FolderGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -274,10 +276,8 @@ function HomePage() {
   return (
     <div className="page">
       <section className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-gradient-to-b from-accent/50 to-transparent px-6 py-14 text-center">
-        <h1>公開檔案牆</h1>
-        <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">
-          瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。
-        </p>
+        <h1>{heroTitle}</h1>
+        <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">{heroSubtitle}</p>
         <div className="flex flex-wrap justify-center gap-3">
           <a href="#file-list" className={buttonVariants({ size: "lg" })}>
             瀏覽公開檔案

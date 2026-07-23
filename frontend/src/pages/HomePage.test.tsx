@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../context/AuthContext";
 import { ConfirmDialogProvider } from "../context/ConfirmDialogContext";
+import { SiteSettingsProvider } from "../context/SiteSettingsContext";
 import HomePage from "./HomePage";
 
 vi.mock("../api/files", () => ({
@@ -20,6 +21,15 @@ vi.mock("../api/folders", () => ({
 vi.mock("../api/link-cards", () => ({
   listLinkCards: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../api/site-settings", () => ({
+  getSiteSettings: vi.fn().mockResolvedValue({
+    brand_name: null,
+    browser_title: null,
+    hero_title: null,
+    hero_subtitle: null,
+  }),
+  updateSiteSettings: vi.fn(),
+}));
 vi.mock("../api/auth", () => ({
   login: vi.fn(),
   fetchCurrentUser: vi.fn(),
@@ -27,15 +37,18 @@ vi.mock("../api/auth", () => ({
 
 import { deleteFile, listFiles } from "../api/files";
 import { listLinkCards } from "../api/link-cards";
+import { getSiteSettings } from "../api/site-settings";
 import { fetchCurrentUser } from "../api/auth";
 
 function renderHomePage() {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <ConfirmDialogProvider>
-          <HomePage />
-        </ConfirmDialogProvider>
+        <SiteSettingsProvider>
+          <ConfirmDialogProvider>
+            <HomePage />
+          </ConfirmDialogProvider>
+        </SiteSettingsProvider>
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -189,5 +202,20 @@ describe("HomePage", () => {
     const link = screen.getByRole("link", { name: /社團官網/ });
     expect(link).toHaveAttribute("href", "https://example.com/");
     expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("renders a custom hero title and subtitle from site settings", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(getSiteSettings).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: "歡迎光臨我的社團",
+      hero_subtitle: "這裡是自訂的副標說明",
+    });
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("歡迎光臨我的社團")).toBeInTheDocument());
+    expect(screen.getByText("這裡是自訂的副標說明")).toBeInTheDocument();
   });
 });

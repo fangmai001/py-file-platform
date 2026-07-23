@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
+import { updateSiteSettings } from "../api/site-settings";
 import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -15,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../context/ConfirmDialogContext";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 
 interface FolderDraft {
   name: string;
@@ -59,6 +61,15 @@ function formatDateTime(value: string): string {
 function AdminPage() {
   const { user: currentUser } = useAuth();
   const confirm = useConfirm();
+  const siteSettings = useSiteSettings();
+
+  const [siteSettingsDraft, setSiteSettingsDraft] = useState({
+    brandName: siteSettings.brandName,
+    browserTitle: siteSettings.browserTitle,
+    heroTitle: siteSettings.heroTitle,
+    heroSubtitle: siteSettings.heroSubtitle,
+  });
+  const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
 
   const [users, setUsers] = useState<UserItem[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -148,6 +159,15 @@ function AdminPage() {
     loadLinkCards();
     loadAuditLogs();
   }, []);
+
+  useEffect(() => {
+    setSiteSettingsDraft({
+      brandName: siteSettings.brandName,
+      browserTitle: siteSettings.browserTitle,
+      heroTitle: siteSettings.heroTitle,
+      heroSubtitle: siteSettings.heroSubtitle,
+    });
+  }, [siteSettings.brandName, siteSettings.browserTitle, siteSettings.heroTitle, siteSettings.heroSubtitle]);
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -381,6 +401,26 @@ function AdminPage() {
     }
   }
 
+  async function handleSaveSiteSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSavingSiteSettings(true);
+    try {
+      await updateSiteSettings({
+        brand_name: siteSettingsDraft.brandName.trim() || null,
+        browser_title: siteSettingsDraft.browserTitle.trim() || null,
+        hero_title: siteSettingsDraft.heroTitle.trim() || null,
+        hero_subtitle: siteSettingsDraft.heroSubtitle.trim() || null,
+      });
+      await siteSettings.refresh();
+      toast.success("已更新站台設定");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新站台設定失敗";
+      toast.error(message);
+    } finally {
+      setIsSavingSiteSettings(false);
+    }
+  }
+
   const totalFiles = fileGroups?.reduce((sum, group) => sum + group.files.length, 0) ?? null;
 
   const filteredUsers = useMemo(() => {
@@ -460,6 +500,7 @@ function AdminPage() {
           <TabsTrigger value="link-cards">連結卡片</TabsTrigger>
           <TabsTrigger value="files">檔案</TabsTrigger>
           <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
+          <TabsTrigger value="site-settings">站台設定</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="flex flex-col gap-6 pt-4">
@@ -961,6 +1002,58 @@ function AdminPage() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="site-settings" className="pt-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>站台設定</h2>
+              <p className="text-sm text-muted-foreground">
+                自訂導覽列／瀏覽器分頁顯示的站台名稱，以及首頁歡迎卡片的主標題與副標說明文字。欄位留空時使用預設文案。
+              </p>
+              <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSaveSiteSettings}>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-brand-name">站台名稱（導覽列）</Label>
+                  <Input
+                    id="site-brand-name"
+                    type="text"
+                    value={siteSettingsDraft.brandName}
+                    onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, brandName: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-browser-title">瀏覽器分頁標題</Label>
+                  <Input
+                    id="site-browser-title"
+                    type="text"
+                    value={siteSettingsDraft.browserTitle}
+                    onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, browserTitle: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-hero-title">首頁主標題</Label>
+                  <Input
+                    id="site-hero-title"
+                    type="text"
+                    value={siteSettingsDraft.heroTitle}
+                    onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, heroTitle: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-hero-subtitle">首頁副標說明</Label>
+                  <Input
+                    id="site-hero-subtitle"
+                    type="text"
+                    value={siteSettingsDraft.heroSubtitle}
+                    onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, heroSubtitle: e.target.value }))}
+                  />
+                </div>
+                <Button type="submit" className="self-start" disabled={isSavingSiteSettings}>
+                  {isSavingSiteSettings ? "儲存中…" : "儲存"}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>

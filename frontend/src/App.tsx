@@ -10,6 +10,7 @@ import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ConfirmDialogProvider } from "./context/ConfirmDialogContext";
+import { SiteSettingsProvider, useSiteSettings } from "./context/SiteSettingsContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { cn } from "./lib/utils";
 
@@ -105,11 +106,13 @@ function HeaderNav() {
 }
 
 function AppShell() {
+  const { brandName } = useSiteSettings();
+
   return (
     <div className="mx-auto box-border flex min-h-svh w-full max-w-[1126px] flex-col border-x border-border">
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-8 py-4">
         <NavLink to="/" className="text-lg font-semibold tracking-tight text-foreground no-underline">
-          py-file-platform
+          {brandName}
         </NavLink>
         <HeaderNav />
       </header>
@@ -137,7 +140,7 @@ function AppShell() {
         </Routes>
       </main>
       <footer className="mt-auto border-t border-border px-8 py-4 text-sm text-muted-foreground">
-        <span>py-file-platform &middot; 內部文件共享平台</span>
+        <span>{brandName} &middot; 內部文件共享平台</span>
       </footer>
     </div>
   );
@@ -146,12 +149,14 @@ function AppShell() {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ConfirmDialogProvider>
-          <AppShell />
-          <Toaster position="bottom-right" duration={4000} visibleToasts={3} />
-        </ConfirmDialogProvider>
-      </AuthProvider>
+      <SiteSettingsProvider>
+        <AuthProvider>
+          <ConfirmDialogProvider>
+            <AppShell />
+            <Toaster position="bottom-right" duration={4000} visibleToasts={3} />
+          </ConfirmDialogProvider>
+        </AuthProvider>
+      </SiteSettingsProvider>
     </ThemeProvider>
   );
 }
