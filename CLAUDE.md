@@ -26,10 +26,14 @@ club or internal team: guests can browse and download public files without loggi
 only required to upload or manage files. It exists primarily to exercise a Python backend's CRUD/API
 handling against a React frontend.
 
-Implemented: local-account login/JWT auth, file upload/download with per-file public/private
-visibility and version history, folder-grouped browsing, admin user management, and an audit log for
-high-privilege actions (see README.md for the full feature list). Not yet implemented: LDAP auth and
-upload notifications (email + in-app).
+Implemented: local-account and LDAP login/JWT auth, file upload/download with per-file public/private
+visibility and version history, folder-grouped browsing, link-card categories, site branding settings,
+self-service password reset, admin user management, an audit log for high-privilege actions, and
+upload notifications — see README.md for the full feature list. Upload notifications currently has no
+frontend: the backend writes in-app `Notification` rows and sends best-effort email on upload
+(`app/api/notifications.py`, `app/core/notifications.py`, `app/core/mailer.py`), but nothing in
+`frontend/src/` calls `GET/PATCH /api/notifications` yet, and `AboutPage.tsx`'s "尚未實作" list still
+names both LDAP and upload notifications — both are stale and should be updated to match.
 
 Stack: FastAPI (backend) + React/Vite (frontend) + PostgreSQL, deployed via docker-compose. Backend
 and frontend are both wired end-to-end (API routes, pages, and test suites all exist) rather than a
@@ -97,16 +101,22 @@ native and Docker dev — see `.env.example`. Notably:
 
 - `app/main.py` — FastAPI app entrypoint; mounts the single router from `app/api/router.py`.
 - `app/api/router.py` — `APIRouter(prefix="/api")` that includes the feature routers, each a separate
-  module under `app/api/`: `auth.py` (login/JWT, `/me`), `files.py` (upload/download, versions,
-  visibility toggle, folder-grouped listing), `folders.py` (card CRUD, admin-only writes via
-  `require_admin`), `admin.py` (user management, gated by `require_admin` in `deps.py`).
+  module under `app/api/`: `auth.py` (login/JWT — local password or LDAP bind via `app/core/ldap.py`,
+  `/me`), `files.py` (upload/download, versions, visibility toggle, folder-grouped listing, fires
+  upload notifications), `folders.py` (card CRUD, admin-only writes via `require_admin`), `link_cards.py`
+  (admin-managed external link cards, grouped like files by folder), `site_settings.py` (branding
+  text, admin-only writes), `password_reset.py` (self-service forgot/reset-password flow, emails a
+  token link via `app/core/email.py`), `notifications.py` (`GET`/`PATCH` on a user's own `Notification`
+  rows — no frontend consumes this yet, see Project overview), `admin.py` (user management, gated by
+  `require_admin` in `deps.py`).
 - `app/core/config.py` — pydantic-settings `Settings`, loaded once as the module-level `settings`
   singleton and imported wherever config is needed.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
-- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `AuditLog`), all imported
-  and re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models import *` so
-  every model must be added to that `__init__.py` to be picked up by autogenerate.
+- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`,
+  `SiteSetting`, `PasswordResetToken`, `Notification`, `AuditLog`), all imported and re-exported from
+  `app/models/__init__.py`. Alembic's `env.py` does `from app.models import *` so every model must be
+  added to that `__init__.py` to be picked up by autogenerate.
 
 Data model relationships: `File.owner_id` → `User.id`; `File.folder_id` → `Folder.id` (nullable; a
 "card" grouping with name/description, admin-managed, that any file owner can assign their own files
