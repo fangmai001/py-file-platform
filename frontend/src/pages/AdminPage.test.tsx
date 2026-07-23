@@ -45,7 +45,7 @@ vi.mock("../api/site-settings", () => ({
 }));
 
 import { fetchCurrentUser } from "../api/auth";
-import { deleteUser, listAuditLogs, listUsers } from "../api/admin";
+import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
 import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
@@ -70,6 +70,8 @@ async function loginAsAdmin() {
     username: "root",
     role: "admin",
     is_active: true,
+    email: null,
+    auth_source: "local",
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
   });
@@ -89,6 +91,8 @@ describe("AdminPage", () => {
         username: "alice",
         role: "user",
         is_active: true,
+        email: null,
+        auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       },
@@ -97,6 +101,8 @@ describe("AdminPage", () => {
         username: "bob",
         role: "user",
         is_active: true,
+        email: null,
+        auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       },
@@ -114,6 +120,75 @@ describe("AdminPage", () => {
     expect(screen.getByText("alice")).toBeInTheDocument();
   });
 
+  it("creates a user with an email address", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(createUser).mockResolvedValue({
+      id: 3,
+      username: "carol",
+      role: "user",
+      is_active: true,
+      email: "carol@example.com",
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByLabelText("帳號")).toBeInTheDocument());
+    await user.type(screen.getByLabelText("帳號"), "carol");
+    await user.type(screen.getByLabelText("密碼"), "s3cret-pw");
+    await user.type(screen.getByLabelText("Email（選填）"), "carol@example.com");
+    await user.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() =>
+      expect(createUser).toHaveBeenCalledWith({
+        username: "carol",
+        password: "s3cret-pw",
+        role: "user",
+        email: "carol@example.com",
+      }),
+    );
+  });
+
+  it("saves an edited email for an existing user", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "bob",
+        role: "user",
+        is_active: true,
+        email: null,
+        auth_source: "local",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 2,
+      username: "bob",
+      role: "user",
+      is_active: true,
+      email: "bob@example.com",
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
+    const emailInput = screen.getByPlaceholderText("未設定");
+    await user.type(emailInput, "bob@example.com");
+    await user.click(screen.getByRole("button", { name: "儲存 Email" }));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
+  });
+
   it("asks for confirmation before deleting a user, and cancelling keeps it", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([
@@ -122,6 +197,8 @@ describe("AdminPage", () => {
         username: "bob",
         role: "user",
         is_active: true,
+        email: null,
+        auth_source: "local",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       },

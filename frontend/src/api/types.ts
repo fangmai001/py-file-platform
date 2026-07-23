@@ -42,10 +42,20 @@ export interface FileVersionItem {
 export interface UserItem {
   id: number;
   username: string;
+  email: string | null;
   role: string;
+  auth_source: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface NotificationItem {
+  id: number;
+  file_id: number;
+  message: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 export interface AuditLogItem {
