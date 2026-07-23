@@ -21,10 +21,11 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 interface UserDraft {
   email: string;
   role: string;
+  password: string;
 }
 
 function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
-  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "", role: u.role }]));
+  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "", role: u.role, password: "" }]));
 }
 
 interface FolderDraft {
@@ -230,6 +231,31 @@ function AdminPage() {
       toast.success(`已更新使用者「${target.username}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新使用者失敗";
+      setUsersError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleResetPassword(target: UserItem) {
+    const password = userDrafts[target.id]?.password ?? "";
+    if (!password) {
+      return;
+    }
+    const ok = await confirm({
+      title: "重設密碼",
+      description: `確定要重設使用者「${target.username}」的密碼嗎？`,
+      confirmLabel: "確定",
+    });
+    if (!ok) {
+      return;
+    }
+    try {
+      await updateUser(target.id, { password });
+      await loadUsers();
+      await loadAuditLogs();
+      toast.success(`已重設使用者「${target.username}」的密碼`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "重設密碼失敗";
       setUsersError(message);
       toast.error(message);
     }
@@ -652,12 +678,34 @@ function AdminPage() {
                         <TableCell>{formatDateTime(u.created_at)}</TableCell>
                         <TableCell>{formatDateTime(u.updated_at)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Button variant="outline" size="sm" onClick={() => handleSaveUser(u)}>
                               儲存
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
                               {u.is_active ? "停用" : "啟用"}
+                            </Button>
+                            <Input
+                              type="password"
+                              className="w-32"
+                              placeholder={u.auth_source === "ldap" ? "LDAP 帳號" : "新密碼"}
+                              aria-label={`重設「${u.username}」的密碼`}
+                              value={userDrafts[u.id]?.password ?? ""}
+                              disabled={u.auth_source === "ldap"}
+                              onChange={(e) =>
+                                setUserDrafts((drafts) => ({
+                                  ...drafts,
+                                  [u.id]: { ...drafts[u.id], password: e.target.value },
+                                }))
+                              }
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetPassword(u)}
+                              disabled={u.auth_source === "ldap" || !userDrafts[u.id]?.password}
+                            >
+                              重設密碼
                             </Button>
                             <Button
                               variant="outline"
