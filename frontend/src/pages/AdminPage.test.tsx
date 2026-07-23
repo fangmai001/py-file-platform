@@ -184,9 +184,54 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
     const emailInput = screen.getByPlaceholderText("未設定");
     await user.type(emailInput, "bob@example.com");
-    await user.click(screen.getByRole("button", { name: "儲存 Email" }));
+    await user.click(screen.getByRole("button", { name: "儲存" }));
 
     await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
+  });
+
+  it("stages a role change and only saves it after confirming", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "bob",
+        role: "user",
+        is_active: true,
+        email: null,
+        auth_source: "local",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 2,
+      username: "bob",
+      role: "admin",
+      is_active: true,
+      email: null,
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
+    const roleCombobox = screen.getAllByRole("combobox").at(-1);
+    if (!roleCombobox) {
+      throw new Error("role combobox not found");
+    }
+    await user.click(roleCombobox);
+    await user.click(screen.getByRole("option", { name: "admin" }));
+
+    expect(updateUser).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+    await waitFor(() => expect(screen.getByText(/角色改為「admin」/)).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "確定" }));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { role: "admin" }));
   });
 
   it("asks for confirmation before deleting a user, and cancelling keeps it", async () => {
