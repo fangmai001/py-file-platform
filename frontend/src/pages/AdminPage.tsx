@@ -855,6 +855,7 @@ function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>標題</TableHead>
+                      <TableHead>說明</TableHead>
                       <TableHead>網址</TableHead>
                       <TableHead>分類</TableHead>
                       <TableHead>公開</TableHead>
@@ -872,6 +873,18 @@ function AdminPage() {
                               setLinkCardDrafts((drafts) => ({
                                 ...drafts,
                                 [card.id]: { ...drafts[card.id], title: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={linkCardDrafts[card.id]?.description ?? ""}
+                            onChange={(e) =>
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], description: e.target.value },
                               }))
                             }
                           />
