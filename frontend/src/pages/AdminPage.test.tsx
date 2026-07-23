@@ -45,7 +45,7 @@ vi.mock("../api/site-settings", () => ({
 }));
 
 import { fetchCurrentUser } from "../api/auth";
-import { deleteUser, listUsers } from "../api/admin";
+import { deleteUser, listAuditLogs, listUsers } from "../api/admin";
 import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
@@ -158,6 +158,32 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("tab", { name: "卡片" }));
 
     await waitFor(() => expect(screen.getByText("卡片列表")).toBeInTheDocument());
+  });
+
+  it("shows a readable label, not the raw sentinel value, for the audit log action filter", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listAuditLogs).mockResolvedValue([
+      {
+        id: 1,
+        actor_id: 1,
+        actor_username: "root",
+        action: "folder.create",
+        target: "財務",
+        detail: null,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "操作紀錄" }));
+
+    await waitFor(() => expect(screen.getByLabelText("依動作類型篩選")).toBeInTheDocument());
+    expect(screen.getByLabelText("依動作類型篩選")).toHaveTextContent("全部動作");
+    expect(screen.queryByText("__all__")).not.toBeInTheDocument();
   });
 
   it("creates a link card from the 連結卡片 tab", async () => {
