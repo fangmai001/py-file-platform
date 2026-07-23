@@ -43,9 +43,21 @@ vi.mock("../api/site-settings", () => ({
   }),
   updateSiteSettings: vi.fn(),
 }));
+vi.mock("../api/ldap-settings", () => ({
+  getLdapSettings: vi.fn().mockResolvedValue({
+    enabled: false,
+    server_uri: null,
+    bind_dn: null,
+    bind_password_set: false,
+    base_dn: null,
+    user_search_filter: "(uid={username})",
+  }),
+  updateLdapSettings: vi.fn(),
+}));
 
 import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
+import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
 
@@ -361,6 +373,49 @@ describe("AdminPage", () => {
         browser_title: "舊分頁標題",
         hero_title: "舊主標題",
         hero_subtitle: "舊副標",
+      }),
+    );
+  });
+
+  it("saves LDAP settings from the LDAP 設定 tab without sending a blank password", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getLdapSettings).mockResolvedValue({
+      enabled: false,
+      server_uri: null,
+      bind_dn: null,
+      bind_password_set: true,
+      base_dn: null,
+      user_search_filter: "(uid={username})",
+    });
+    vi.mocked(updateLdapSettings).mockResolvedValue({
+      enabled: true,
+      server_uri: "ldap://ldap.example.internal",
+      bind_dn: null,
+      bind_password_set: true,
+      base_dn: null,
+      user_search_filter: "(uid={username})",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "LDAP 設定" }));
+
+    const enabledCheckbox = await screen.findByRole("checkbox", { name: "啟用 LDAP 登入" });
+    await user.click(enabledCheckbox);
+    const serverUriInput = screen.getByLabelText("伺服器位址");
+    await user.type(serverUriInput, "ldap://ldap.example.internal");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateLdapSettings).toHaveBeenCalledWith({
+        enabled: true,
+        server_uri: "ldap://ldap.example.internal",
+        bind_dn: null,
+        base_dn: null,
+        user_search_filter: "(uid={username})",
       }),
     );
   });

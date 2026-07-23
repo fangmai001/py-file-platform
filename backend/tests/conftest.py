@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.database import Base, get_db
 from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models import User
+from app.models import LdapSetting, User
 
 _engine = create_engine(
     "sqlite:///:memory:",
@@ -82,6 +82,31 @@ def make_ldap_user(db_session, username="alice", role="user", is_active=True) ->
     db_session.commit()
     db_session.refresh(user)
     return user
+
+
+def configure_ldap(
+    db_session,
+    *,
+    enabled=True,
+    server_uri="ldap://ldap.example.internal",
+    bind_dn="cn=service,dc=example",
+    bind_password="service-pw",
+    base_dn="ou=people,dc=example",
+    user_search_filter="(uid={username})",
+) -> LdapSetting:
+    settings_row = LdapSetting(
+        id=1,
+        enabled=enabled,
+        server_uri=server_uri,
+        bind_dn=bind_dn,
+        bind_password=bind_password,
+        base_dn=base_dn,
+        user_search_filter=user_search_filter,
+    )
+    db_session.add(settings_row)
+    db_session.commit()
+    db_session.refresh(settings_row)
+    return settings_row
 
 
 def auth_headers(user: User) -> dict[str, str]:

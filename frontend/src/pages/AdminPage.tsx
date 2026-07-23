@@ -4,11 +4,14 @@ import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "..
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
+import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
+import type { LdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import { updateSiteSettings } from "../api/site-settings";
 import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -78,6 +81,18 @@ function AdminPage() {
     heroSubtitle: siteSettings.heroSubtitle,
   });
   const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
+
+  const [ldapSettings, setLdapSettings] = useState<LdapSettings | null>(null);
+  const [ldapSettingsError, setLdapSettingsError] = useState<string | null>(null);
+  const [ldapDraft, setLdapDraft] = useState({
+    enabled: false,
+    serverUri: "",
+    bindDn: "",
+    bindPassword: "",
+    baseDn: "",
+    userSearchFilter: "",
+  });
+  const [isSavingLdapSettings, setIsSavingLdapSettings] = useState(false);
 
   const [users, setUsers] = useState<UserItem[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -164,12 +179,31 @@ function AdminPage() {
     }
   }
 
+  async function loadLdapSettings() {
+    try {
+      const data = await getLdapSettings();
+      setLdapSettings(data);
+      setLdapDraft({
+        enabled: data.enabled,
+        serverUri: data.server_uri ?? "",
+        bindDn: data.bind_dn ?? "",
+        bindPassword: "",
+        baseDn: data.base_dn ?? "",
+        userSearchFilter: data.user_search_filter,
+      });
+      setLdapSettingsError(null);
+    } catch (err) {
+      setLdapSettingsError(err instanceof ApiError ? err.message : "無法載入 LDAP 設定");
+    }
+  }
+
   useEffect(() => {
     loadUsers();
     loadFiles();
     loadFolders();
     loadLinkCards();
     loadAuditLogs();
+    loadLdapSettings();
   }, []);
 
   useEffect(() => {
@@ -451,6 +485,31 @@ function AdminPage() {
     }
   }
 
+  async function handleSaveLdapSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSavingLdapSettings(true);
+    try {
+      await updateLdapSettings({
+        enabled: ldapDraft.enabled,
+        server_uri: ldapDraft.serverUri.trim() || null,
+        bind_dn: ldapDraft.bindDn.trim() || null,
+        // Omitted entirely when blank so the currently stored password is kept.
+        ...(ldapDraft.bindPassword.trim() ? { bind_password: ldapDraft.bindPassword.trim() } : {}),
+        base_dn: ldapDraft.baseDn.trim() || null,
+        user_search_filter: ldapDraft.userSearchFilter.trim() || undefined,
+      });
+      await loadLdapSettings();
+      await loadAuditLogs();
+      toast.success("已更新 LDAP 設定");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新 LDAP 設定失敗";
+      setLdapSettingsError(message);
+      toast.error(message);
+    } finally {
+      setIsSavingLdapSettings(false);
+    }
+  }
+
   const totalFiles = fileGroups?.reduce((sum, group) => sum + group.files.length, 0) ?? null;
 
   const filteredUsers = useMemo(() => {
@@ -531,6 +590,7 @@ function AdminPage() {
           <TabsTrigger value="files">檔案</TabsTrigger>
           <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
           <TabsTrigger value="site-settings">站台設定</TabsTrigger>
+          <TabsTrigger value="ldap-settings">LDAP 設定</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="flex flex-col gap-6 pt-4">
@@ -1109,6 +1169,84 @@ function AdminPage() {
                 </div>
                 <Button type="submit" className="self-start" disabled={isSavingSiteSettings}>
                   {isSavingSiteSettings ? "儲存中…" : "儲存"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ldap-settings" className="pt-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>LDAP 設定</h2>
+              <p className="text-sm text-muted-foreground">
+                設定後，使用者可用 LDAP 帳號密碼登入（本機帳號優先，找不到本機帳號時才會嘗試 LDAP 驗證）。
+                密碼欄位留空表示不變更目前已儲存的密碼。
+              </p>
+              {ldapSettingsError && <p className="text-sm text-destructive">{ldapSettingsError}</p>}
+              <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSaveLdapSettings}>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="ldap-enabled"
+                    checked={ldapDraft.enabled}
+                    onCheckedChange={(checked) =>
+                      setLdapDraft((draft) => ({ ...draft, enabled: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="ldap-enabled">啟用 LDAP 登入</Label>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ldap-server-uri">伺服器位址</Label>
+                  <Input
+                    id="ldap-server-uri"
+                    type="text"
+                    placeholder="ldap://ldap.example.internal"
+                    value={ldapDraft.serverUri}
+                    onChange={(e) => setLdapDraft((draft) => ({ ...draft, serverUri: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ldap-bind-dn">服務帳號 DN</Label>
+                  <Input
+                    id="ldap-bind-dn"
+                    type="text"
+                    placeholder="cn=service-account,dc=example,dc=internal"
+                    value={ldapDraft.bindDn}
+                    onChange={(e) => setLdapDraft((draft) => ({ ...draft, bindDn: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ldap-bind-password">服務帳號密碼</Label>
+                  <Input
+                    id="ldap-bind-password"
+                    type="password"
+                    placeholder={ldapSettings?.bind_password_set ? "已設定，留空表示不變更" : "尚未設定"}
+                    value={ldapDraft.bindPassword}
+                    onChange={(e) => setLdapDraft((draft) => ({ ...draft, bindPassword: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ldap-base-dn">搜尋起始 DN</Label>
+                  <Input
+                    id="ldap-base-dn"
+                    type="text"
+                    placeholder="ou=people,dc=example,dc=internal"
+                    value={ldapDraft.baseDn}
+                    onChange={(e) => setLdapDraft((draft) => ({ ...draft, baseDn: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ldap-user-search-filter">使用者搜尋條件</Label>
+                  <Input
+                    id="ldap-user-search-filter"
+                    type="text"
+                    placeholder="(uid={username})"
+                    value={ldapDraft.userSearchFilter}
+                    onChange={(e) => setLdapDraft((draft) => ({ ...draft, userSearchFilter: e.target.value }))}
+                  />
+                </div>
+                <Button type="submit" className="self-start" disabled={isSavingLdapSettings}>
+                  {isSavingLdapSettings ? "儲存中…" : "儲存"}
                 </Button>
               </form>
             </CardContent>

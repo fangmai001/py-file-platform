@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock
 
-from app.core.config import settings
 from app.models import User
-from tests.conftest import auth_headers, make_ldap_user, make_user
+from tests.conftest import auth_headers, configure_ldap, make_ldap_user, make_user
 
 
 def test_login_ldap_disabled_unknown_user_still_401(client, db_session, monkeypatch):
@@ -16,7 +15,7 @@ def test_login_ldap_disabled_unknown_user_still_401(client, db_session, monkeypa
 
 
 def test_login_creates_local_user_on_first_ldap_success(client, db_session, monkeypatch):
-    monkeypatch.setattr(settings, "ldap_enabled", True)
+    configure_ldap(db_session)
     monkeypatch.setattr("app.api.auth.authenticate_ldap", MagicMock(return_value=True))
 
     response = client.post("/api/auth/login", json={"username": "newldapuser", "password": "whatever"})
@@ -29,7 +28,7 @@ def test_login_creates_local_user_on_first_ldap_success(client, db_session, monk
 
 
 def test_login_ldap_bind_failure_401(client, db_session, monkeypatch):
-    monkeypatch.setattr(settings, "ldap_enabled", True)
+    configure_ldap(db_session)
     monkeypatch.setattr("app.api.auth.authenticate_ldap", MagicMock(return_value=False))
 
     response = client.post("/api/auth/login", json={"username": "someone", "password": "wrong"})
@@ -40,7 +39,7 @@ def test_login_ldap_bind_failure_401(client, db_session, monkeypatch):
 
 def test_login_local_user_bypasses_ldap_even_when_enabled(client, db_session, monkeypatch):
     make_user(db_session, username="alice", password="s3cret-pw")
-    monkeypatch.setattr(settings, "ldap_enabled", True)
+    configure_ldap(db_session)
     mock_authenticate = MagicMock(return_value=False)
     monkeypatch.setattr("app.api.auth.authenticate_ldap", mock_authenticate)
 
@@ -52,7 +51,7 @@ def test_login_local_user_bypasses_ldap_even_when_enabled(client, db_session, mo
 
 def test_login_existing_ldap_user_reuses_same_record(client, db_session, monkeypatch):
     existing = make_ldap_user(db_session, username="bob")
-    monkeypatch.setattr(settings, "ldap_enabled", True)
+    configure_ldap(db_session)
     monkeypatch.setattr("app.api.auth.authenticate_ldap", MagicMock(return_value=True))
 
     response = client.post("/api/auth/login", json={"username": "bob", "password": "whatever"})
@@ -64,7 +63,7 @@ def test_login_existing_ldap_user_reuses_same_record(client, db_session, monkeyp
 
 def test_login_inactive_ldap_user_blocked_without_calling_ldap(client, db_session, monkeypatch):
     make_ldap_user(db_session, username="bob", is_active=False)
-    monkeypatch.setattr(settings, "ldap_enabled", True)
+    configure_ldap(db_session)
     mock_authenticate = MagicMock(return_value=True)
     monkeypatch.setattr("app.api.auth.authenticate_ldap", mock_authenticate)
 

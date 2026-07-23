@@ -2,6 +2,7 @@ from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_version import FileVersion
 from app.models.folder import Folder
+from app.models.ldap_setting import LdapSetting
 from app.models.link_card import LinkCard
 from app.models.notification import Notification
 from app.models.password_reset_token import PasswordResetToken
@@ -15,6 +16,7 @@ __all__ = [
     "Folder",
     "LinkCard",
     "SiteSetting",
+    "LdapSetting",
     "PasswordResetToken",
     "Notification",
     "AuditLog",
