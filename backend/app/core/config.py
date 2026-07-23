@@ -22,5 +22,19 @@ class Settings(BaseSettings):
     initial_admin_username: str | None = None
     initial_admin_password: str | None = None
 
+    # SMTP for outgoing mail (password reset links, future upload notifications).
+    # When smtp_host is unset, app.core.email logs the message instead of sending it,
+    # so password reset works in local/dev without a real mail server.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_address: str | None = None
+    smtp_use_tls: bool = True
+
+    # Used to build links (e.g. password reset) that point back at the frontend.
+    frontend_base_url: str = "http://localhost:5173"
+    password_reset_token_expire_minutes: int = 30
+
 
 settings = Settings()

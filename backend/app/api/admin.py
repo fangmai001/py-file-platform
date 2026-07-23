@@ -28,9 +28,12 @@ def create_user(
 ) -> User:
     if db.query(User).filter(User.username == payload.username).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="帳號已存在")
+    if payload.email and db.query(User).filter(User.email == payload.email).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
 
     user = User(
         username=payload.username,
+        email=payload.email,
         password_hash=hash_password(payload.password),
         role=payload.role,
     )
@@ -70,6 +73,11 @@ def update_user(
     if payload.password is not None:
         user.password_hash = hash_password(payload.password)
         changes.append("password reset")
+    if payload.email is not None and payload.email != user.email:
+        if db.query(User).filter(User.email == payload.email, User.id != user.id).first() is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
+        changes.append("email updated")
+        user.email = payload.email
 
     if changes:
         write_audit_log(db, actor_id=admin.id, action="user.update", target=user.username, detail="; ".join(changes))
