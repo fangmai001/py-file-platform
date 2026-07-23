@@ -189,6 +189,67 @@ describe("AdminPage", () => {
     await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
   });
 
+  it("resets a user's password after confirmation", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "bob",
+        role: "user",
+        is_active: true,
+        email: null,
+        auth_source: "local",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 2,
+      username: "bob",
+      role: "user",
+      is_active: true,
+      email: null,
+      auth_source: "local",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-02T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
+    const passwordInput = screen.getByLabelText("重設「bob」的密碼");
+    await user.type(passwordInput, "n3w-p@ss");
+    await user.click(screen.getByRole("button", { name: "重設密碼" }));
+
+    await waitFor(() => expect(screen.getByText(/確定要重設使用者「bob」的密碼嗎/)).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "確定" }));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { password: "n3w-p@ss" }));
+  });
+
+  it("disables password reset for LDAP accounts", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "carl",
+        role: "user",
+        is_active: true,
+        email: null,
+        auth_source: "ldap",
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    await waitFor(() => expect(screen.getByText("carl")).toBeInTheDocument());
+    expect(screen.getByLabelText("重設「carl」的密碼")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "重設密碼" })).toBeDisabled();
+  });
+
   it("asks for confirmation before deleting a user, and cancelling keeps it", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([
