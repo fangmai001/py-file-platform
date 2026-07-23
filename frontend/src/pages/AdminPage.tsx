@@ -4,7 +4,8 @@ import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "..
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
-import type { AuditLogItem, FileItem, FolderGroup, FolderItem, UserItem } from "../api/types";
+import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
+import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -24,8 +25,32 @@ function toFolderDrafts(items: FolderItem[]): Record<number, FolderDraft> {
   return Object.fromEntries(items.map((f) => [f.id, { name: f.name, description: f.description ?? "" }]));
 }
 
+interface LinkCardDraft {
+  title: string;
+  description: string;
+  url: string;
+  folderId: string;
+  isPublic: boolean;
+}
+
+function toLinkCardDrafts(items: LinkCardItem[]): Record<number, LinkCardDraft> {
+  return Object.fromEntries(
+    items.map((c) => [
+      c.id,
+      {
+        title: c.title,
+        description: c.description ?? "",
+        url: c.url,
+        folderId: c.folder_id !== null ? String(c.folder_id) : NO_FOLDER,
+        isPublic: c.is_public,
+      },
+    ]),
+  );
+}
+
 const AUDIT_LOG_LIMIT = 50;
 const ALL_ACTIONS = "__all__";
+const NO_FOLDER = "none";
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("zh-TW");
@@ -53,6 +78,15 @@ function AdminPage() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderDescription, setNewFolderDescription] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  const [linkCards, setLinkCards] = useState<LinkCardItem[] | null>(null);
+  const [linkCardsError, setLinkCardsError] = useState<string | null>(null);
+  const [linkCardDrafts, setLinkCardDrafts] = useState<Record<number, LinkCardDraft>>({});
+  const [newLinkCardTitle, setNewLinkCardTitle] = useState("");
+  const [newLinkCardDescription, setNewLinkCardDescription] = useState("");
+  const [newLinkCardUrl, setNewLinkCardUrl] = useState("");
+  const [newLinkCardFolderId, setNewLinkCardFolderId] = useState(NO_FOLDER);
+  const [isCreatingLinkCard, setIsCreatingLinkCard] = useState(false);
 
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[] | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
@@ -87,6 +121,17 @@ function AdminPage() {
     }
   }
 
+  async function loadLinkCards() {
+    try {
+      const data = await listLinkCards();
+      setLinkCards(data);
+      setLinkCardDrafts(toLinkCardDrafts(data));
+      setLinkCardsError(null);
+    } catch (err) {
+      setLinkCardsError(err instanceof ApiError ? err.message : "無法載入連結卡片列表");
+    }
+  }
+
   async function loadAuditLogs() {
     try {
       setAuditLogs(await listAuditLogs(AUDIT_LOG_LIMIT));
@@ -100,6 +145,7 @@ function AdminPage() {
     loadUsers();
     loadFiles();
     loadFolders();
+    loadLinkCards();
     loadAuditLogs();
   }, []);
 
@@ -269,6 +315,72 @@ function AdminPage() {
     }
   }
 
+  async function handleCreateLinkCard(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsCreatingLinkCard(true);
+    setLinkCardsError(null);
+    try {
+      await createLinkCard({
+        title: newLinkCardTitle,
+        description: newLinkCardDescription.trim() || null,
+        url: newLinkCardUrl,
+        folder_id: newLinkCardFolderId === NO_FOLDER ? null : Number(newLinkCardFolderId),
+      });
+      setNewLinkCardTitle("");
+      setNewLinkCardDescription("");
+      setNewLinkCardUrl("");
+      setNewLinkCardFolderId(NO_FOLDER);
+      await loadLinkCards();
+      toast.success(`已建立連結卡片「${newLinkCardTitle}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "建立連結卡片失敗";
+      setLinkCardsError(message);
+      toast.error(message);
+    } finally {
+      setIsCreatingLinkCard(false);
+    }
+  }
+
+  async function handleSaveLinkCard(linkCard: LinkCardItem) {
+    const draft = linkCardDrafts[linkCard.id];
+    try {
+      await updateLinkCard(linkCard.id, {
+        title: draft.title,
+        description: draft.description.trim() || null,
+        url: draft.url,
+        folder_id: draft.folderId === NO_FOLDER ? null : Number(draft.folderId),
+        is_public: draft.isPublic,
+      });
+      await loadLinkCards();
+      toast.success(`已更新連結卡片「${draft.title}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新連結卡片失敗";
+      setLinkCardsError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleDeleteLinkCard(linkCard: LinkCardItem) {
+    const ok = await confirm({
+      title: "刪除連結卡片",
+      description: `確定要刪除連結卡片「${linkCard.title}」嗎？此操作無法復原。`,
+      confirmLabel: "刪除",
+      variant: "destructive",
+    });
+    if (!ok) {
+      return;
+    }
+    try {
+      await deleteLinkCard(linkCard.id);
+      await loadLinkCards();
+      toast.success(`已刪除連結卡片「${linkCard.title}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "刪除連結卡片失敗";
+      setLinkCardsError(message);
+      toast.error(message);
+    }
+  }
+
   const totalFiles = fileGroups?.reduce((sum, group) => sum + group.files.length, 0) ?? null;
 
   const filteredUsers = useMemo(() => {
@@ -345,6 +457,7 @@ function AdminPage() {
         <TabsList>
           <TabsTrigger value="users">使用者</TabsTrigger>
           <TabsTrigger value="folders">卡片</TabsTrigger>
+          <TabsTrigger value="link-cards">連結卡片</TabsTrigger>
           <TabsTrigger value="files">檔案</TabsTrigger>
           <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
         </TabsList>
@@ -551,6 +664,182 @@ function AdminPage() {
                               儲存
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleDeleteFolder(folder)}>
+                              刪除
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="link-cards" className="flex flex-col gap-6 pt-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>新增連結卡片</h2>
+              <p className="text-sm text-muted-foreground">
+                連結卡片會與檔案卡片一併顯示在首頁，點擊後在新分頁開啟指定網址，不涉及檔案上傳/下載。
+              </p>
+              <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateLinkCard}>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-link-card-title">標題</Label>
+                  <Input
+                    id="new-link-card-title"
+                    type="text"
+                    value={newLinkCardTitle}
+                    onChange={(e) => setNewLinkCardTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-link-card-description">說明</Label>
+                  <Input
+                    id="new-link-card-description"
+                    type="text"
+                    value={newLinkCardDescription}
+                    onChange={(e) => setNewLinkCardDescription(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-link-card-url">目標網址</Label>
+                  <Input
+                    id="new-link-card-url"
+                    type="url"
+                    placeholder="https://example.com"
+                    value={newLinkCardUrl}
+                    onChange={(e) => setNewLinkCardUrl(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-link-card-folder">卡片分類</Label>
+                  <Select value={newLinkCardFolderId} onValueChange={(value) => value && setNewLinkCardFolderId(value)}>
+                    <SelectTrigger id="new-link-card-folder" className="w-40">
+                      <SelectValue>
+                        {(value: string) =>
+                          value === NO_FOLDER ? "未分類" : (folders?.find((f) => String(f.id) === value)?.name ?? "未分類")
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_FOLDER}>未分類</SelectItem>
+                      {(folders ?? []).map((folder) => (
+                        <SelectItem key={folder.id} value={String(folder.id)}>
+                          {folder.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" disabled={isCreatingLinkCard}>
+                  {isCreatingLinkCard ? "建立中…" : "新增"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>連結卡片列表</h2>
+              {linkCardsError && <p className="text-sm text-destructive">{linkCardsError}</p>}
+              {linkCards === null && !linkCardsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              {linkCards !== null && linkCards.length === 0 && (
+                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+                  目前沒有連結卡片
+                </div>
+              )}
+              {linkCards !== null && linkCards.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>標題</TableHead>
+                      <TableHead>網址</TableHead>
+                      <TableHead>分類</TableHead>
+                      <TableHead>公開</TableHead>
+                      <TableHead>操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {linkCards.map((card) => (
+                      <TableRow key={card.id}>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={linkCardDrafts[card.id]?.title ?? ""}
+                            onChange={(e) =>
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], title: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="url"
+                            value={linkCardDrafts[card.id]?.url ?? ""}
+                            onChange={(e) =>
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], url: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={linkCardDrafts[card.id]?.folderId ?? NO_FOLDER}
+                            onValueChange={(value) =>
+                              value &&
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], folderId: value },
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue>
+                                {(value: string) =>
+                                  value === NO_FOLDER
+                                    ? "未分類"
+                                    : (folders?.find((f) => String(f.id) === value)?.name ?? "未分類")
+                                }
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_FOLDER}>未分類</SelectItem>
+                              {(folders ?? []).map((folder) => (
+                                <SelectItem key={folder.id} value={String(folder.id)}>
+                                  {folder.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setLinkCardDrafts((drafts) => ({
+                                ...drafts,
+                                [card.id]: { ...drafts[card.id], isPublic: !drafts[card.id]?.isPublic },
+                              }))
+                            }
+                          >
+                            {linkCardDrafts[card.id]?.isPublic ? "公開" : "私密"}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleSaveLinkCard(card)}>
+                              儲存
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteLinkCard(card)}>
                               刪除
                             </Button>
                           </div>
