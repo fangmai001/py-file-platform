@@ -1,5 +1,6 @@
 import mimetypes
 import uuid
+from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
@@ -12,8 +13,9 @@ from app.api.deps import get_current_user, get_current_user_optional
 from app.core.audit import write_audit_log
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import File, FileVersion, User
+from app.models import File, FileVersion, Folder, User
 from app.schemas.file import FileResponse, FileUpdate, FileVersionResponse, FolderGroup
+from app.schemas.folder import FolderResponse
 
 router = APIRouter()
 
@@ -52,11 +54,17 @@ def _assert_can_view(file_row: File, current_user: User | None) -> None:
 def upload_file(
     upload: UploadFile = UploadFileParam(...),
     is_public: bool = Form(True),
+    folder_id: int | None = Form(None),
+    display_name: str | None = Form(None),
+    announced_at: date | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> File:
     if not upload.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="缺少檔案名稱")
+
+    if folder_id is not None and db.get(Folder, folder_id) is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
 
     extension = Path(upload.filename).suffix.lower()
     if extension not in _MAGIC_SIGNATURES:
@@ -112,7 +120,15 @@ def upload_file(
         db.refresh(existing_file)
         return existing_file
 
-    file_row = File(owner_id=current_user.id, filename=upload.filename, size=size, is_public=is_public)
+    file_row = File(
+        owner_id=current_user.id,
+        filename=upload.filename,
+        display_name=display_name,
+        folder_id=folder_id,
+        announced_at=announced_at,
+        size=size,
+        is_public=is_public,
+    )
     db.add(file_row)
     db.flush()
 
@@ -165,8 +181,21 @@ def update_file(
     if current_user.id != file_row.owner_id and current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限編輯此檔案")
 
+    fields_set = payload.model_fields_set
+
     if payload.is_public is not None:
         file_row.is_public = payload.is_public
+
+    if "folder_id" in fields_set:
+        if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
+        file_row.folder_id = payload.folder_id
+
+    if "display_name" in fields_set:
+        file_row.display_name = payload.display_name
+
+    if "announced_at" in fields_set:
+        file_row.announced_at = payload.announced_at
 
     db.commit()
     db.refresh(file_row)
@@ -274,10 +303,22 @@ def list_files(
         query = query.filter(or_(File.is_public.is_(True), File.owner_id == current_user.id))
     # admin: no filter, can see every file regardless of owner or visibility
 
-    files = query.order_by(File.folder.asc().nulls_first(), File.filename.asc()).all()
+    folders_by_id = {f.id: f for f in db.query(Folder).all()}
 
-    groups: dict[str | None, list[File]] = {}
+    files = (
+        query.outerjoin(Folder, File.folder_id == Folder.id)
+        .order_by(Folder.name.asc().nulls_first(), File.filename.asc())
+        .all()
+    )
+
+    groups: dict[int | None, list[File]] = {}
     for f in files:
-        groups.setdefault(f.folder, []).append(f)
+        groups.setdefault(f.folder_id, []).append(f)
 
-    return [FolderGroup(folder=folder, files=items) for folder, items in groups.items()]
+    return [
+        FolderGroup(
+            folder=FolderResponse.model_validate(folders_by_id[folder_id]) if folder_id is not None else None,
+            files=items,
+        )
+        for folder_id, items in groups.items()
+    ]

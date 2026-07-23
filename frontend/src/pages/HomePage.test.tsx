@@ -7,9 +7,13 @@ import HomePage from "./HomePage";
 vi.mock("../api/files", () => ({
   listFiles: vi.fn(),
   uploadFile: vi.fn(),
+  updateFile: vi.fn(),
   updateFileVisibility: vi.fn(),
   deleteFile: vi.fn(),
   downloadFile: vi.fn(),
+}));
+vi.mock("../api/folders", () => ({
+  listFolders: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/auth", () => ({
   login: vi.fn(),
@@ -43,7 +47,9 @@ describe("HomePage", () => {
             id: 1,
             owner_id: 2,
             filename: "a.pdf",
-            folder: null,
+            display_name: null,
+            folder_id: null,
+            announced_at: null,
             is_public: true,
             size: 2048,
             created_at: "2024-01-01T00:00:00Z",

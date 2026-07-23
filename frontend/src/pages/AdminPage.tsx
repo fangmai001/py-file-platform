@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
-import type { AuditLogItem, FileItem, FolderGroup, UserItem } from "../api/types";
+import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
+import type { AuditLogItem, FileItem, FolderGroup, FolderItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -10,6 +11,15 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { useAuth } from "../context/AuthContext";
+
+interface FolderDraft {
+  name: string;
+  description: string;
+}
+
+function toFolderDrafts(items: FolderItem[]): Record<number, FolderDraft> {
+  return Object.fromEntries(items.map((f) => [f.id, { name: f.name, description: f.description ?? "" }]));
+}
 
 const AUDIT_LOG_LIMIT = 50;
 
@@ -29,6 +39,13 @@ function AdminPage() {
 
   const [fileGroups, setFileGroups] = useState<FolderGroup[] | null>(null);
   const [filesError, setFilesError] = useState<string | null>(null);
+
+  const [folders, setFolders] = useState<FolderItem[] | null>(null);
+  const [foldersError, setFoldersError] = useState<string | null>(null);
+  const [folderDrafts, setFolderDrafts] = useState<Record<number, FolderDraft>>({});
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderDescription, setNewFolderDescription] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[] | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
@@ -51,6 +68,17 @@ function AdminPage() {
     }
   }
 
+  async function loadFolders() {
+    try {
+      const data = await listFolders();
+      setFolders(data);
+      setFolderDrafts(toFolderDrafts(data));
+      setFoldersError(null);
+    } catch (err) {
+      setFoldersError(err instanceof ApiError ? err.message : "無法載入卡片列表");
+    }
+  }
+
   async function loadAuditLogs() {
     try {
       setAuditLogs(await listAuditLogs(AUDIT_LOG_LIMIT));
@@ -63,6 +91,7 @@ function AdminPage() {
   useEffect(() => {
     loadUsers();
     loadFiles();
+    loadFolders();
     loadAuditLogs();
   }, []);
 
@@ -127,6 +156,45 @@ function AdminPage() {
       await loadAuditLogs();
     } catch (err) {
       setFilesError(err instanceof ApiError ? err.message : "刪除檔案失敗");
+    }
+  }
+
+  async function handleCreateFolder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsCreatingFolder(true);
+    setFoldersError(null);
+    try {
+      await createFolder({ name: newFolderName, description: newFolderDescription.trim() || null });
+      setNewFolderName("");
+      setNewFolderDescription("");
+      await loadFolders();
+    } catch (err) {
+      setFoldersError(err instanceof ApiError ? err.message : "建立卡片失敗");
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  }
+
+  async function handleSaveFolder(folder: FolderItem) {
+    const draft = folderDrafts[folder.id];
+    try {
+      await updateFolder(folder.id, { name: draft.name, description: draft.description.trim() || null });
+      await loadFolders();
+    } catch (err) {
+      setFoldersError(err instanceof ApiError ? err.message : "更新卡片失敗");
+    }
+  }
+
+  async function handleDeleteFolder(folder: FolderItem) {
+    if (!window.confirm(`確定要刪除卡片「${folder.name}」嗎？此卡片下的檔案將變為未分類。`)) {
+      return;
+    }
+    try {
+      await deleteFolder(folder.id);
+      await loadFolders();
+      await loadFiles();
+    } catch (err) {
+      setFoldersError(err instanceof ApiError ? err.message : "刪除卡片失敗");
     }
   }
 
@@ -260,6 +328,101 @@ function AdminPage() {
 
       <Card>
         <CardContent className="flex flex-col gap-4 text-left">
+          <h2>新增卡片</h2>
+          <p className="text-sm text-muted-foreground">卡片用來將首頁的檔案分組呈現，檔案上傳或編輯時可選擇要放入哪張卡片。</p>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateFolder}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-folder-name">名稱</Label>
+              <Input
+                id="new-folder-name"
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-folder-description">描述</Label>
+              <Input
+                id="new-folder-description"
+                type="text"
+                value={newFolderDescription}
+                onChange={(e) => setNewFolderDescription(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={isCreatingFolder}>
+              {isCreatingFolder ? "建立中…" : "新增"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <h2>卡片列表</h2>
+          {foldersError && <p className="text-sm text-destructive">{foldersError}</p>}
+          {folders === null && !foldersError && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {folders !== null && folders.length === 0 && (
+            <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+              目前沒有卡片
+            </div>
+          )}
+          {folders !== null && folders.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>名稱</TableHead>
+                  <TableHead>描述</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {folders.map((folder) => (
+                  <TableRow key={folder.id}>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        value={folderDrafts[folder.id]?.name ?? ""}
+                        onChange={(e) =>
+                          setFolderDrafts((drafts) => ({
+                            ...drafts,
+                            [folder.id]: { ...drafts[folder.id], name: e.target.value },
+                          }))
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        value={folderDrafts[folder.id]?.description ?? ""}
+                        onChange={(e) =>
+                          setFolderDrafts((drafts) => ({
+                            ...drafts,
+                            [folder.id]: { ...drafts[folder.id], description: e.target.value },
+                          }))
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleSaveFolder(folder)}>
+                          儲存
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteFolder(folder)}>
+                          刪除
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
           <h2>所有檔案</h2>
           {filesError && <p className="text-sm text-destructive">{filesError}</p>}
           {fileGroups === null && !filesError && <p className="text-sm text-muted-foreground">載入中…</p>}
@@ -273,7 +436,9 @@ function AdminPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>檔名</TableHead>
-                  <TableHead>資料夾</TableHead>
+                  <TableHead>顯示名稱</TableHead>
+                  <TableHead>卡片</TableHead>
+                  <TableHead>公告日期</TableHead>
                   <TableHead>擁有者 ID</TableHead>
                   <TableHead>可見度</TableHead>
                   <TableHead>操作</TableHead>
@@ -284,7 +449,9 @@ function AdminPage() {
                   group.files.map((file) => (
                     <TableRow key={file.id}>
                       <TableCell>{file.filename}</TableCell>
-                      <TableCell>{file.folder ?? "未分類"}</TableCell>
+                      <TableCell>{file.display_name ?? "—"}</TableCell>
+                      <TableCell>{group.folder?.name ?? "未分類"}</TableCell>
+                      <TableCell>{file.announced_at ?? "—"}</TableCell>
                       <TableCell>{file.owner_id}</TableCell>
                       <TableCell>{file.is_public ? "公開" : "私密"}</TableCell>
                       <TableCell>

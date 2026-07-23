@@ -1,3 +1,4 @@
+from app.models import Folder
 from tests.conftest import auth_headers, make_user
 
 PDF_BYTES = b"%PDF-1.4\nfake content\n%%EOF"
@@ -131,3 +132,91 @@ def test_admin_can_toggle_others_visibility(client, db_session):
     )
     assert response.status_code == 200
     assert response.json()["is_public"] is False
+
+
+def test_upload_with_folder_display_name_and_announced_at(client, db_session):
+    owner = make_user(db_session)
+    folder = Folder(name="財務")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+
+    response = client.post(
+        "/api/files/upload",
+        headers=auth_headers(owner),
+        files={"upload": ("report.pdf", PDF_BYTES, "application/pdf")},
+        data={
+            "is_public": "true",
+            "folder_id": str(folder.id),
+            "display_name": "2026 年度財報",
+            "announced_at": "2026-07-20",
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["folder_id"] == folder.id
+    assert body["display_name"] == "2026 年度財報"
+    assert body["announced_at"] == "2026-07-20"
+
+
+def test_upload_rejects_unknown_folder_id(client, db_session):
+    owner = make_user(db_session)
+
+    response = client.post(
+        "/api/files/upload",
+        headers=auth_headers(owner),
+        files={"upload": ("report.pdf", PDF_BYTES, "application/pdf")},
+        data={"is_public": "true", "folder_id": "999"},
+    )
+    assert response.status_code == 400
+
+
+def test_owner_can_update_display_name_and_folder(client, db_session):
+    owner = make_user(db_session, username="owner")
+    folder = Folder(name="財務")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+    file_id = _upload(client, owner).json()["id"]
+
+    response = client.patch(
+        f"/api/files/{file_id}",
+        headers=auth_headers(owner),
+        json={"display_name": "新名稱", "folder_id": folder.id, "announced_at": "2026-01-01"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["display_name"] == "新名稱"
+    assert body["folder_id"] == folder.id
+    assert body["announced_at"] == "2026-01-01"
+
+
+def test_update_rejects_unknown_folder_id(client, db_session):
+    owner = make_user(db_session)
+    file_id = _upload(client, owner).json()["id"]
+
+    response = client.patch(
+        f"/api/files/{file_id}", headers=auth_headers(owner), json={"folder_id": 999}
+    )
+    assert response.status_code == 400
+
+
+def test_files_are_grouped_by_folder(client, db_session):
+    owner = make_user(db_session)
+    folder = Folder(name="財務")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+
+    _upload(client, owner, filename="grouped.pdf")
+    file_id = client.get("/api/files").json()
+    # grab the just-created file id to attach it to the folder
+    grouped_file_id = next(f["id"] for group in file_id for f in group["files"] if f["filename"] == "grouped.pdf")
+    client.patch(
+        f"/api/files/{grouped_file_id}", headers=auth_headers(owner), json={"folder_id": folder.id}
+    )
+    _upload(client, owner, filename="ungrouped.pdf")
+
+    response = client.get("/api/files")
+    groups = {g["folder"]["name"] if g["folder"] else None: {f["filename"] for f in g["files"]} for g in response.json()}
+    assert groups == {"財務": {"grouped.pdf"}, None: {"ungrouped.pdf"}}

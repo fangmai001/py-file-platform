@@ -5,6 +5,7 @@ import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import UploadPage from "./pages/UploadPage";
 import { Button } from "./components/ui/button";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -23,6 +24,17 @@ function RequireAdmin({ children }: { children: ReactNode }) {
     return null;
   }
   if (!user || user.role !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) {
+    return null;
+  }
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
@@ -63,6 +75,11 @@ function HeaderNav() {
       <NavLink to="/about" className={navLinkClass}>
         關於
       </NavLink>
+      {user && (
+        <NavLink to="/upload" className={navLinkClass}>
+          上傳
+        </NavLink>
+      )}
       {user?.role === "admin" && (
         <NavLink to="/admin" className={navLinkClass}>
           管理
@@ -99,6 +116,14 @@ function AppShell() {
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/upload"
+            element={
+              <RequireAuth>
+                <UploadPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/admin"
             element={
