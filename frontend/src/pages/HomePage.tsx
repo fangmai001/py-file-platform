@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type FormEvent } from "react";
 import { ClipboardList, FolderTree, History, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { ApiError } from "../api/client";
 import { deleteFile, downloadFile, listFiles, updateFile, updateFileVisibility } from "../api/files";
 import { listFolders } from "../api/folders";
@@ -11,6 +12,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../context/ConfirmDialogContext";
 
 const NO_FOLDER = "none";
 
@@ -65,6 +67,7 @@ interface EditDraft {
 
 function HomePage() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [groups, setGroups] = useState<FolderGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -103,23 +106,46 @@ function HomePage() {
   }
 
   async function handleToggleVisibility(file: FileItem) {
+    const makingPrivate = file.is_public;
+    const ok = await confirm({
+      title: makingPrivate ? "設為私密" : "設為公開",
+      description: makingPrivate
+        ? `確定要將「${file.filename}」設為私密嗎？設為私密後，訪客將無法瀏覽或下載此檔案。`
+        : `確定要將「${file.filename}」設為公開嗎？設為公開後，所有訪客都能瀏覽並下載此檔案。`,
+      confirmLabel: "確定",
+    });
+    if (!ok) {
+      return;
+    }
     try {
       await updateFileVisibility(file.id, !file.is_public);
       await loadFiles();
+      toast.success(`已將「${file.filename}」設為${makingPrivate ? "私密" : "公開"}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "更新失敗");
+      const message = err instanceof ApiError ? err.message : "更新失敗";
+      setError(message);
+      toast.error(message);
     }
   }
 
   async function handleDelete(file: FileItem) {
-    if (!window.confirm(`確定要刪除「${file.filename}」嗎？`)) {
+    const ok = await confirm({
+      title: "刪除檔案",
+      description: `確定要刪除「${file.filename}」嗎？此操作無法復原。`,
+      confirmLabel: "刪除",
+      variant: "destructive",
+    });
+    if (!ok) {
       return;
     }
     try {
       await deleteFile(file.id);
       await loadFiles();
+      toast.success(`已刪除「${file.filename}」`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "刪除失敗");
+      const message = err instanceof ApiError ? err.message : "刪除失敗";
+      setError(message);
+      toast.error(message);
     }
   }
 
@@ -147,8 +173,11 @@ function HomePage() {
       });
       setEditingFileId(null);
       await loadFiles();
+      toast.success("已更新檔案資訊");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "更新失敗");
+      const message = err instanceof ApiError ? err.message : "更新失敗";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSavingEdit(false);
     }
