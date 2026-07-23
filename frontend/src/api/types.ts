@@ -22,6 +22,16 @@ export interface FolderGroup {
   files: FileItem[];
 }
 
+export interface LinkCardItem {
+  id: number;
+  title: string;
+  description: string | null;
+  url: string;
+  folder_id: number | null;
+  is_public: boolean;
+  created_at: string;
+}
+
 export interface FileVersionItem {
   id: number;
   file_id: number;

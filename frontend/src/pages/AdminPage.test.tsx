@@ -27,9 +27,16 @@ vi.mock("../api/folders", () => ({
   updateFolder: vi.fn(),
   deleteFolder: vi.fn(),
 }));
+vi.mock("../api/link-cards", () => ({
+  listLinkCards: vi.fn().mockResolvedValue([]),
+  createLinkCard: vi.fn(),
+  updateLinkCard: vi.fn(),
+  deleteLinkCard: vi.fn(),
+}));
 
 import { fetchCurrentUser } from "../api/auth";
 import { deleteUser, listUsers } from "../api/admin";
+import { createLinkCard, deleteLinkCard, listLinkCards } from "../api/link-cards";
 
 function renderAdminPage() {
   return render(
@@ -138,5 +145,70 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("tab", { name: "卡片" }));
 
     await waitFor(() => expect(screen.getByText("卡片列表")).toBeInTheDocument());
+  });
+
+  it("creates a link card from the 連結卡片 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(createLinkCard).mockResolvedValue({
+      id: 1,
+      title: "社團官網",
+      description: null,
+      url: "https://example.com/",
+      folder_id: null,
+      is_public: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "連結卡片" }));
+
+    await waitFor(() => expect(screen.getByLabelText("標題")).toBeInTheDocument());
+    await user.type(screen.getByLabelText("標題"), "社團官網");
+    await user.type(screen.getByLabelText("目標網址"), "https://example.com");
+    await user.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() =>
+      expect(createLinkCard).toHaveBeenCalledWith({
+        title: "社團官網",
+        description: null,
+        url: "https://example.com",
+        folder_id: null,
+      }),
+    );
+  });
+
+  it("asks for confirmation before deleting a link card", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listLinkCards).mockResolvedValue([
+      {
+        id: 1,
+        title: "社團官網",
+        description: null,
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "連結卡片" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("社團官網")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    await waitFor(() => expect(screen.getByText(/此操作無法復原/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    await waitFor(() => expect(deleteLinkCard).toHaveBeenCalledWith(1));
   });
 });

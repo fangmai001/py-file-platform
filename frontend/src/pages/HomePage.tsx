@@ -1,11 +1,12 @@
-import { useEffect, useState, type ComponentType, type FormEvent } from "react";
-import { ClipboardList, FolderTree, History, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
+import { ClipboardList, ExternalLink, FolderTree, History, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ApiError } from "../api/client";
 import { deleteFile, downloadFile, listFiles, updateFile, updateFileVisibility } from "../api/files";
 import { listFolders } from "../api/folders";
-import type { FileItem, FolderGroup, FolderItem } from "../api/types";
+import { listLinkCards } from "../api/link-cards";
+import type { FileItem, FolderGroup, FolderItem, LinkCardItem } from "../api/types";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -74,6 +75,7 @@ function HomePage() {
   const [groups, setGroups] = useState<FolderGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [linkCards, setLinkCards] = useState<LinkCardItem[]>([]);
   const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft>({ displayName: "", announcedAt: "", folderId: NO_FOLDER });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -114,6 +116,12 @@ function HomePage() {
       .then(setFolders)
       .catch(() => setFolders([]));
   }, []);
+
+  useEffect(() => {
+    listLinkCards({ folderId: folderFilter === ALL_FOLDERS ? undefined : Number(folderFilter) })
+      .then(setLinkCards)
+      .catch(() => setLinkCards([]));
+  }, [folderFilter, user]);
 
   async function handleDownload(file: FileItem) {
     try {
@@ -205,7 +213,51 @@ function HomePage() {
     return !!user && (user.id === file.owner_id || user.role === "admin");
   }
 
-  const hasFiles = groups !== null && groups.some((group) => group.files.length > 0);
+  const filteredLinkCards = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return linkCards;
+    }
+    return linkCards.filter(
+      (card) =>
+        card.title.toLowerCase().includes(keyword) || (card.description?.toLowerCase().includes(keyword) ?? false),
+    );
+  }, [linkCards, search]);
+
+  interface MergedGroup {
+    key: string;
+    folder: FolderItem | null;
+    files: FileItem[];
+    linkCards: LinkCardItem[];
+  }
+
+  const mergedGroups = useMemo<MergedGroup[]>(() => {
+    const byKey = new Map<string, MergedGroup>();
+
+    for (const group of groups ?? []) {
+      const key = group.folder ? String(group.folder.id) : "__root__";
+      byKey.set(key, { key, folder: group.folder, files: group.files, linkCards: [] });
+    }
+
+    for (const card of filteredLinkCards) {
+      const key = card.folder_id !== null ? String(card.folder_id) : "__root__";
+      let entry = byKey.get(key);
+      if (!entry) {
+        const folder = card.folder_id !== null ? (folders.find((f) => f.id === card.folder_id) ?? null) : null;
+        entry = { key, folder, files: [], linkCards: [] };
+        byKey.set(key, entry);
+      }
+      entry.linkCards.push(card);
+    }
+
+    return Array.from(byKey.values()).sort((a, b) => {
+      if (a.folder === null) return -1;
+      if (b.folder === null) return 1;
+      return a.folder.name.localeCompare(b.folder.name);
+    });
+  }, [groups, filteredLinkCards, folders]);
+
+  const hasFiles = mergedGroups.some((group) => group.files.length > 0 || group.linkCards.length > 0);
 
   const stats =
     groups === null
@@ -317,8 +369,8 @@ function HomePage() {
           )}
           {groups !== null && hasFiles && (
             <div className="flex flex-col gap-6">
-              {groups.map((group) => {
-                const groupKey = group.folder?.id !== undefined ? String(group.folder?.id ?? "__root__") : "__root__";
+              {mergedGroups.map((group) => {
+                const groupKey = group.key;
                 const visibleCount = visibleCounts[groupKey] ?? FILES_PAGE_SIZE;
                 const visibleFiles = group.files.slice(0, visibleCount);
                 const remaining = group.files.length - visibleFiles.length;
@@ -327,6 +379,33 @@ function HomePage() {
                     <h3 className="mb-0.5 text-base text-foreground">{group.folder?.name ?? "未分類"}</h3>
                     {group.folder?.description && (
                       <p className="mb-2 text-sm text-muted-foreground">{group.folder.description}</p>
+                    )}
+                    {group.linkCards.length > 0 && (
+                      <ul className="mb-2 flex flex-col gap-2">
+                        {group.linkCards.map((card) => (
+                          <li key={`link-${card.id}`}>
+                            <a
+                              href={card.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-accent/30 p-3 no-underline hover:bg-accent/60"
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                  <ExternalLink className="size-4 text-muted-foreground" />
+                                  {card.title}
+                                </span>
+                                {card.description && (
+                                  <span className="text-sm text-muted-foreground">{card.description}</span>
+                                )}
+                              </div>
+                              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                連結
+                              </span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                     <ul className="flex flex-col gap-2">
                       {visibleFiles.map((file) =>

@@ -17,12 +17,16 @@ vi.mock("../api/files", () => ({
 vi.mock("../api/folders", () => ({
   listFolders: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../api/link-cards", () => ({
+  listLinkCards: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("../api/auth", () => ({
   login: vi.fn(),
   fetchCurrentUser: vi.fn(),
 }));
 
 import { deleteFile, listFiles } from "../api/files";
+import { listLinkCards } from "../api/link-cards";
 import { fetchCurrentUser } from "../api/auth";
 
 function renderHomePage() {
@@ -162,5 +166,28 @@ describe("HomePage", () => {
     await user.click(screen.getByRole("button", { name: /載入更多/ }));
 
     await waitFor(() => expect(screen.getByText("file-25.pdf")).toBeInTheDocument());
+  });
+
+  it("shows link cards alongside file cards, clearly labelled", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(listLinkCards).mockResolvedValue([
+      {
+        id: 1,
+        title: "社團官網",
+        description: "官方網站",
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("社團官網")).toBeInTheDocument());
+    expect(screen.getByText("連結")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /社團官網/ });
+    expect(link).toHaveAttribute("href", "https://example.com/");
+    expect(link).toHaveAttribute("target", "_blank");
   });
 });
