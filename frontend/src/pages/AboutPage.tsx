@@ -18,20 +18,14 @@ function AboutPage() {
           <div className="flex flex-col gap-2">
             <h2>已實作功能</h2>
             <ul className="text-sm text-muted-foreground">
-              <li>本機帳號登入 / JWT 驗證</li>
+              <li>本機帳號登入 / JWT 驗證，亦支援串接 LDAP 進行驗證</li>
               <li>檔案上傳、下載，並可設定公開／私密可見度</li>
               <li>檔案版本歷史（同名檔案上傳不覆蓋，保留舊版本）</li>
-              <li>資料夾分類瀏覽</li>
-              <li>管理員使用者管理</li>
+              <li>資料夾卡片與連結卡片分類瀏覽</li>
+              <li>使用者自助密碼重設</li>
+              <li>上傳通知（新檔案上傳後，站內通知其他使用者，並視情況寄送 Email）</li>
+              <li>管理員使用者管理與站台設定</li>
               <li>高權限操作稽核紀錄（Audit Log）</li>
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h2>尚未實作</h2>
-            <ul className="text-sm text-muted-foreground">
-              <li>LDAP 驗證</li>
-              <li>上傳通知（Email / 站內通知）</li>
             </ul>
           </div>
 

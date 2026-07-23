@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UploadPage from "./pages/UploadPage";
+import NotificationBell from "./components/NotificationBell";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -93,6 +94,7 @@ function HeaderNav() {
       {user ? (
         <>
           <span className="px-1 py-1.5 text-sm text-foreground">{user.username}</span>
+          <NotificationBell />
           <Button variant="ghost" onClick={handleLogout}>
             登出
           </Button>

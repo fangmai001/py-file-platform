@@ -5,12 +5,14 @@ export interface CreateUserInput {
   username: string;
   password: string;
   role: string;
+  email?: string | null;
 }
 
 export interface UpdateUserInput {
   role?: string;
   is_active?: boolean;
   password?: string;
+  email?: string | null;
 }
 
 export function listUsers(): Promise<UserItem[]> {

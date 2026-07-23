@@ -18,6 +18,14 @@ import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../context/ConfirmDialogContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 
+interface UserDraft {
+  email: string;
+}
+
+function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
+  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "" }]));
+}
+
 interface FolderDraft {
   name: string;
   description: string;
@@ -74,9 +82,11 @@ function AdminPage() {
   const [users, setUsers] = useState<UserItem[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [userFilter, setUserFilter] = useState("");
+  const [userDrafts, setUserDrafts] = useState<Record<number, UserDraft>>({});
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("user");
+  const [newEmail, setNewEmail] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const [fileGroups, setFileGroups] = useState<FolderGroup[] | null>(null);
@@ -105,7 +115,9 @@ function AdminPage() {
 
   async function loadUsers() {
     try {
-      setUsers(await listUsers());
+      const data = await listUsers();
+      setUsers(data);
+      setUserDrafts(toUserDrafts(data));
       setUsersError(null);
     } catch (err) {
       setUsersError(err instanceof ApiError ? err.message : "無法載入使用者列表");
@@ -174,10 +186,11 @@ function AdminPage() {
     setIsCreating(true);
     setUsersError(null);
     try {
-      await createUser({ username: newUsername, password: newPassword, role: newRole });
+      await createUser({ username: newUsername, password: newPassword, role: newRole, email: newEmail.trim() || null });
       setNewUsername("");
       setNewPassword("");
       setNewRole("user");
+      setNewEmail("");
       await loadUsers();
       await loadAuditLogs();
       toast.success(`已建立使用者「${newUsername}」`);
@@ -187,6 +200,23 @@ function AdminPage() {
       toast.error(message);
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function handleSaveUserEmail(target: UserItem) {
+    const email = userDrafts[target.id]?.email.trim() || null;
+    if (email === (target.email ?? null)) {
+      return;
+    }
+    try {
+      await updateUser(target.id, { email });
+      await loadUsers();
+      await loadAuditLogs();
+      toast.success(`已更新使用者「${target.username}」的 Email`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新使用者失敗";
+      setUsersError(message);
+      toast.error(message);
     }
   }
 
@@ -529,6 +559,15 @@ function AdminPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-email">Email（選填）</Label>
+                  <Input
+                    id="new-email"
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <Label htmlFor="new-role">角色</Label>
                   <Select value={newRole} onValueChange={(value) => value && setNewRole(value)}>
                     <SelectTrigger id="new-role" className="w-28">
@@ -572,6 +611,7 @@ function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>帳號</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead>狀態</TableHead>
                       <TableHead>新增日期</TableHead>
@@ -583,6 +623,20 @@ function AdminPage() {
                     {filteredUsers.map((u) => (
                       <TableRow key={u.id}>
                         <TableCell>{u.username}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="email"
+                            className="w-48"
+                            placeholder={u.auth_source === "ldap" ? "LDAP 帳號" : "未設定"}
+                            value={userDrafts[u.id]?.email ?? ""}
+                            onChange={(e) =>
+                              setUserDrafts((drafts) => ({
+                                ...drafts,
+                                [u.id]: { email: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
                         <TableCell>
                           <Select value={u.role} onValueChange={(role) => role && handleChangeRole(u, role)}>
                             <SelectTrigger className="w-28">
@@ -599,6 +653,9 @@ function AdminPage() {
                         <TableCell>{formatDateTime(u.updated_at)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleSaveUserEmail(u)}>
+                              儲存 Email
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
                               {u.is_active ? "停用" : "啟用"}
                             </Button>
