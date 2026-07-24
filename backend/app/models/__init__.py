@@ -7,6 +7,7 @@ from app.models.link_card import LinkCard
 from app.models.notification import Notification
 from app.models.password_reset_token import PasswordResetToken
 from app.models.site_setting import SiteSetting
+from app.models.smtp_setting import SmtpSetting
 from app.models.user import User
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "LinkCard",
     "SiteSetting",
     "LdapSetting",
+    "SmtpSetting",
     "PasswordResetToken",
     "Notification",
     "AuditLog",
