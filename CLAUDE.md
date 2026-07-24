@@ -113,23 +113,31 @@ native and Docker dev — see `.env.example`. Notably:
   (admin-managed external link cards, grouped like files by folder), `site_settings.py` (branding
   text, admin-only writes), `ldap_settings.py` (LDAP config CRUD, `GET`+`PATCH` both admin-only since
   it exposes infra details, unlike `site_settings.py`'s public `GET` — never returns the bind password
-  itself, only whether one is set), `password_reset.py` (self-service forgot/reset-password flow,
-  emails a token link via `app/core/email.py`), `notifications.py` (`GET`/`PATCH` on a user's own
-  `Notification` rows — no frontend consumes this yet, see Project overview), `admin.py` (user
-  management, gated by `require_admin` in `deps.py`).
+  itself, only whether one is set), `smtp_settings.py` (outgoing-mail SMTP config CRUD, same
+  admin-only-`GET`+`PATCH` pattern and password-never-returned behavior as `ldap_settings.py`),
+  `password_reset.py` (self-service forgot/reset-password flow, emails a token link via
+  `app/core/mailer.py`), `notifications.py` (`GET`/`PATCH` on a user's own `Notification` rows — no
+  frontend consumes this yet, see Project overview), `admin.py` (user management, gated by
+  `require_admin` in `deps.py`).
 - `app/core/config.py` — pydantic-settings `Settings`, loaded once as the module-level `settings`
-  singleton and imported wherever config is needed. Its `LDAP_*` fields are only used to seed the
-  DB-backed `ldap_settings` row on first read (see `app/core/ldap_config.py`), not read directly by
-  login/auth code.
+  singleton and imported wherever config is needed. Its `LDAP_*` and `SMTP_*` fields are only used to
+  seed the DB-backed `ldap_settings`/`smtp_settings` rows on first read (see `app/core/ldap_config.py`,
+  `app/core/smtp_config.py`), not read directly by login/auth or mail-sending code.
 - `app/core/ldap_config.py` — `get_ldap_settings(db)` fetches the single-row `LdapSetting`, creating it
   (seeded from `settings.ldap_*`) on first call. Used by both `app/api/auth.py` (to check `enabled` and
   build the `authenticate_ldap()` config) and `app/api/ldap_settings.py`.
+- `app/core/smtp_config.py` — `get_smtp_settings(db)` fetches the single-row `SmtpSetting`, creating it
+  (seeded from `settings.smtp_*`) on first call, same pattern as `ldap_config.py`. Also exposes
+  `SmtpConfig`/`to_smtp_config()`, a plain dataclass snapshot of that row: callers fetch it inside the
+  request (while the DB session is open) and hand it to `app/core/mailer.py`'s `send_email()` /
+  `send_upload_notification_emails()` via `BackgroundTasks.add_task`, since those run after the
+  request's session has already closed and can't safely re-query the ORM row themselves.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
 - `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`,
-  `SiteSetting`, `LdapSetting`, `PasswordResetToken`, `Notification`, `AuditLog`), all imported and
-  re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models import *` so every
-  model must be added to that `__init__.py` to be picked up by autogenerate.
+  `SiteSetting`, `LdapSetting`, `SmtpSetting`, `PasswordResetToken`, `Notification`, `AuditLog`), all
+  imported and re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models
+  import *` so every model must be added to that `__init__.py` to be picked up by autogenerate.
 
 Data model relationships: `File.owner_id` → `User.id`; `File.folder_id` → `Folder.id` (nullable; a
 "card" grouping with name/description, admin-managed, that any file owner can assign their own files

@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.database import Base, get_db
 from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models import LdapSetting, User
+from app.models import LdapSetting, SmtpSetting, User
 
 _engine = create_engine(
     "sqlite:///:memory:",
@@ -111,6 +111,33 @@ def configure_ldap(
         bind_password=bind_password,
         base_dn=base_dn,
         user_search_filter=user_search_filter,
+    )
+    db_session.add(settings_row)
+    db_session.commit()
+    db_session.refresh(settings_row)
+    return settings_row
+
+
+def configure_smtp(
+    db_session,
+    *,
+    enabled=True,
+    host="smtp.example.internal",
+    port=587,
+    username=None,
+    password=None,
+    from_address="noreply@example.com",
+    use_tls=True,
+) -> SmtpSetting:
+    settings_row = SmtpSetting(
+        id=1,
+        enabled=enabled,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        from_address=from_address,
+        use_tls=use_tls,
     )
     db_session.add(settings_row)
     db_session.commit()
