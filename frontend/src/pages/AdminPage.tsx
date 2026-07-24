@@ -8,6 +8,8 @@ import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import type { LdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import { updateSiteSettings } from "../api/site-settings";
+import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
+import type { SmtpSettings } from "../api/smtp-settings";
 import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -95,6 +97,19 @@ function AdminPage() {
     userSearchFilter: "",
   });
   const [isSavingLdapSettings, setIsSavingLdapSettings] = useState(false);
+
+  const [smtpSettings, setSmtpSettings] = useState<SmtpSettings | null>(null);
+  const [smtpSettingsError, setSmtpSettingsError] = useState<string | null>(null);
+  const [smtpDraft, setSmtpDraft] = useState({
+    enabled: false,
+    host: "",
+    port: "587",
+    username: "",
+    password: "",
+    fromAddress: "",
+    useTls: true,
+  });
+  const [isSavingSmtpSettings, setIsSavingSmtpSettings] = useState(false);
 
   const [users, setUsers] = useState<UserItem[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -199,6 +214,25 @@ function AdminPage() {
     }
   }
 
+  async function loadSmtpSettings() {
+    try {
+      const data = await getSmtpSettings();
+      setSmtpSettings(data);
+      setSmtpDraft({
+        enabled: data.enabled,
+        host: data.host ?? "",
+        port: String(data.port),
+        username: data.username ?? "",
+        password: "",
+        fromAddress: data.from_address,
+        useTls: data.use_tls,
+      });
+      setSmtpSettingsError(null);
+    } catch (err) {
+      setSmtpSettingsError(err instanceof ApiError ? err.message : "無法載入 SMTP 設定");
+    }
+  }
+
   useEffect(() => {
     loadUsers();
     loadFiles();
@@ -206,6 +240,7 @@ function AdminPage() {
     loadLinkCards();
     loadAuditLogs();
     loadLdapSettings();
+    loadSmtpSettings();
   }, []);
 
   useEffect(() => {
@@ -527,6 +562,33 @@ function AdminPage() {
     }
   }
 
+  async function handleSaveSmtpSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSavingSmtpSettings(true);
+    try {
+      const port = Number.parseInt(smtpDraft.port, 10);
+      await updateSmtpSettings({
+        enabled: smtpDraft.enabled,
+        host: smtpDraft.host.trim() || null,
+        port: Number.isNaN(port) ? undefined : port,
+        username: smtpDraft.username.trim() || null,
+        // Omitted entirely when blank so the currently stored password is kept.
+        ...(smtpDraft.password.trim() ? { password: smtpDraft.password.trim() } : {}),
+        from_address: smtpDraft.fromAddress.trim() || undefined,
+        use_tls: smtpDraft.useTls,
+      });
+      await loadSmtpSettings();
+      await loadAuditLogs();
+      toast.success("已更新 SMTP 設定");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新 SMTP 設定失敗";
+      setSmtpSettingsError(message);
+      toast.error(message);
+    } finally {
+      setIsSavingSmtpSettings(false);
+    }
+  }
+
   const totalFiles = fileGroups?.reduce((sum, group) => sum + group.files.length, 0) ?? null;
 
   const filteredUsers = useMemo(() => {
@@ -608,6 +670,7 @@ function AdminPage() {
           <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
           <TabsTrigger value="site-settings">站台設定</TabsTrigger>
           <TabsTrigger value="ldap-settings">LDAP 設定</TabsTrigger>
+          <TabsTrigger value="smtp-settings">Email SMTP 設定</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="flex flex-col gap-6 pt-4">
@@ -1308,6 +1371,93 @@ function AdminPage() {
                 </div>
                 <Button type="submit" className="self-start" disabled={isSavingLdapSettings}>
                   {isSavingLdapSettings ? "儲存中…" : "儲存"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="smtp-settings" className="pt-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>Email SMTP 設定</h2>
+              <p className="text-sm text-muted-foreground">
+                設定後，系統會透過此 SMTP 伺服器寄送重設密碼信件與上傳通知信；未啟用或未設定時，信件內容僅會寫入後端日誌。
+                密碼欄位留空表示不變更目前已儲存的密碼。
+              </p>
+              {smtpSettingsError && <p className="text-sm text-destructive">{smtpSettingsError}</p>}
+              <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSaveSmtpSettings}>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="smtp-enabled"
+                    checked={smtpDraft.enabled}
+                    onCheckedChange={(checked) =>
+                      setSmtpDraft((draft) => ({ ...draft, enabled: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="smtp-enabled">啟用 SMTP 寄信</Label>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="smtp-host">伺服器位址</Label>
+                  <Input
+                    id="smtp-host"
+                    type="text"
+                    placeholder="smtp.example.com"
+                    value={smtpDraft.host}
+                    onChange={(e) => setSmtpDraft((draft) => ({ ...draft, host: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="smtp-port">連接埠</Label>
+                  <Input
+                    id="smtp-port"
+                    type="number"
+                    placeholder="587"
+                    value={smtpDraft.port}
+                    onChange={(e) => setSmtpDraft((draft) => ({ ...draft, port: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="smtp-username">帳號</Label>
+                  <Input
+                    id="smtp-username"
+                    type="text"
+                    value={smtpDraft.username}
+                    onChange={(e) => setSmtpDraft((draft) => ({ ...draft, username: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="smtp-password">密碼</Label>
+                  <Input
+                    id="smtp-password"
+                    type="password"
+                    placeholder={smtpSettings?.password_set ? "已設定，留空表示不變更" : "尚未設定"}
+                    value={smtpDraft.password}
+                    onChange={(e) => setSmtpDraft((draft) => ({ ...draft, password: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="smtp-from-address">寄件人地址</Label>
+                  <Input
+                    id="smtp-from-address"
+                    type="text"
+                    placeholder="noreply@example.com"
+                    value={smtpDraft.fromAddress}
+                    onChange={(e) => setSmtpDraft((draft) => ({ ...draft, fromAddress: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="smtp-use-tls"
+                    checked={smtpDraft.useTls}
+                    onCheckedChange={(checked) =>
+                      setSmtpDraft((draft) => ({ ...draft, useTls: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="smtp-use-tls">使用 TLS</Label>
+                </div>
+                <Button type="submit" className="self-start" disabled={isSavingSmtpSettings}>
+                  {isSavingSmtpSettings ? "儲存中…" : "儲存"}
                 </Button>
               </form>
             </CardContent>

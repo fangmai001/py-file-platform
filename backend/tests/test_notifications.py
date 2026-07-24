@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from app.core.config import settings
 from app.models import Notification
-from tests.conftest import auth_headers, make_user
+from tests.conftest import auth_headers, configure_smtp, make_user
 from tests.test_files import _upload
 
 
@@ -97,8 +96,8 @@ def test_cannot_mark_others_notification_read(client, db_session):
     assert response.status_code == 404
 
 
-def test_upload_sends_email_only_to_recipients_with_email_on_file(client, db_session, monkeypatch):
-    monkeypatch.setattr(settings, "smtp_host", "smtp.example.internal")
+def test_upload_sends_email_only_to_recipients_with_email_on_file(client, db_session):
+    configure_smtp(db_session)
     uploader = make_user(db_session, username="uploader")
     make_user(db_session, username="with-email", email="with-email@example.com")
     make_user(db_session, username="no-email")
@@ -118,7 +117,6 @@ def test_upload_sends_email_only_to_recipients_with_email_on_file(client, db_ses
 
 
 def test_upload_skips_email_when_smtp_not_configured(client, db_session):
-    assert settings.smtp_host is None
     uploader = make_user(db_session, username="uploader")
     make_user(db_session, username="with-email", email="with-email@example.com")
 
@@ -131,8 +129,8 @@ def test_upload_skips_email_when_smtp_not_configured(client, db_session):
     assert db_session.query(Notification).count() == 1
 
 
-def test_upload_succeeds_even_if_email_send_raises(client, db_session, monkeypatch):
-    monkeypatch.setattr(settings, "smtp_host", "smtp.example.internal")
+def test_upload_succeeds_even_if_email_send_raises(client, db_session):
+    configure_smtp(db_session)
     uploader = make_user(db_session, username="uploader")
     make_user(db_session, username="with-email", email="with-email@example.com")
 

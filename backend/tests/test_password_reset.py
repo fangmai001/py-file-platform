@@ -9,7 +9,7 @@ TOKEN_RE = re.compile(r"token=([^\s]+)")
 def _capture_sent_email(monkeypatch):
     sent = {}
 
-    def _fake_send_email(to, subject, body):
+    def _fake_send_email(smtp_config, to, subject, body):
         sent["to"] = to
         sent["subject"] = subject
         sent["body"] = body

@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from app.core.audit import write_audit_log
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.email import send_email
+from app.core.mailer import send_email
 from app.core.security import hash_password
+from app.core.smtp_config import get_smtp_settings, to_smtp_config
 from app.models import PasswordResetToken, User
 from app.schemas.password_reset import PasswordResetConfirm, PasswordResetMessage, PasswordResetRequest
 
@@ -45,11 +46,13 @@ def request_password_reset(
         raw_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_token_expire_minutes)
         db.add(PasswordResetToken(user_id=user.id, token_hash=_hash_token(raw_token), expires_at=expires_at))
+        smtp_config = to_smtp_config(get_smtp_settings(db))
         db.commit()
 
         reset_link = f"{settings.frontend_base_url}/reset-password?token={raw_token}"
         background_tasks.add_task(
             send_email,
+            smtp_config,
             user.email,
             "重設密碼",
             "您好，\n\n"

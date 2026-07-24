@@ -22,9 +22,10 @@ class Settings(BaseSettings):
     initial_admin_username: str | None = None
     initial_admin_password: str | None = None
 
-    # SMTP for outgoing mail (password reset links, upload notifications).
-    # When smtp_host is unset, app.core.email / app.core.mailer log the message instead
-    # of sending it, so both features work in local/dev without a real mail server.
+    # SMTP for outgoing mail (password reset links, upload notifications). These only
+    # seed the admin-editable smtp_settings DB row the first time it's read (see
+    # app/core/smtp_config.py) - after that, edits go through the admin UI/API
+    # (app/api/smtp_settings.py), not this env config, same pattern as LDAP_* below.
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None
