@@ -1,7 +1,7 @@
 """add smtp settings
 
 Revision ID: 003a928cdf3a
-Revises: e8ca19147f12
+Revises: 872b58a4f7f8
 Create Date: 2026-07-24 10:20:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '003a928cdf3a'
-down_revision: Union[str, None] = 'e8ca19147f12'
+down_revision: Union[str, None] = '872b58a4f7f8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

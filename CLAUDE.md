@@ -29,11 +29,10 @@ handling against a React frontend.
 Implemented: local-account and LDAP login/JWT auth, file upload/download with per-file public/private
 visibility and version history, folder-grouped browsing, link-card categories, site branding settings,
 self-service password reset, admin user management, an audit log for high-privilege actions, and
-upload notifications — see README.md for the full feature list. Upload notifications currently has no
-frontend: the backend writes in-app `Notification` rows and sends best-effort email on upload
-(`app/api/notifications.py`, `app/core/notifications.py`, `app/core/mailer.py`), but nothing in
-`frontend/src/` calls `GET/PATCH /api/notifications` yet, and `AboutPage.tsx`'s "尚未實作" list still
-names both LDAP and upload notifications — both are stale and should be updated to match.
+upload notifications — see README.md for the full feature list. Upload notifications now have a
+frontend too: `frontend/src/components/NotificationBell.tsx` (mounted in `App.tsx`) calls
+`GET/PATCH /api/notifications` via `frontend/src/api/notifications.ts`. `AboutPage.tsx` no longer has
+a "尚未實作" section — LDAP and upload notifications are both listed under "已實作功能".
 
 LDAP config (server URI, bind DN/password, base DN, user search filter) is admin-editable at runtime
 via the "LDAP 設定" tab in `/admin`, backed by the single-row `ldap_settings` DB table rather than
@@ -116,8 +115,8 @@ native and Docker dev — see `.env.example`. Notably:
   itself, only whether one is set), `smtp_settings.py` (outgoing-mail SMTP config CRUD, same
   admin-only-`GET`+`PATCH` pattern and password-never-returned behavior as `ldap_settings.py`),
   `password_reset.py` (self-service forgot/reset-password flow, emails a token link via
-  `app/core/mailer.py`), `notifications.py` (`GET`/`PATCH` on a user's own `Notification` rows — no
-  frontend consumes this yet, see Project overview), `admin.py` (user management, gated by
+  `app/core/mailer.py`), `notifications.py` (`GET`/`PATCH` on a user's own `Notification` rows —
+  consumed by `frontend/src/components/NotificationBell.tsx`), `admin.py` (user management, gated by
   `require_admin` in `deps.py`).
 - `app/core/config.py` — pydantic-settings `Settings`, loaded once as the module-level `settings`
   singleton and imported wherever config is needed. Its `LDAP_*` and `SMTP_*` fields are only used to
