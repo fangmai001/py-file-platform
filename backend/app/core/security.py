@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -6,6 +8,15 @@ from passlib.context import CryptContext
 from app.core.config import settings
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Excludes visually ambiguous characters (0/O, 1/l/I) since this is meant to be
+# read aloud or retyped by an admin handing it off to a user.
+_TEMP_PASSWORD_ALPHABET = "".join(c for c in string.ascii_letters + string.digits if c not in "0O1lI")
+_TEMP_PASSWORD_LENGTH = 12
+
+
+def generate_temp_password() -> str:
+    return "".join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(_TEMP_PASSWORD_LENGTH))
 
 
 def hash_password(password: str) -> str:

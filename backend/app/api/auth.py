@@ -59,8 +59,17 @@ def update_current_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> User:
+    changed = False
     if payload.full_name is not None and payload.full_name != current_user.full_name:
         current_user.full_name = payload.full_name or None
+        changed = True
+    if payload.email is not None and payload.email != current_user.email:
+        if db.query(User).filter(User.email == payload.email, User.id != current_user.id).first() is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
+        current_user.email = payload.email or None
+        changed = True
+
+    if changed:
         write_audit_log(db, actor_id=current_user.id, action="user.self_update", target=current_user.username)
         db.commit()
         db.refresh(current_user)

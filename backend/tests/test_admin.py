@@ -1,5 +1,6 @@
+from app.core.security import verify_password
 from app.models import AuditLog, User
-from tests.conftest import auth_headers, make_user
+from tests.conftest import auth_headers, make_ldap_user, make_user
 
 
 def test_non_admin_cannot_access_admin_routes(client, db_session):
@@ -111,13 +112,41 @@ def test_admin_cannot_deactivate_self(client, db_session):
     assert db_session.get(User, admin.id).is_active is True
 
 
-def test_admin_can_update_own_password(client, db_session):
+def test_admin_can_reset_another_users_password(client, db_session):
     admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob", password="old-pw")
+
+    response = client.post(f"/api/admin/users/{bob.id}/reset-password", headers=auth_headers(admin))
+    assert response.status_code == 200
+    new_password = response.json()["password"]
+    assert new_password
+
+    db_session.refresh(bob)
+    assert verify_password(new_password, bob.password_hash)
+
+    logs = db_session.query(AuditLog).filter(AuditLog.action == "user.password_reset").all()
+    assert len(logs) == 1
+    assert logs[0].actor_id == admin.id
+    assert logs[0].target == "bob"
+
+
+def test_admin_cannot_reset_ldap_users_password(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    ldap_user = make_ldap_user(db_session, username="carol")
+
+    response = client.post(f"/api/admin/users/{ldap_user.id}/reset-password", headers=auth_headers(admin))
+    assert response.status_code == 400
+
+
+def test_admin_can_update_another_users_full_name(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
 
     response = client.patch(
-        f"/api/admin/users/{admin.id}", headers=auth_headers(admin), json={"password": "new-s3cret-pw"}
+        f"/api/admin/users/{bob.id}", headers=auth_headers(admin), json={"full_name": "Bob Smith"}
     )
     assert response.status_code == 200
+    assert response.json()["full_name"] == "Bob Smith"
 
 
 def test_admin_cannot_delete_user_who_owns_files(client, db_session):

@@ -14,7 +14,6 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
-    password: str | None = None
     email: str | None = None
     full_name: str | None = None
 
@@ -35,6 +34,11 @@ class UserResponse(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     full_name: str | None = None
+    email: str | None = None
+
+
+class AdminPasswordResetResponse(BaseModel):
+    password: str
 
 
 class PasswordChangeRequest(BaseModel):

@@ -16,6 +16,7 @@ vi.mock("../api/admin", () => ({
   createUser: vi.fn(),
   updateUser: vi.fn(),
   deleteUser: vi.fn(),
+  resetUserPassword: vi.fn(),
   listAuditLogs: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/files", () => ({
@@ -56,7 +57,7 @@ vi.mock("../api/ldap-settings", () => ({
 }));
 
 import { fetchCurrentUser } from "../api/auth";
-import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
+import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
@@ -165,6 +166,7 @@ describe("AdminPage", () => {
         password: "s3cret-pw",
         role: "user",
         email: "carol@example.com",
+        full_name: null,
       }),
     );
   });
@@ -207,7 +209,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
   });
 
-  it("resets a user's password after confirmation", async () => {
+  it("resets a user's password after confirmation and reveals the generated password", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([
       {
@@ -222,30 +224,20 @@ describe("AdminPage", () => {
         updated_at: "2024-01-01T00:00:00Z",
       },
     ]);
-    vi.mocked(updateUser).mockResolvedValue({
-      id: 2,
-      username: "bob",
-      role: "user",
-      is_active: true,
-      email: null,
-      full_name: null,
-      auth_source: "local",
-      created_at: "2024-01-01T00:00:00Z",
-      updated_at: "2024-01-02T00:00:00Z",
-    });
+    vi.mocked(resetUserPassword).mockResolvedValue({ password: "gener4ted-pw" });
 
     renderAdminPage();
 
     const user = userEvent.setup();
     await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
-    const passwordInput = screen.getByLabelText("重設「bob」的密碼");
-    await user.type(passwordInput, "n3w-p@ss");
     await user.click(screen.getByRole("button", { name: "重設密碼" }));
 
     await waitFor(() => expect(screen.getByText(/確定要重設使用者「bob」的密碼嗎/)).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "確定" }));
 
-    await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { password: "n3w-p@ss" }));
+    await waitFor(() => expect(resetUserPassword).toHaveBeenCalledWith(2));
+    expect(await screen.findByText("已重設「bob」的密碼")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("gener4ted-pw")).toBeInTheDocument();
   });
 
   it("disables password reset for LDAP accounts", async () => {
@@ -267,7 +259,6 @@ describe("AdminPage", () => {
     renderAdminPage();
 
     await waitFor(() => expect(screen.getByText("carl")).toBeInTheDocument());
-    expect(screen.getByLabelText("重設「carl」的密碼")).toBeDisabled();
     expect(screen.getByRole("button", { name: "重設密碼" })).toBeDisabled();
   });
 

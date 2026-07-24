@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { createUser, deleteUser, listAuditLogs, listUsers, updateUser } from "../api/admin";
+import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
@@ -14,6 +14,7 @@ import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, Use
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -26,11 +27,13 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 interface UserDraft {
   email: string;
   role: string;
-  password: string;
+  full_name: string;
 }
 
 function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
-  return Object.fromEntries(items.map((u) => [u.id, { email: u.email ?? "", role: u.role, password: "" }]));
+  return Object.fromEntries(
+    items.map((u) => [u.id, { email: u.email ?? "", role: u.role, full_name: u.full_name ?? "" }]),
+  );
 }
 
 interface FolderDraft {
@@ -119,7 +122,9 @@ function AdminPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("user");
   const [newEmail, setNewEmail] = useState("");
+  const [newFullName, setNewFullName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [revealedPassword, setRevealedPassword] = useState<{ username: string; password: string } | null>(null);
 
   const [fileGroups, setFileGroups] = useState<FolderGroup[] | null>(null);
   const [filesError, setFilesError] = useState<string | null>(null);
@@ -257,11 +262,18 @@ function AdminPage() {
     setIsCreating(true);
     setUsersError(null);
     try {
-      await createUser({ username: newUsername, password: newPassword, role: newRole, email: newEmail.trim() || null });
+      await createUser({
+        username: newUsername,
+        password: newPassword,
+        role: newRole,
+        email: newEmail.trim() || null,
+        full_name: newFullName.trim() || null,
+      });
       setNewUsername("");
       setNewPassword("");
       setNewRole("user");
       setNewEmail("");
+      setNewFullName("");
       await loadUsers();
       await loadAuditLogs();
       toast.success(`已建立使用者「${newUsername}」`);
@@ -278,9 +290,11 @@ function AdminPage() {
     const draft = userDrafts[target.id];
     const email = draft?.email.trim() || null;
     const role = draft?.role ?? target.role;
+    const fullName = draft?.full_name.trim() || null;
     const emailChanged = email !== (target.email ?? null);
     const roleChanged = role !== target.role;
-    if (!emailChanged && !roleChanged) {
+    const fullNameChanged = fullName !== (target.full_name ?? null);
+    if (!emailChanged && !roleChanged && !fullNameChanged) {
       return;
     }
     if (roleChanged) {
@@ -294,7 +308,11 @@ function AdminPage() {
       }
     }
     try {
-      await updateUser(target.id, { ...(emailChanged ? { email } : {}), ...(roleChanged ? { role } : {}) });
+      await updateUser(target.id, {
+        ...(emailChanged ? { email } : {}),
+        ...(roleChanged ? { role } : {}),
+        ...(fullNameChanged ? { full_name: fullName } : {}),
+      });
       await loadUsers();
       await loadAuditLogs();
       toast.success(`已更新使用者「${target.username}」`);
@@ -306,23 +324,19 @@ function AdminPage() {
   }
 
   async function handleResetPassword(target: UserItem) {
-    const password = userDrafts[target.id]?.password ?? "";
-    if (!password) {
-      return;
-    }
     const ok = await confirm({
       title: "重設密碼",
-      description: `確定要重設使用者「${target.username}」的密碼嗎？`,
+      description: `確定要重設使用者「${target.username}」的密碼嗎？系統會產生一組新密碼，請於下個視窗複製後轉交給使用者。`,
       confirmLabel: "確定",
     });
     if (!ok) {
       return;
     }
     try {
-      await updateUser(target.id, { password });
+      const { password } = await resetUserPassword(target.id);
       await loadUsers();
       await loadAuditLogs();
-      toast.success(`已重設使用者「${target.username}」的密碼`);
+      setRevealedPassword({ username: target.username, password });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "重設密碼失敗";
       setUsersError(message);
@@ -708,6 +722,15 @@ function AdminPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-full-name">姓名（選填）</Label>
+                  <Input
+                    id="new-full-name"
+                    type="text"
+                    value={newFullName}
+                    onChange={(e) => setNewFullName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <Label htmlFor="new-role">角色</Label>
                   <Select value={newRole} onValueChange={(value) => value && setNewRole(value)}>
                     <SelectTrigger id="new-role" className="w-28">
@@ -751,6 +774,7 @@ function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>帳號</TableHead>
+                      <TableHead>姓名</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead>狀態</TableHead>
@@ -763,6 +787,21 @@ function AdminPage() {
                     {filteredUsers.map((u) => (
                       <TableRow key={u.id}>
                         <TableCell>{u.username}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            className="w-32"
+                            placeholder="未填寫姓名"
+                            aria-label={`「${u.username}」的姓名`}
+                            value={userDrafts[u.id]?.full_name ?? ""}
+                            onChange={(e) =>
+                              setUserDrafts((drafts) => ({
+                                ...drafts,
+                                [u.id]: { ...drafts[u.id], full_name: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
                         <TableCell>
                           <Input
                             type="email"
@@ -808,25 +847,12 @@ function AdminPage() {
                             <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
                               {u.is_active ? "停用" : "啟用"}
                             </Button>
-                            <Input
-                              type="password"
-                              className="w-32"
-                              placeholder={u.auth_source === "ldap" ? "LDAP 帳號" : "新密碼"}
-                              aria-label={`重設「${u.username}」的密碼`}
-                              value={userDrafts[u.id]?.password ?? ""}
-                              disabled={u.auth_source === "ldap"}
-                              onChange={(e) =>
-                                setUserDrafts((drafts) => ({
-                                  ...drafts,
-                                  [u.id]: { ...drafts[u.id], password: e.target.value },
-                                }))
-                              }
-                            />
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleResetPassword(u)}
-                              disabled={u.auth_source === "ldap" || !userDrafts[u.id]?.password}
+                              disabled={u.auth_source === "ldap"}
+                              title={u.auth_source === "ldap" ? "LDAP 帳號的密碼由 LDAP 伺服器管理" : undefined}
                             >
                               重設密碼
                             </Button>
@@ -847,6 +873,30 @@ function AdminPage() {
               )}
             </CardContent>
           </Card>
+
+          <Dialog open={revealedPassword !== null} onOpenChange={(open) => !open && setRevealedPassword(null)}>
+            <DialogContent showCloseButton={false}>
+              <DialogHeader>
+                <DialogTitle>已重設「{revealedPassword?.username}」的密碼</DialogTitle>
+                <DialogDescription>此密碼僅顯示這一次，請立即複製並透過其他管道轉交給使用者。</DialogDescription>
+              </DialogHeader>
+              <Input type="text" readOnly value={revealedPassword?.password ?? ""} className="font-mono" />
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (revealedPassword) {
+                      await navigator.clipboard.writeText(revealedPassword.password);
+                      toast.success("已複製密碼");
+                    }
+                  }}
+                >
+                  複製
+                </Button>
+                <Button onClick={() => setRevealedPassword(null)}>關閉</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="folders" className="flex flex-col gap-6 pt-4">

@@ -73,6 +73,35 @@ def test_update_me_requires_auth(client):
     assert response.status_code == 401
 
 
+def test_update_me_sets_email(client, db_session):
+    user = make_user(db_session, username="alice")
+
+    response = client.patch("/api/auth/me", json={"email": "alice@example.com"}, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "alice@example.com"
+
+
+def test_update_me_can_clear_email(client, db_session):
+    user = make_user(db_session, username="alice", email="alice@example.com")
+
+    response = client.patch("/api/auth/me", json={"email": ""}, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    assert response.json()["email"] is None
+
+
+def test_update_me_rejects_email_already_in_use(client, db_session):
+    make_user(db_session, username="bob", email="bob@example.com")
+    alice = make_user(db_session, username="alice")
+
+    response = client.patch(
+        "/api/auth/me", json={"email": "bob@example.com"}, headers=auth_headers(alice)
+    )
+
+    assert response.status_code == 409
+
+
 def test_change_password_success(client, db_session):
     user = make_user(db_session, username="alice", password="old-pw-123")
 

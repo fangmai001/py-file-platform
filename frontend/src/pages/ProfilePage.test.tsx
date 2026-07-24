@@ -57,18 +57,29 @@ describe("ProfilePage", () => {
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("姓名"), "Alice Chen");
-    await user.click(screen.getByRole("button", { name: "儲存姓名" }));
+    await user.click(screen.getByRole("button", { name: "儲存" }));
 
-    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("Alice Chen"));
+    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("Alice Chen", null));
   });
 
-  it("shows an error when updating the display name fails", async () => {
+  it("updates the email", async () => {
+    await renderLoggedIn();
+    vi.mocked(updateCurrentUser).mockResolvedValue({ ...baseUser, email: "alice@example.com" });
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Email"), "alice@example.com");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("", "alice@example.com"));
+  });
+
+  it("shows an error when updating the profile fails", async () => {
     await renderLoggedIn();
     vi.mocked(updateCurrentUser).mockRejectedValue(new ApiError(401, "無法驗證身份"));
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("姓名"), "Alice Chen");
-    await user.click(screen.getByRole("button", { name: "儲存姓名" }));
+    await user.click(screen.getByRole("button", { name: "儲存" }));
 
     await waitFor(() => expect(screen.getByText("無法驗證身份")).toBeInTheDocument());
   });

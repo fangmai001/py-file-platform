@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 function ProfilePage() {
   const { user, setUser } = useAuth();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -31,11 +32,11 @@ function ProfilePage() {
     setProfileError(null);
     setIsSavingProfile(true);
     try {
-      const updated = await updateCurrentUser(fullName.trim());
+      const updated = await updateCurrentUser(fullName.trim(), email.trim() || null);
       setUser(updated);
-      toast.success("姓名已更新");
+      toast.success("個人資料已更新");
     } catch (err) {
-      setProfileError(err instanceof ApiError ? err.message : "更新姓名失敗，請稍後再試");
+      setProfileError(err instanceof ApiError ? err.message : "更新個人資料失敗，請稍後再試");
     } finally {
       setIsSavingProfile(false);
     }
@@ -83,9 +84,19 @@ function ProfilePage() {
                 onChange={(e) => setFullName(e.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="profile-email">Email</Label>
+              <Input
+                id="profile-email"
+                type="email"
+                placeholder="請輸入 Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
             {profileError && <p className="text-sm text-destructive">{profileError}</p>}
             <Button type="submit" disabled={isSavingProfile}>
-              {isSavingProfile ? "儲存中…" : "儲存姓名"}
+              {isSavingProfile ? "儲存中…" : "儲存"}
             </Button>
           </form>
         </CardContent>
