@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import router
 from app.core.database import SessionLocal
+from app.core.ldap_config import warn_if_ldap_env_config_ignored
 from app.core.seed import seed_initial_admin
+from app.core.smtp_config import warn_if_smtp_env_config_ignored
 
 
 @asynccontextmanager
@@ -13,6 +15,8 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_initial_admin(db)
+        warn_if_ldap_env_config_ignored(db)
+        warn_if_smtp_env_config_ignored(db)
     finally:
         db.close()
     yield
