@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.core.audit import write_audit_log
 from app.core.database import get_db
-from app.core.security import hash_password
+from app.core.security import generate_temp_password, hash_password
 from app.models import AuditLog, File, User
 from app.schemas.audit_log import AuditLogResponse
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.user import AdminPasswordResetResponse, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
 
@@ -71,13 +71,6 @@ def update_user(
     if payload.is_active is not None and payload.is_active != user.is_active:
         changes.append(f"is_active: {user.is_active} -> {payload.is_active}")
         user.is_active = payload.is_active
-    if payload.password is not None:
-        if user.auth_source == "ldap":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="LDAP 帳號的密碼由 LDAP 伺服器管理，無法在此變更"
-            )
-        user.password_hash = hash_password(payload.password)
-        changes.append("password reset")
     if payload.email is not None and payload.email != user.email:
         if db.query(User).filter(User.email == payload.email, User.id != user.id).first() is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
@@ -93,6 +86,28 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/users/{user_id}/reset-password", response_model=AdminPasswordResetResponse)
+def reset_user_password(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> AdminPasswordResetResponse:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在")
+    if user.auth_source == "ldap":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="LDAP 帳號的密碼由 LDAP 伺服器管理，無法在此變更"
+        )
+
+    new_password = generate_temp_password()
+    user.password_hash = hash_password(new_password)
+    write_audit_log(db, actor_id=admin.id, action="user.password_reset", target=user.username)
+    db.commit()
+
+    return AdminPasswordResetResponse(password=new_password)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

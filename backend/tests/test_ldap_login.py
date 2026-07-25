@@ -77,9 +77,7 @@ def test_admin_cannot_reset_ldap_user_password(client, db_session):
     admin = make_user(db_session, username="root", role="admin")
     ldap_user = make_ldap_user(db_session, username="bob")
 
-    response = client.patch(
-        f"/api/admin/users/{ldap_user.id}", headers=auth_headers(admin), json={"password": "new-pw"}
-    )
+    response = client.post(f"/api/admin/users/{ldap_user.id}/reset-password", headers=auth_headers(admin))
 
     assert response.status_code == 400
     assert db_session.get(User, ldap_user.id).password_hash is None

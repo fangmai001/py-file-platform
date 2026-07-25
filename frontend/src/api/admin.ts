@@ -6,13 +6,18 @@ export interface CreateUserInput {
   password: string;
   role: string;
   email?: string | null;
+  full_name?: string | null;
 }
 
 export interface UpdateUserInput {
   role?: string;
   is_active?: boolean;
-  password?: string;
   email?: string | null;
+  full_name?: string | null;
+}
+
+export interface ResetPasswordResult {
+  password: string;
 }
 
 export function listUsers(): Promise<UserItem[]> {
@@ -29,6 +34,10 @@ export function updateUser(userId: number, input: UpdateUserInput): Promise<User
 
 export function deleteUser(userId: number): Promise<void> {
   return del(`/admin/users/${userId}`);
+}
+
+export function resetUserPassword(userId: number): Promise<ResetPasswordResult> {
+  return postJSON<ResetPasswordResult>(`/admin/users/${userId}/reset-password`, {});
 }
 
 export function listAuditLogs(limit = 50): Promise<AuditLogItem[]> {
