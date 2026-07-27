@@ -15,6 +15,10 @@ frontend/dist/
 uploads/*
 !uploads/.gitkeep
 
+# Backups (scripts/backup.sh output)
+backups/*
+!backups/.gitkeep
+
 # Editors/OS
 .vscode/
 .idea/

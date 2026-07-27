@@ -147,11 +147,44 @@ docker compose -f docker-compose.prod.yml up --build -d
 若需要調整 backend 的 worker 數／monitoring，修改 `backend/Dockerfile` 的啟動指令即可；此設定原本
 就不含 `--reload`，可直接用於正式環境。
 
+### 3. 設定每日備份
+
+`scripts/backup.sh` 每日執行一次本機備份：透過 `docker compose -f docker-compose.prod.yml exec db
+pg_dump` 匯出資料庫（因為 `db` service 沒有對外開放 `5432` port，host 端無法直接用 `pg_dump` 連線，
+只能讓指令在 container 內部執行），並將 host 端的 `uploads/` 目錄 `tar` 打包，兩者都輸出到
+`BACKUP_LOCAL_DIR`（預設 `./backups`）並附上時間戳；同時清除超過 `BACKUP_RETENTION_DAYS`
+（預設 30）天的舊備份檔。目前只做本機備份，尚未實作傳送到外部 NAS／其他主機的異地備份（見
+[issue #46](https://github.com/fangmai001/py-file-platform/issues/46)）。
+
+在 `.env` 設定（預設關閉，需明確啟用）：
+
+```
+BACKUP_ENABLED=true
+BACKUP_LOCAL_DIR=./backups
+BACKUP_RETENTION_DAYS=30
+```
+
+先手動執行一次確認可以正常運作：
+
+```bash
+./scripts/backup.sh
+```
+
+再加進部署主機（跑 `docker-compose.prod.yml` 的那台機器）的 crontab，例如每天凌晨 2 點執行一次：
+
+```
+0 2 * * * /opt/py-file-platform/scripts/backup.sh >> /opt/py-file-platform/backups/backup.log 2>&1
+```
+
+`/opt/py-file-platform` 需換成實際部署路徑；cron 預設的 `PATH` 可能抓不到 `docker`，必要時在
+crontab 開頭加上 `PATH=...` 或改用 `docker` 執行檔的絕對路徑。`backup.log` 會持續成長，之後若需要
+輪替（logrotate）是另外的維運工作，這裡不處理。
+
 ## 🚀 部署 (Deployment)
 
 *   **部署方式**：以 Docker 容器化部署，FastAPI（後端）、React（前端）、PostgreSQL（資料庫）分別建立 container，並以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
 *   **存取範圍**：僅限內部網路存取，不對外公開。
-*   **資料備份**：每日執行一次自動備份，資料庫以 `pg_dump` 匯出、檔案上傳目錄以 `tar`/`rsync` 打包，備份結果傳送至內部 NAS／其他主機（避免與正式主機同時故障導致備份一併遺失），並保留最近 30 天的備份、超過天數自動清除舊備份。
+*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」。傳送至外部 NAS／其他主機的異地備份尚未實作（見 [issue #46](https://github.com/fangmai001/py-file-platform/issues/46)）。
 
 ## 📄 授權條款 (License)
 
