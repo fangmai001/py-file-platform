@@ -108,6 +108,36 @@ npm test        # vitest run
 npm run lint    # oxlint
 ```
 
+## 🤖 持續整合 (Continuous Integration)
+
+本專案在 GitHub Actions 設定了兩個自動化檢查流程，分別對應後端與前端目錄：
+
+### 後端 (`.github/workflows/backend-ci.yml`)
+
+當 push 或建立 Pull Request 有變更到 `backend/` 目錄時觸發，流程為：
+
+1. 啟動一個 PostgreSQL 服務容器
+2. 對這個資料庫執行 `alembic upgrade head`（驗證所有 migration 都能從乾淨的資料庫一路套用到最新版本，避免多個分支各自新增 migration、合併後互相分岔卻沒有人補 merge migration 的情況——這正是先前導致後端在 `docker compose up` 時 crash-loop 的原因）
+3. 執行 `pytest`（單元測試使用記憶體內的 SQLite，不需要外部資料庫）
+
+### 前端 (`.github/workflows/frontend-ci.yml`)
+
+當 push 或建立 Pull Request 有變更到 `frontend/` 目錄時觸發，流程為：
+
+1. `npm ci` 安裝套件
+2. `npm run lint`（oxlint）
+3. `npm test`（vitest run）
+4. `npm run build`（包含 `tsc -b` 型別檢查，能擋下型別錯誤）
+
+### ⚠️ 尚未涵蓋的部分
+
+- **Branch protection（分支保護）**：要讓 PR「必須通過這兩個檢查才能合併」，需要 repo 管理員手動到 GitHub 的
+  `Settings → Branches → Branch protection rules` 設定 `main` 分支，並將上述兩個 workflow（`Backend CI` /
+  `Frontend CI`）勾選為 required status checks。這一步無法透過 workflow 的 YAML 檔完成。
+- **CD（自動部署）**：目前仍是手動執行 `docker compose -f docker-compose.prod.yml up --build -d`，未包含在這兩個
+  workflow 內。
+- **測試覆蓋率門檻（coverage gate）**：目前未設定，CI 只確保測試「有跑且通過」，不檢查覆蓋率百分比。
+
 ## 📦 發布模式執行方式 (Production / Release Mode)
 
 `docker compose up`（即 `docker-compose.yml`）啟動的 frontend container 內部是跑 `npm run dev`
