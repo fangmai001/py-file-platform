@@ -62,6 +62,39 @@ def test_list_notifications_only_own_newest_first(client, db_session):
     assert len(bob_response.json()) == 2
 
 
+def test_list_notifications_paginates_with_skip_and_limit(client, db_session):
+    uploader = make_user(db_session, username="uploader")
+    alice = make_user(db_session, username="alice")
+    file_id = _upload(client, uploader, is_public=True).json()["id"]
+
+    # test_public_upload_notifies_other_active_users_not_uploader already covers the
+    # notification created by that one upload; add more directly so a full 60-row page
+    # doesn't require 60 real uploads.
+    for _ in range(59):
+        db_session.add(Notification(recipient_id=alice.id, file_id=file_id, message="another upload"))
+    db_session.commit()
+
+    first_page = client.get("/api/notifications?limit=50", headers=auth_headers(alice))
+    assert first_page.status_code == 200
+    assert len(first_page.json()) == 50
+
+    second_page = client.get("/api/notifications?skip=50&limit=50", headers=auth_headers(alice))
+    assert second_page.status_code == 200
+    assert len(second_page.json()) == 10
+
+    assert {n["id"] for n in first_page.json()}.isdisjoint({n["id"] for n in second_page.json()})
+
+
+def test_list_notifications_clamps_out_of_range_limit(client, db_session):
+    uploader = make_user(db_session, username="uploader")
+    alice = make_user(db_session, username="alice")
+    _upload(client, uploader, is_public=True)
+
+    response = client.get("/api/notifications?skip=-5&limit=1000", headers=auth_headers(alice))
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
 def test_notifications_require_auth(client):
     response = client.get("/api/notifications")
     assert response.status_code == 401
@@ -94,6 +127,41 @@ def test_cannot_mark_others_notification_read(client, db_session):
         f"/api/notifications/{notification.id}", headers=auth_headers(bob), json={"is_read": True}
     )
     assert response.status_code == 404
+
+
+def test_mark_all_notifications_read_only_affects_own_unread(client, db_session):
+    uploader = make_user(db_session, username="uploader")
+    alice = make_user(db_session, username="alice")
+    bob = make_user(db_session, username="bob")
+    _upload(client, uploader, filename="a.pdf", is_public=True)
+    _upload(client, uploader, filename="b.pdf", is_public=True)
+
+    response = client.patch("/api/notifications/read-all", headers=auth_headers(alice))
+    assert response.status_code == 200
+    assert response.json()["updated"] == 2
+
+    alice_notifications = db_session.query(Notification).filter(Notification.recipient_id == alice.id).all()
+    assert all(n.is_read for n in alice_notifications)
+
+    bob_notifications = db_session.query(Notification).filter(Notification.recipient_id == bob.id).all()
+    assert all(not n.is_read for n in bob_notifications)
+
+
+def test_mark_all_notifications_read_is_idempotent(client, db_session):
+    uploader = make_user(db_session, username="uploader")
+    alice = make_user(db_session, username="alice")
+    _upload(client, uploader, is_public=True)
+
+    first = client.patch("/api/notifications/read-all", headers=auth_headers(alice))
+    assert first.json()["updated"] == 1
+
+    second = client.patch("/api/notifications/read-all", headers=auth_headers(alice))
+    assert second.json()["updated"] == 0
+
+
+def test_mark_all_notifications_read_requires_auth(client):
+    response = client.patch("/api/notifications/read-all")
+    assert response.status_code == 401
 
 
 def test_upload_sends_email_only_to_recipients_with_email_on_file(client, db_session):

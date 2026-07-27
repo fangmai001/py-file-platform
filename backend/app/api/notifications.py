@@ -4,22 +4,44 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models import Notification, User
-from app.schemas.notification import NotificationResponse, NotificationUpdate
+from app.schemas.notification import NotificationReadAllResponse, NotificationResponse, NotificationUpdate
 
 router = APIRouter()
 
 
 @router.get("", response_model=list[NotificationResponse])
 def list_notifications(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[Notification]:
+    skip = max(skip, 0)
+    limit = min(max(limit, 1), 200)
     return (
         db.query(Notification)
         .filter(Notification.recipient_id == current_user.id)
         .order_by(Notification.created_at.desc(), Notification.id.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+
+
+# Declared before "/{notification_id}" so FastAPI doesn't try to parse "read-all" as
+# that route's int path param first.
+@router.patch("/read-all", response_model=NotificationReadAllResponse)
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> NotificationReadAllResponse:
+    updated = (
+        db.query(Notification)
+        .filter(Notification.recipient_id == current_user.id, Notification.is_read.is_(False))
+        .update({"is_read": True})
+    )
+    db.commit()
+    return NotificationReadAllResponse(updated=updated)
 
 
 @router.patch("/{notification_id}", response_model=NotificationResponse)

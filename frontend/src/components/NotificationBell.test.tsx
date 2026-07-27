@@ -10,10 +10,23 @@ vi.mock("../api/auth", () => ({
 vi.mock("../api/notifications", () => ({
   listNotifications: vi.fn(),
   markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
 }));
 
 import { fetchCurrentUser } from "../api/auth";
-import { listNotifications, markNotificationRead } from "../api/notifications";
+import { listNotifications, markAllNotificationsRead, markNotificationRead } from "../api/notifications";
+import type { NotificationItem } from "../api/types";
+
+function makeNotification(id: number, overrides: Partial<NotificationItem> = {}): NotificationItem {
+  return {
+    id,
+    file_id: id,
+    message: `檔案 ${id} 已上傳`,
+    is_read: false,
+    created_at: "2024-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
 
 function renderBell() {
   return render(
@@ -89,5 +102,51 @@ describe("NotificationBell", () => {
     await user.click(screen.getByRole("button", { name: "通知" }));
 
     await waitFor(() => expect(screen.getByText("目前沒有通知")).toBeInTheDocument());
+  });
+
+  it("shows a load-more button when a full page comes back, and appends the next page", async () => {
+    await loginAsUser();
+    const firstPage = Array.from({ length: 50 }, (_, i) => makeNotification(i + 1));
+    const secondPage = [makeNotification(51)];
+    // Two responses of firstPage: one for the mount fetch, one for the refetch that
+    // NotificationBell triggers when the dialog is opened; the third is "load more".
+    vi.mocked(listNotifications)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage);
+
+    renderBell();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole("button", { name: "通知" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "通知" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "載入更多" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "載入更多" }));
+
+    expect(listNotifications).toHaveBeenLastCalledWith(50, 50);
+    await waitFor(() => expect(screen.getByText("檔案 51 已上傳")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "載入更多" })).not.toBeInTheDocument();
+  });
+
+  it("marks all notifications as read", async () => {
+    await loginAsUser();
+    vi.mocked(listNotifications).mockResolvedValue([
+      makeNotification(1, { is_read: false }),
+      makeNotification(2, { is_read: false }),
+    ]);
+    vi.mocked(markAllNotificationsRead).mockResolvedValue({ updated: 2 });
+
+    renderBell();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("2")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "通知" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "全部標記已讀" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "全部標記已讀" }));
+
+    await waitFor(() => expect(markAllNotificationsRead).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "全部標記已讀" })).not.toBeInTheDocument());
   });
 });
