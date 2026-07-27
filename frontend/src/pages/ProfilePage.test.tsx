@@ -24,6 +24,7 @@ const baseUser: UserItem = {
   role: "user",
   auth_source: "local",
   is_active: true,
+  notify_by_email: true,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
@@ -59,7 +60,7 @@ describe("ProfilePage", () => {
     await user.type(screen.getByLabelText("姓名"), "Alice Chen");
     await user.click(screen.getByRole("button", { name: "儲存" }));
 
-    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("Alice Chen", null));
+    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("Alice Chen", null, true));
   });
 
   it("updates the email", async () => {
@@ -70,7 +71,18 @@ describe("ProfilePage", () => {
     await user.type(screen.getByLabelText("Email"), "alice@example.com");
     await user.click(screen.getByRole("button", { name: "儲存" }));
 
-    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("", "alice@example.com"));
+    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("", "alice@example.com", true));
+  });
+
+  it("unchecks the email notification toggle", async () => {
+    await renderLoggedIn();
+    vi.mocked(updateCurrentUser).mockResolvedValue({ ...baseUser, notify_by_email: false });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => expect(updateCurrentUser).toHaveBeenCalledWith("", null, false));
   });
 
   it("shows an error when updating the profile fails", async () => {

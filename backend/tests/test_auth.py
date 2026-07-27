@@ -91,6 +91,15 @@ def test_update_me_can_clear_email(client, db_session):
     assert response.json()["email"] is None
 
 
+def test_update_me_sets_notify_by_email(client, db_session):
+    user = make_user(db_session, username="alice")
+
+    response = client.patch("/api/auth/me", json={"notify_by_email": False}, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    assert response.json()["notify_by_email"] is False
+
+
 def test_update_me_rejects_email_already_in_use(client, db_session):
     make_user(db_session, username="bob", email="bob@example.com")
     alice = make_user(db_session, username="alice")

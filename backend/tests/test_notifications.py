@@ -116,6 +116,27 @@ def test_upload_sends_email_only_to_recipients_with_email_on_file(client, db_ses
     assert sent_message["To"] == "with-email@example.com"
 
 
+def test_upload_skips_email_for_recipients_who_opted_out(client, db_session):
+    configure_smtp(db_session)
+    uploader = make_user(db_session, username="uploader")
+    make_user(db_session, username="opted-out", email="opted-out@example.com", notify_by_email=False)
+    make_user(db_session, username="opted-in", email="opted-in@example.com")
+
+    mock_smtp_instance = MagicMock()
+    mock_smtp_instance.__enter__ = MagicMock(return_value=mock_smtp_instance)
+    mock_smtp_instance.__exit__ = MagicMock(return_value=False)
+
+    with patch("app.core.mailer.smtplib.SMTP", return_value=mock_smtp_instance):
+        response = _upload(client, uploader, is_public=True)
+
+    assert response.status_code == 201
+    mock_smtp_instance.send_message.assert_called_once()
+    sent_message = mock_smtp_instance.send_message.call_args[0][0]
+    assert sent_message["To"] == "opted-in@example.com"
+    # In-app notification is still written for the opted-out user regardless of email.
+    assert db_session.query(Notification).count() == 2
+
+
 def test_upload_skips_email_when_smtp_not_configured(client, db_session):
     uploader = make_user(db_session, username="uploader")
     make_user(db_session, username="with-email", email="with-email@example.com")

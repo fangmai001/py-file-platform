@@ -47,6 +47,7 @@ export interface UserItem {
   role: string;
   auth_source: string;
   is_active: boolean;
+  notify_by_email: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     role: str
     auth_source: str
     is_active: bool
+    notify_by_email: bool
     created_at: datetime
     updated_at: datetime
 
@@ -35,6 +36,7 @@ class UserResponse(BaseModel):
 class ProfileUpdateRequest(BaseModel):
     full_name: str | None = None
     email: str | None = None
+    notify_by_email: bool | None = None
 
 
 class AdminPasswordResetResponse(BaseModel):

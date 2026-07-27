@@ -18,8 +18,8 @@ export function fetchCurrentUser(): Promise<UserItem> {
   return getJSON<UserItem>("/auth/me");
 }
 
-export function updateCurrentUser(fullName: string, email: string | null): Promise<UserItem> {
-  return patchJSON<UserItem>("/auth/me", { full_name: fullName, email });
+export function updateCurrentUser(fullName: string, email: string | null, notifyByEmail: boolean): Promise<UserItem> {
+  return patchJSON<UserItem>("/auth/me", { full_name: fullName, email, notify_by_email: notifyByEmail });
 }
 
 export function changeCurrentUserPassword(currentPassword: string, newPassword: string): Promise<PasswordChangeResponse> {

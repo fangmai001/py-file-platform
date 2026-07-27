@@ -68,6 +68,9 @@ def update_current_user(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
         current_user.email = payload.email or None
         changed = True
+    if payload.notify_by_email is not None and payload.notify_by_email != current_user.notify_by_email:
+        current_user.notify_by_email = payload.notify_by_email
+        changed = True
 
     if changed:
         write_audit_log(db, actor_id=current_user.id, action="user.self_update", target=current_user.username)
