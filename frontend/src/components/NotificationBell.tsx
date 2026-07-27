@@ -1,11 +1,13 @@
 import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
-import { listNotifications, markNotificationRead } from "../api/notifications";
+import { listNotifications, markAllNotificationsRead, markNotificationRead } from "../api/notifications";
 import type { NotificationItem } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { cn } from "../lib/utils";
+
+const PAGE_SIZE = 50;
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("zh-TW");
@@ -14,10 +16,15 @@ function formatDateTime(value: string): string {
 function NotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
   async function loadNotifications() {
     try {
-      setNotifications(await listNotifications());
+      const page = await listNotifications(0, PAGE_SIZE);
+      setNotifications(page);
+      setHasMore(page.length === PAGE_SIZE);
     } catch {
       // Best-effort: a failed notification fetch shouldn't block the rest of the page.
     }
@@ -26,6 +33,7 @@ function NotificationBell() {
   useEffect(() => {
     if (!user) {
       setNotifications(null);
+      setHasMore(false);
       return;
     }
     loadNotifications();
@@ -49,6 +57,31 @@ function NotificationBell() {
     }
   }
 
+  async function handleLoadMore() {
+    setIsLoadingMore(true);
+    try {
+      const page = await listNotifications(notifications?.length ?? 0, PAGE_SIZE);
+      setNotifications((current) => (current ?? []).concat(page));
+      setHasMore(page.length === PAGE_SIZE);
+    } catch {
+      // Best-effort: leave the existing list as-is if loading the next page fails.
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  async function handleMarkAllRead() {
+    setIsMarkingAllRead(true);
+    try {
+      await markAllNotificationsRead();
+      setNotifications((current) => current?.map((n) => ({ ...n, is_read: true })) ?? current);
+    } catch {
+      // Best-effort: leave notifications as-is in the UI if the request fails.
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  }
+
   return (
     <Dialog onOpenChange={(open) => open && loadNotifications()}>
       <DialogTrigger
@@ -64,8 +97,13 @@ function NotificationBell() {
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="flex-row items-center justify-between">
           <DialogTitle>通知</DialogTitle>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" disabled={isMarkingAllRead} onClick={handleMarkAllRead}>
+              {isMarkingAllRead ? "處理中…" : "全部標記已讀"}
+            </Button>
+          )}
         </DialogHeader>
         <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
           {notifications === null && <p className="text-sm text-muted-foreground">載入中…</p>}
@@ -86,6 +124,11 @@ function NotificationBell() {
               <span className="text-xs font-normal text-muted-foreground">{formatDateTime(n.created_at)}</span>
             </button>
           ))}
+          {hasMore && (
+            <Button variant="outline" size="sm" disabled={isLoadingMore} onClick={handleLoadMore}>
+              {isLoadingMore ? "載入中…" : "載入更多"}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

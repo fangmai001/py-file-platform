@@ -15,3 +15,7 @@ class NotificationResponse(BaseModel):
 
 class NotificationUpdate(BaseModel):
     is_read: bool | None = None
+
+
+class NotificationReadAllResponse(BaseModel):
+    updated: int
