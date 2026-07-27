@@ -4,6 +4,7 @@ import { changeCurrentUserPassword, updateCurrentUser } from "../api/auth";
 import { ApiError } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +13,7 @@ function ProfilePage() {
   const { user, setUser } = useAuth();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const [notifyByEmail, setNotifyByEmail] = useState(user?.notify_by_email ?? true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -32,7 +34,7 @@ function ProfilePage() {
     setProfileError(null);
     setIsSavingProfile(true);
     try {
-      const updated = await updateCurrentUser(fullName.trim(), email.trim() || null);
+      const updated = await updateCurrentUser(fullName.trim(), email.trim() || null, notifyByEmail);
       setUser(updated);
       toast.success("個人資料已更新");
     } catch (err) {
@@ -93,6 +95,14 @@ function ProfilePage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="notify-by-email"
+                checked={notifyByEmail}
+                onCheckedChange={(checked) => setNotifyByEmail(checked === true)}
+              />
+              <Label htmlFor="notify-by-email">上傳通知寄送 Email（站內通知不受影響）</Label>
             </div>
             {profileError && <p className="text-sm text-destructive">{profileError}</p>}
             <Button type="submit" disabled={isSavingProfile}>

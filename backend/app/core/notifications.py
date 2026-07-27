@@ -24,7 +24,7 @@ def notify_file_uploaded(db: Session, background_tasks: BackgroundTasks, file_ro
     for recipient in recipients:
         db.add(Notification(recipient_id=recipient.id, file_id=file_row.id, message=message))
 
-    recipient_emails = [r.email for r in recipients if r.email]
+    recipient_emails = [r.email for r in recipients if r.email and r.notify_by_email]
     # Fetched before the commit below so a first-time seed of the smtp_settings row
     # (see app/core/smtp_config.py) is persisted together with the notifications,
     # rather than left flushed-but-uncommitted at the end of the request.

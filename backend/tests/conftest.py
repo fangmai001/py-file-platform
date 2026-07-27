@@ -70,6 +70,7 @@ def make_user(
     is_active=True,
     email=None,
     full_name=None,
+    notify_by_email=True,
 ) -> User:
     user = User(
         username=username,
@@ -78,6 +79,7 @@ def make_user(
         password_hash=hash_password(password),
         role=role,
         is_active=is_active,
+        notify_by_email=notify_by_email,
     )
     db_session.add(user)
     db_session.commit()
