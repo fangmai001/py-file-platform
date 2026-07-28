@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { toast } from "sonner";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
@@ -7,7 +7,13 @@ import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/fo
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import type { LdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
-import { updateSiteSettings } from "../api/site-settings";
+import {
+  deleteFavicon,
+  deleteHeroImage,
+  updateSiteSettings,
+  uploadFavicon,
+  uploadHeroImage,
+} from "../api/site-settings";
 import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
 import type { SmtpSettings } from "../api/smtp-settings";
 import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
@@ -72,6 +78,13 @@ const AUDIT_LOG_LIMIT = 50;
 const ALL_ACTIONS = "__all__";
 const NO_FOLDER = "none";
 
+type BrandingImageKind = "favicon" | "heroImage";
+
+const BRANDING_IMAGE_LABELS: Record<BrandingImageKind, string> = {
+  favicon: "網站圖示",
+  heroImage: "首頁歡迎圖片",
+};
+
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("zh-TW");
 }
@@ -88,6 +101,7 @@ function AdminPage() {
     heroSubtitle: siteSettings.heroSubtitle,
   });
   const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
+  const [brandingImageBusy, setBrandingImageBusy] = useState<BrandingImageKind | null>(null);
 
   const [ldapSettings, setLdapSettings] = useState<LdapSettings | null>(null);
   const [ldapSettingsError, setLdapSettingsError] = useState<string | null>(null);
@@ -548,6 +562,41 @@ function AdminPage() {
       toast.error(message);
     } finally {
       setIsSavingSiteSettings(false);
+    }
+  }
+
+  // Branding images upload as soon as a file is picked rather than waiting for the text
+  // form's submit - there is no draft state to reconcile, just a file that replaces the old one.
+  async function handleBrandingImageChange(kind: BrandingImageKind, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Reset the input so re-picking the same file after a failed upload still fires onChange.
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+
+    setBrandingImageBusy(kind);
+    try {
+      await (kind === "favicon" ? uploadFavicon(file) : uploadHeroImage(file));
+      await siteSettings.refresh();
+      toast.success(`已更新${BRANDING_IMAGE_LABELS[kind]}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : `更新${BRANDING_IMAGE_LABELS[kind]}失敗`);
+    } finally {
+      setBrandingImageBusy(null);
+    }
+  }
+
+  async function handleRemoveBrandingImage(kind: BrandingImageKind) {
+    setBrandingImageBusy(kind);
+    try {
+      await (kind === "favicon" ? deleteFavicon() : deleteHeroImage());
+      await siteSettings.refresh();
+      toast.success(`已移除${BRANDING_IMAGE_LABELS[kind]}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : `移除${BRANDING_IMAGE_LABELS[kind]}失敗`);
+    } finally {
+      setBrandingImageBusy(null);
     }
   }
 
@@ -1345,6 +1394,81 @@ function AdminPage() {
                   {isSavingSiteSettings ? "儲存中…" : "儲存"}
                 </Button>
               </form>
+
+              <div className="flex flex-col gap-6 border-t border-border pt-6">
+                <div>
+                  <h3 className="text-base font-medium">站台圖片</h3>
+                  <p className="text-sm text-muted-foreground">
+                    支援 SVG / PNG / JPG / GIF / WebP / ICO。選擇檔案後會立即上傳並套用，未設定時使用內建預設圖示。
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-favicon">網站圖示（瀏覽器分頁 favicon，上限 512 KB）</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {siteSettings.faviconUrl ? (
+                      <img
+                        src={siteSettings.faviconUrl}
+                        alt="目前的網站圖示"
+                        className="h-8 w-8 rounded border border-border object-contain"
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">尚未設定</span>
+                    )}
+                    <Input
+                      id="site-favicon"
+                      type="file"
+                      accept=".svg,.png,.jpg,.jpeg,.gif,.webp,.ico"
+                      className="max-w-xs"
+                      disabled={brandingImageBusy !== null}
+                      onChange={(e) => handleBrandingImageChange("favicon", e)}
+                    />
+                    {siteSettings.faviconUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={brandingImageBusy !== null}
+                        onClick={() => handleRemoveBrandingImage("favicon")}
+                      >
+                        移除
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-hero-image">首頁歡迎圖片（顯示於主標題上方，上限 2 MB）</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {siteSettings.heroImageUrl ? (
+                      <img
+                        src={siteSettings.heroImageUrl}
+                        alt="目前的首頁歡迎圖片"
+                        className="h-16 w-auto max-w-[160px] rounded border border-border object-contain"
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">尚未設定</span>
+                    )}
+                    <Input
+                      id="site-hero-image"
+                      type="file"
+                      accept=".svg,.png,.jpg,.jpeg,.gif,.webp,.ico"
+                      className="max-w-xs"
+                      disabled={brandingImageBusy !== null}
+                      onChange={(e) => handleBrandingImageChange("heroImage", e)}
+                    />
+                    {siteSettings.heroImageUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={brandingImageBusy !== null}
+                        onClick={() => handleRemoveBrandingImage("heroImage")}
+                      >
+                        移除
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

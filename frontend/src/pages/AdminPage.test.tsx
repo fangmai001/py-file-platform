@@ -41,8 +41,15 @@ vi.mock("../api/site-settings", () => ({
     browser_title: null,
     hero_title: null,
     hero_subtitle: null,
+    favicon_url: null,
+    hero_image_url: null,
   }),
   updateSiteSettings: vi.fn(),
+  uploadFavicon: vi.fn(),
+  uploadHeroImage: vi.fn(),
+  deleteFavicon: vi.fn(),
+  deleteHeroImage: vi.fn(),
+  siteAssetUrl: (path: string | null) => path,
 }));
 vi.mock("../api/ldap-settings", () => ({
   getLdapSettings: vi.fn().mockResolvedValue({
@@ -60,7 +67,12 @@ import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
-import { getSiteSettings, updateSiteSettings } from "../api/site-settings";
+import {
+  deleteHeroImage,
+  getSiteSettings,
+  updateSiteSettings,
+  uploadFavicon,
+} from "../api/site-settings";
 
 function renderAdminPage() {
   return render(
@@ -518,12 +530,16 @@ describe("AdminPage", () => {
       browser_title: "舊分頁標題",
       hero_title: "舊主標題",
       hero_subtitle: "舊副標",
+      favicon_url: null,
+      hero_image_url: null,
     });
     vi.mocked(updateSiteSettings).mockResolvedValue({
       brand_name: "我的社團",
       browser_title: "舊分頁標題",
       hero_title: "舊主標題",
       hero_subtitle: "舊副標",
+      favicon_url: null,
+      hero_image_url: null,
     });
 
     renderAdminPage();
@@ -545,6 +561,55 @@ describe("AdminPage", () => {
         hero_subtitle: "舊副標",
       }),
     );
+  });
+
+  it("uploads a favicon as soon as a file is picked", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(uploadFavicon).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: null,
+      hero_subtitle: null,
+      favicon_url: "/api/site-settings/assets/abc.png",
+      hero_image_url: null,
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "站台設定" }));
+
+    const file = new File(["icon"], "icon.png", { type: "image/png" });
+    await user.upload(await screen.findByLabelText(/網站圖示/), file);
+
+    await waitFor(() => expect(uploadFavicon).toHaveBeenCalledWith(file));
+  });
+
+  it("removes the hero image and hides the remove button when none is set", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getSiteSettings).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: null,
+      hero_subtitle: null,
+      favicon_url: null,
+      hero_image_url: "/api/site-settings/assets/hero.png",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "站台設定" }));
+
+    // Only the hero image is set, so exactly one 移除 button is rendered.
+    const removeButton = await screen.findByRole("button", { name: "移除" });
+    await user.click(removeButton);
+
+    await waitFor(() => expect(deleteHeroImage).toHaveBeenCalled());
   });
 
   it("saves LDAP settings from the LDAP 設定 tab without sending a blank password", async () => {

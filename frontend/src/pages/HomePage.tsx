@@ -73,7 +73,7 @@ interface EditDraft {
 function HomePage() {
   const { user } = useAuth();
   const confirm = useConfirm();
-  const { heroTitle, heroSubtitle } = useSiteSettings();
+  const { heroTitle, heroSubtitle, heroImageUrl } = useSiteSettings();
   const [groups, setGroups] = useState<FolderGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -276,6 +276,13 @@ function HomePage() {
   return (
     <div className="page">
       <section className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-gradient-to-b from-accent/50 to-transparent px-6 py-14 text-center">
+        {heroImageUrl && (
+          <img
+            src={heroImageUrl}
+            alt=""
+            className="max-h-40 w-auto max-w-full object-contain"
+          />
+        )}
         <h1>{heroTitle}</h1>
         <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">{heroSubtitle}</p>
         <div className="flex flex-wrap justify-center gap-3">

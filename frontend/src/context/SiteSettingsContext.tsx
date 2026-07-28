@@ -1,17 +1,21 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getSiteSettings } from "../api/site-settings";
+import { getSiteSettings, siteAssetUrl } from "../api/site-settings";
 
 const DEFAULT_BRAND_NAME = "py-file-platform";
 const DEFAULT_BROWSER_TITLE = "py-file-platform";
 const DEFAULT_HERO_TITLE = "公開檔案牆";
 const DEFAULT_HERO_SUBTITLE =
   "瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。";
+// Falls back to the icon bundled in frontend/public when no favicon has been uploaded.
+const DEFAULT_FAVICON_HREF = "/favicon.svg";
 
 interface SiteSettingsContextValue {
   brandName: string;
   browserTitle: string;
   heroTitle: string;
   heroSubtitle: string;
+  faviconUrl: string | null;
+  heroImageUrl: string | null;
   refresh: () => Promise<void>;
 }
 
@@ -22,6 +26,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [browserTitle, setBrowserTitle] = useState(DEFAULT_BROWSER_TITLE);
   const [heroTitle, setHeroTitle] = useState(DEFAULT_HERO_TITLE);
   const [heroSubtitle, setHeroSubtitle] = useState(DEFAULT_HERO_SUBTITLE);
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
 
   async function refresh() {
     try {
@@ -30,6 +36,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       setBrowserTitle(settings.browser_title || DEFAULT_BROWSER_TITLE);
       setHeroTitle(settings.hero_title || DEFAULT_HERO_TITLE);
       setHeroSubtitle(settings.hero_subtitle || DEFAULT_HERO_SUBTITLE);
+      setFaviconUrl(siteAssetUrl(settings.favicon_url));
+      setHeroImageUrl(siteAssetUrl(settings.hero_image_url));
     } catch {
       // keep the fallback defaults if the request fails
     }
@@ -43,8 +51,19 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     document.title = browserTitle;
   }, [browserTitle]);
 
+  // Same imperative approach as the title above: index.html ships a static <link rel="icon">
+  // and we repoint it once the admin-configured favicon has loaded.
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (link) {
+      link.href = faviconUrl ?? DEFAULT_FAVICON_HREF;
+    }
+  }, [faviconUrl]);
+
   return (
-    <SiteSettingsContext.Provider value={{ brandName, browserTitle, heroTitle, heroSubtitle, refresh }}>
+    <SiteSettingsContext.Provider
+      value={{ brandName, browserTitle, heroTitle, heroSubtitle, faviconUrl, heroImageUrl, refresh }}
+    >
       {children}
     </SiteSettingsContext.Provider>
   );

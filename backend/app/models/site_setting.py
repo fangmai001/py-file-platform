@@ -14,3 +14,7 @@ class SiteSetting(Base):
     browser_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     hero_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     hero_subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Only the stored filename, never a path - the branding directory is decided server-side
+    # so a value from the DB can't escape it.
+    favicon_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hero_image_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
