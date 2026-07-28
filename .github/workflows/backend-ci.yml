@@ -1,18 +1,15 @@
 name: Backend CI
 
+# No `paths:` filter on purpose: a workflow skipped by path filtering never reports a
+# status, so a required status check would sit in "Expected" forever and block the PR.
 on:
   push:
     branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
   pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
 
 jobs:
   test:
+    name: Backend
     runs-on: ubuntu-latest
 
     services:
