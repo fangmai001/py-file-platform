@@ -153,8 +153,8 @@ docker compose -f docker-compose.prod.yml up --build -d
 pg_dump` 匯出資料庫（因為 `db` service 沒有對外開放 `5432` port，host 端無法直接用 `pg_dump` 連線，
 只能讓指令在 container 內部執行），並將 host 端的 `uploads/` 目錄 `tar` 打包，兩者都輸出到
 `BACKUP_LOCAL_DIR`（預設 `./backups`）並附上時間戳；同時清除超過 `BACKUP_RETENTION_DAYS`
-（預設 30）天的舊備份檔。目前只做本機備份，尚未實作傳送到外部 NAS／其他主機的異地備份（見
-[issue #46](https://github.com/fangmai001/py-file-platform/issues/46)）。
+（預設 30）天的舊備份檔。備份檔只保留在部署主機本機，傳送到外部 NAS／其他主機的異地備份不在本專案
+的規劃範圍內。
 
 在 `.env` 設定（預設關閉，需明確啟用）：
 
@@ -184,7 +184,7 @@ crontab 開頭加上 `PATH=...` 或改用 `docker` 執行檔的絕對路徑。`b
 
 *   **部署方式**：以 Docker 容器化部署，FastAPI（後端）、React（前端）、PostgreSQL（資料庫）分別建立 container，並以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
 *   **存取範圍**：僅限內部網路存取，不對外公開。
-*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」。傳送至外部 NAS／其他主機的異地備份尚未實作（見 [issue #46](https://github.com/fangmai001/py-file-platform/issues/46)）。
+*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」。備份檔只保留在部署主機本機，不做傳送至外部 NAS／其他主機的異地備份。
 
 ## 📄 授權條款 (License)
 
