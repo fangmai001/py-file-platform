@@ -1,0 +1,38 @@
+name: Frontend CI
+
+# No `paths:` filter on purpose: a workflow skipped by path filtering never reports a
+# status, so a required status check would sit in "Expected" forever and block the PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
+
+      - name: Build (type-check + bundle)
+        working-directory: frontend
+        run: npm run build
