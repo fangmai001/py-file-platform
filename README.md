@@ -108,6 +108,53 @@ npm test        # vitest run
 npm run lint    # oxlint
 ```
 
+## 🤖 持續整合 (Continuous Integration)
+
+本專案在 GitHub Actions 設定了兩個自動化檢查流程，分別對應後端與前端。兩者都在**每個** Pull Request
+以及 push 到 `main` 時觸發（不做路徑過濾，原因見下方「為什麼不用 `paths:` 過濾」）：
+
+### 後端 (`.github/workflows/backend-ci.yml`，check 名稱 `Backend`)
+
+流程為：
+
+1. 啟動一個 PostgreSQL 服務容器
+2. 對這個資料庫執行 `alembic upgrade head`（驗證所有 migration 都能從乾淨的資料庫一路套用到最新版本，避免多個分支各自新增 migration、合併後互相分岔卻沒有人補 merge migration 的情況——這正是先前導致後端在 `docker compose up` 時 crash-loop 的原因）
+3. 執行 `pytest`（單元測試使用記憶體內的 SQLite，不需要外部資料庫）
+
+### 前端 (`.github/workflows/frontend-ci.yml`，check 名稱 `Frontend`)
+
+流程為：
+
+1. `npm ci` 安裝套件
+2. `npm run lint`（oxlint）
+3. `npm test`（vitest run）
+4. `npm run build`（包含 `tsc -b` 型別檢查，能擋下型別錯誤）
+
+### 為什麼不用 `paths:` 過濾
+
+直覺上會想用 `paths:` 讓「只改前端的 PR 不要跑後端 CI」以節省時間，但這會與下方的 branch protection
+直接衝突：**當 workflow 因路徑過濾而未被觸發時，它的 check 不會回報成功，而是永遠停在
+`Expected — Waiting for status to be reported`**，於是被列為必要檢查的 PR 就永遠合不進去
+（例如只改 `README.md` 的 PR 會讓兩個檢查同時卡住）。兩個 workflow 加起來也才約一分半且平行執行，
+因此選擇無條件觸發。
+
+### 分支保護 (Branch protection)
+
+`main` 分支透過 GitHub **Rulesets**（`Settings → Rules → Rulesets`）套用以下規則：
+
+- 所有變更必須經由 Pull Request，不得直接 push 到 `main`
+- PR 必須通過 `Backend` 與 `Frontend` 兩個 status check 才能合併
+- 禁止刪除 `main`、禁止 force push
+
+因為這是單人維護的 repo，PR 不要求額外的審核者（GitHub 不允許 approve 自己的 PR，若要求審核數
+會導致任何 PR 都無法合併）。
+
+### ⚠️ 尚未涵蓋的部分
+
+- **CD（自動部署）**：目前仍是手動執行 `docker compose -f docker-compose.prod.yml up --build -d`，未包含在這兩個
+  workflow 內。
+- **測試覆蓋率門檻（coverage gate）**：目前未設定，CI 只確保測試「有跑且通過」，不檢查覆蓋率百分比。
+
 ## 📦 發布模式執行方式 (Production / Release Mode)
 
 `docker compose up`（即 `docker-compose.yml`）啟動的 frontend container 內部是跑 `npm run dev`
