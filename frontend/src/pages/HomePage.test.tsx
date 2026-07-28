@@ -27,8 +27,11 @@ vi.mock("../api/site-settings", () => ({
     browser_title: null,
     hero_title: null,
     hero_subtitle: null,
+    favicon_url: null,
+    hero_image_url: null,
   }),
   updateSiteSettings: vi.fn(),
+  siteAssetUrl: (path: string | null) => path,
 }));
 vi.mock("../api/auth", () => ({
   login: vi.fn(),
@@ -215,11 +218,48 @@ describe("HomePage", () => {
       browser_title: null,
       hero_title: "歡迎光臨我的社團",
       hero_subtitle: "這裡是自訂的副標說明",
+      favicon_url: null,
+      hero_image_url: null,
     });
 
     renderHomePage();
 
     await waitFor(() => expect(screen.getByText("歡迎光臨我的社團")).toBeInTheDocument());
     expect(screen.getByText("這裡是自訂的副標說明")).toBeInTheDocument();
+  });
+
+  it("renders the hero image when site settings provide one", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(getSiteSettings).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: null,
+      hero_subtitle: null,
+      favicon_url: null,
+      hero_image_url: "/api/site-settings/assets/abc.png",
+    });
+
+    const { container } = renderHomePage();
+
+    await waitFor(() =>
+      expect(container.querySelector("img[src='/api/site-settings/assets/abc.png']")).toBeInTheDocument(),
+    );
+  });
+
+  it("renders no hero image when site settings have none", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(getSiteSettings).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: null,
+      hero_subtitle: null,
+      favicon_url: null,
+      hero_image_url: null,
+    });
+
+    const { container } = renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("公開檔案牆")).toBeInTheDocument());
+    expect(container.querySelector("img")).toBeNull();
   });
 });

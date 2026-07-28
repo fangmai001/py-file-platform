@@ -10,6 +10,12 @@ export class ApiError extends Error {
   }
 }
 
+// Assets referenced by <img src> / <link rel="icon"> need the backend's origin spelled out -
+// in dev the frontend is served from :5173 while the API lives on :8000.
+export function assetUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_STORAGE_KEY);
 }

@@ -110,7 +110,11 @@ native and Docker dev — see `.env.example`. Notably:
   `/me`), `files.py` (upload/download, versions, visibility toggle, folder-grouped listing, fires
   upload notifications), `folders.py` (card CRUD, admin-only writes via `require_admin`), `link_cards.py`
   (admin-managed external link cards, grouped like files by folder), `site_settings.py` (branding
-  text, admin-only writes), `ldap_settings.py` (LDAP config CRUD, `GET`+`PATCH` both admin-only since
+  text, admin-only writes, plus admin-uploaded favicon/hero images — those live in
+  `UPLOAD_DIR/branding/` and are served by the **public, unauthenticated**
+  `GET /api/site-settings/assets/{filename}` route, the one exception to this app's
+  everything-goes-through-an-authenticated-`FileResponse` rule, because a favicon has to load
+  before login), `ldap_settings.py` (LDAP config CRUD, `GET`+`PATCH` both admin-only since
   it exposes infra details, unlike `site_settings.py`'s public `GET` — never returns the bind password
   itself, only whether one is set), `smtp_settings.py` (outgoing-mail SMTP config CRUD, same
   admin-only-`GET`+`PATCH` pattern and password-never-returned behavior as `ldap_settings.py`),
@@ -143,7 +147,9 @@ Data model relationships: `File.owner_id` → `User.id`; `File.folder_id` → `F
 into); `FileVersion.file_id` → `File.id` (one row per uploaded version of a file, enabling the "don't
 overwrite, keep version history" behavior described in the README); `AuditLog.actor_id` → `User.id`
 records high-privilege admin actions. File content itself lives on disk under `UPLOAD_DIR`/`uploads/`
-— the DB only stores metadata and `FileVersion.stored_path`. `File.display_name` and
+— the DB only stores metadata and `FileVersion.stored_path`. `SiteSetting.favicon_filename` /
+`hero_image_filename` follow the same split: bare uuid filenames in the DB, bytes under
+`UPLOAD_DIR/branding/`, with the response schema deriving the public URL from the filename. `File.display_name` and
 `File.announced_at` are display-only metadata (editable by the owner or an admin via `PATCH
 /api/files/{id}`) and don't affect the real `filename` used for downloads or version matching.
 
