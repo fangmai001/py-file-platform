@@ -4,6 +4,7 @@ import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, up
 import { ApiError } from "../api/client";
 import { deleteFile, listFiles } from "../api/files";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
+import { createHighlight, deleteHighlight, listHighlights, updateHighlight } from "../api/highlights";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
 import type { LdapSettings } from "../api/ldap-settings";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
@@ -16,7 +17,15 @@ import {
 } from "../api/site-settings";
 import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
 import type { SmtpSettings } from "../api/smtp-settings";
-import type { AuditLogItem, FileItem, FolderGroup, FolderItem, LinkCardItem, UserItem } from "../api/types";
+import type {
+  AuditLogItem,
+  FileItem,
+  FolderGroup,
+  FolderItem,
+  HighlightItem,
+  LinkCardItem,
+  UserItem,
+} from "../api/types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
@@ -29,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../context/ConfirmDialogContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import { DEFAULT_HIGHLIGHT_ICON, HIGHLIGHT_ICON_OPTIONS, highlightIcon, highlightIconLabel } from "../lib/highlight-icons";
 
 interface UserDraft {
   email: string;
@@ -69,6 +79,29 @@ function toLinkCardDrafts(items: LinkCardItem[]): Record<number, LinkCardDraft> 
         url: c.url,
         folderId: c.folder_id !== null ? String(c.folder_id) : NO_FOLDER,
         isPublic: c.is_public,
+      },
+    ]),
+  );
+}
+
+interface HighlightDraft {
+  icon: string;
+  title: string;
+  description: string;
+  sortOrder: string;
+  isPublic: boolean;
+}
+
+function toHighlightDrafts(items: HighlightItem[]): Record<number, HighlightDraft> {
+  return Object.fromEntries(
+    items.map((h) => [
+      h.id,
+      {
+        icon: h.icon,
+        title: h.title,
+        description: h.description ?? "",
+        sortOrder: String(h.sort_order),
+        isPublic: h.is_public,
       },
     ]),
   );
@@ -160,6 +193,15 @@ function AdminPage() {
   const [newLinkCardFolderId, setNewLinkCardFolderId] = useState(NO_FOLDER);
   const [isCreatingLinkCard, setIsCreatingLinkCard] = useState(false);
 
+  const [highlights, setHighlights] = useState<HighlightItem[] | null>(null);
+  const [highlightsError, setHighlightsError] = useState<string | null>(null);
+  const [highlightDrafts, setHighlightDrafts] = useState<Record<number, HighlightDraft>>({});
+  const [newHighlightIcon, setNewHighlightIcon] = useState(DEFAULT_HIGHLIGHT_ICON);
+  const [newHighlightTitle, setNewHighlightTitle] = useState("");
+  const [newHighlightDescription, setNewHighlightDescription] = useState("");
+  const [newHighlightSortOrder, setNewHighlightSortOrder] = useState("");
+  const [isCreatingHighlight, setIsCreatingHighlight] = useState(false);
+
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[] | null>(null);
   const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
   const [auditActionFilter, setAuditActionFilter] = useState(ALL_ACTIONS);
@@ -203,6 +245,17 @@ function AdminPage() {
       setLinkCardsError(null);
     } catch (err) {
       setLinkCardsError(err instanceof ApiError ? err.message : "無法載入連結卡片列表");
+    }
+  }
+
+  async function loadHighlights() {
+    try {
+      const data = await listHighlights();
+      setHighlights(data);
+      setHighlightDrafts(toHighlightDrafts(data));
+      setHighlightsError(null);
+    } catch (err) {
+      setHighlightsError(err instanceof ApiError ? err.message : "無法載入首頁特色列表");
     }
   }
 
@@ -257,6 +310,7 @@ function AdminPage() {
     loadFiles();
     loadFolders();
     loadLinkCards();
+    loadHighlights();
     loadAuditLogs();
     loadLdapSettings();
     loadSmtpSettings();
@@ -545,6 +599,72 @@ function AdminPage() {
     }
   }
 
+  async function handleCreateHighlight(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsCreatingHighlight(true);
+    setHighlightsError(null);
+    try {
+      await createHighlight({
+        icon: newHighlightIcon,
+        title: newHighlightTitle,
+        description: newHighlightDescription.trim() || null,
+        sort_order: Number(newHighlightSortOrder) || 0,
+      });
+      setNewHighlightIcon(DEFAULT_HIGHLIGHT_ICON);
+      setNewHighlightTitle("");
+      setNewHighlightDescription("");
+      setNewHighlightSortOrder("");
+      await loadHighlights();
+      toast.success(`已建立首頁特色「${newHighlightTitle}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "建立首頁特色失敗";
+      setHighlightsError(message);
+      toast.error(message);
+    } finally {
+      setIsCreatingHighlight(false);
+    }
+  }
+
+  async function handleSaveHighlight(highlight: HighlightItem) {
+    const draft = highlightDrafts[highlight.id];
+    try {
+      await updateHighlight(highlight.id, {
+        icon: draft.icon,
+        title: draft.title,
+        description: draft.description.trim() || null,
+        sort_order: Number(draft.sortOrder) || 0,
+        is_public: draft.isPublic,
+      });
+      await loadHighlights();
+      toast.success(`已更新首頁特色「${draft.title}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "更新首頁特色失敗";
+      setHighlightsError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleDeleteHighlight(highlight: HighlightItem) {
+    const ok = await confirm({
+      title: "刪除首頁特色",
+      description: `確定要刪除首頁特色「${highlight.title}」嗎？此操作無法復原。`,
+      confirmLabel: "刪除",
+      variant: "destructive",
+    });
+    if (!ok) {
+      return;
+    }
+    try {
+      await deleteHighlight(highlight.id);
+      await loadHighlights();
+      toast.success(`已刪除首頁特色「${highlight.title}」`);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "刪除首頁特色失敗";
+      setHighlightsError(message);
+      toast.error(message);
+    }
+  }
+
   async function handleSaveSiteSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSavingSiteSettings(true);
@@ -729,6 +849,7 @@ function AdminPage() {
           <TabsTrigger value="users">使用者</TabsTrigger>
           <TabsTrigger value="folders">卡片</TabsTrigger>
           <TabsTrigger value="link-cards">連結卡片</TabsTrigger>
+          <TabsTrigger value="highlights">首頁特色</TabsTrigger>
           <TabsTrigger value="files">檔案</TabsTrigger>
           <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
           <TabsTrigger value="site-settings">站台設定</TabsTrigger>
@@ -1221,6 +1342,206 @@ function AdminPage() {
                               儲存
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleDeleteLinkCard(card)}>
+                              刪除
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="highlights" className="flex flex-col gap-6 pt-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>新增首頁特色</h2>
+              <p className="text-sm text-muted-foreground">
+                首頁特色會顯示在首頁歡迎區塊下方，用來介紹站台的主要功能。數字越小越前面，版面會依張數自動調整。
+              </p>
+              <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateHighlight}>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-highlight-icon">圖示</Label>
+                  <Select value={newHighlightIcon} onValueChange={(value) => value && setNewHighlightIcon(value)}>
+                    <SelectTrigger id="new-highlight-icon" className="w-40">
+                      <SelectValue>
+                        {(value: string) => {
+                          const Icon = highlightIcon(value);
+                          return (
+                            <>
+                              <Icon className="size-4" />
+                              {highlightIconLabel(value)}
+                            </>
+                          );
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HIGHLIGHT_ICON_OPTIONS.map(({ key, label, Icon }) => (
+                        <SelectItem key={key} value={key}>
+                          <Icon className="size-4" />
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-highlight-title">標題</Label>
+                  <Input
+                    id="new-highlight-title"
+                    type="text"
+                    value={newHighlightTitle}
+                    onChange={(e) => setNewHighlightTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-highlight-description">說明</Label>
+                  <Input
+                    id="new-highlight-description"
+                    type="text"
+                    value={newHighlightDescription}
+                    onChange={(e) => setNewHighlightDescription(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-highlight-sort-order">排序</Label>
+                  <Input
+                    id="new-highlight-sort-order"
+                    type="number"
+                    className="w-24"
+                    placeholder="0"
+                    value={newHighlightSortOrder}
+                    onChange={(e) => setNewHighlightSortOrder(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" disabled={isCreatingHighlight}>
+                  {isCreatingHighlight ? "建立中…" : "新增"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex flex-col gap-4 text-left">
+              <h2>首頁特色列表</h2>
+              {highlightsError && <p className="text-sm text-destructive">{highlightsError}</p>}
+              {highlights === null && !highlightsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              {highlights !== null && highlights.length === 0 && (
+                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
+                  目前沒有首頁特色
+                </div>
+              )}
+              {highlights !== null && highlights.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>圖示</TableHead>
+                      <TableHead>標題</TableHead>
+                      <TableHead>說明</TableHead>
+                      <TableHead>排序</TableHead>
+                      <TableHead>顯示</TableHead>
+                      <TableHead>操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {highlights.map((highlight) => (
+                      <TableRow key={highlight.id}>
+                        <TableCell>
+                          <Select
+                            value={highlightDrafts[highlight.id]?.icon ?? DEFAULT_HIGHLIGHT_ICON}
+                            onValueChange={(value) =>
+                              value &&
+                              setHighlightDrafts((drafts) => ({
+                                ...drafts,
+                                [highlight.id]: { ...drafts[highlight.id], icon: value },
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue>
+                                {(value: string) => {
+                                  const Icon = highlightIcon(value);
+                                  return (
+                                    <>
+                                      <Icon className="size-4" />
+                                      {highlightIconLabel(value)}
+                                    </>
+                                  );
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {HIGHLIGHT_ICON_OPTIONS.map(({ key, label, Icon }) => (
+                                <SelectItem key={key} value={key}>
+                                  <Icon className="size-4" />
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={highlightDrafts[highlight.id]?.title ?? ""}
+                            onChange={(e) =>
+                              setHighlightDrafts((drafts) => ({
+                                ...drafts,
+                                [highlight.id]: { ...drafts[highlight.id], title: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={highlightDrafts[highlight.id]?.description ?? ""}
+                            onChange={(e) =>
+                              setHighlightDrafts((drafts) => ({
+                                ...drafts,
+                                [highlight.id]: { ...drafts[highlight.id], description: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            className="w-20"
+                            value={highlightDrafts[highlight.id]?.sortOrder ?? ""}
+                            onChange={(e) =>
+                              setHighlightDrafts((drafts) => ({
+                                ...drafts,
+                                [highlight.id]: { ...drafts[highlight.id], sortOrder: e.target.value },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setHighlightDrafts((drafts) => ({
+                                ...drafts,
+                                [highlight.id]: { ...drafts[highlight.id], isPublic: !drafts[highlight.id]?.isPublic },
+                              }))
+                            }
+                          >
+                            {highlightDrafts[highlight.id]?.isPublic ? "公開" : "私密"}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleSaveHighlight(highlight)}>
+                              儲存
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteHighlight(highlight)}>
                               刪除
                             </Button>
                           </div>

@@ -21,6 +21,12 @@ vi.mock("./api/folders", () => ({
   updateFolder: vi.fn(),
   deleteFolder: vi.fn(),
 }));
+vi.mock("./api/highlights", () => ({
+  listHighlights: vi.fn().mockResolvedValue([]),
+  createHighlight: vi.fn(),
+  updateHighlight: vi.fn(),
+  deleteHighlight: vi.fn(),
+}));
 vi.mock("./api/admin", () => ({
   listUsers: vi.fn().mockResolvedValue([]),
   createUser: vi.fn(),

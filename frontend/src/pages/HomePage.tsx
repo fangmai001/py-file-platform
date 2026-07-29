@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
-import { ClipboardList, ExternalLink, FolderTree, History, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ApiError } from "../api/client";
 import { deleteFile, downloadFile, listFiles, updateFile, updateFileVisibility } from "../api/files";
 import { listFolders } from "../api/folders";
+import { listHighlights } from "../api/highlights";
 import { listLinkCards } from "../api/link-cards";
-import type { FileItem, FolderGroup, FolderItem, LinkCardItem } from "../api/types";
+import type { FileItem, FolderGroup, FolderItem, HighlightItem, LinkCardItem } from "../api/types";
+import { highlightIcon } from "../lib/highlight-icons";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -35,35 +37,6 @@ function formatSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-interface Highlight {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-}
-
-const highlights: Highlight[] = [
-  {
-    icon: ShieldCheck,
-    title: "公開／私密控管",
-    description: "每個檔案可獨立設定可見度，公開檔案訪客免登入即可下載，私密檔案僅本人與管理員可見。",
-  },
-  {
-    icon: History,
-    title: "版本歷史",
-    description: "同名檔案重新上傳不會覆蓋，舊版本會保留完整歷史紀錄，方便回溯查閱。",
-  },
-  {
-    icon: FolderTree,
-    title: "資料夾分類",
-    description: "檔案依資料夾分組呈現，瀏覽時可依主題或用途快速找到需要的文件。",
-  },
-  {
-    icon: ClipboardList,
-    title: "稽核紀錄",
-    description: "刪除、權限變更等高權限操作皆會記錄稽核紀錄，操作歷程有跡可循。",
-  },
-];
-
 interface EditDraft {
   displayName: string;
   announcedAt: string;
@@ -78,6 +51,7 @@ function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [linkCards, setLinkCards] = useState<LinkCardItem[]>([]);
+  const [highlights, setHighlights] = useState<HighlightItem[] | null>(null);
   const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft>({ displayName: "", announcedAt: "", folderId: NO_FOLDER });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -124,6 +98,12 @@ function HomePage() {
       .then(setLinkCards)
       .catch(() => setLinkCards([]));
   }, [folderFilter, user]);
+
+  useEffect(() => {
+    listHighlights()
+      .then(setHighlights)
+      .catch(() => setHighlights([]));
+  }, [user]);
 
   async function handleDownload(file: FileItem) {
     try {
@@ -318,17 +298,22 @@ function HomePage() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {highlights.map(({ icon: Icon, title, description }) => (
-          <Card key={title}>
-            <CardContent className="flex flex-col gap-2 text-left">
-              <Icon className="size-5 text-foreground" />
-              <h3 className="text-base font-medium text-foreground">{title}</h3>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
+      {highlights !== null && highlights.length > 0 && (
+        <section className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
+          {highlights.map((highlight) => {
+            const Icon = highlightIcon(highlight.icon);
+            return (
+              <Card key={highlight.id}>
+                <CardContent className="flex flex-col gap-2 text-left">
+                  <Icon className="size-5 text-foreground" />
+                  <h3 className="text-base font-medium text-foreground">{highlight.title}</h3>
+                  {highlight.description && <p className="text-sm text-muted-foreground">{highlight.description}</p>}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </section>
+      )}
 
       <Card id="file-list">
         <CardContent className="flex flex-col gap-4 text-left">

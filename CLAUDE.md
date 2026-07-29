@@ -28,7 +28,8 @@ handling against a React frontend.
 
 Implemented: local-account and LDAP login/JWT auth, file upload/download with per-file public/private
 visibility and version history, folder-grouped browsing, link-card categories, site branding settings,
-self-service password reset, admin user management, an audit log for high-privilege actions, and
+admin-editable homepage feature highlights, self-service password reset, admin user management, an
+audit log for high-privilege actions, and
 upload notifications — see README.md for the full feature list. Upload notifications now have a
 frontend too: `frontend/src/components/NotificationBell.tsx` (mounted in `App.tsx`) calls
 `GET/PATCH /api/notifications` via `frontend/src/api/notifications.ts`. `AboutPage.tsx` no longer has
@@ -109,7 +110,11 @@ native and Docker dev — see `.env.example`. Notably:
   module under `app/api/`: `auth.py` (login/JWT — local password or LDAP bind via `app/core/ldap.py`,
   `/me`), `files.py` (upload/download, versions, visibility toggle, folder-grouped listing, fires
   upload notifications), `folders.py` (card CRUD, admin-only writes via `require_admin`), `link_cards.py`
-  (admin-managed external link cards, grouped like files by folder), `site_settings.py` (branding
+  (admin-managed external link cards, grouped like files by folder), `highlights.py` (the feature
+  highlight cards on the home page — same public-`GET`/admin-only-writes shape as `link_cards.py`;
+  `icon` stores a kebab-case string key validated by the `HighlightIconKey` `Literal` in
+  `app/schemas/highlight.py`, which `frontend/src/lib/highlight-icons.ts` maps to lucide components
+  with a fallback, so the two lists must be kept in sync), `site_settings.py` (branding
   text, admin-only writes, plus admin-uploaded favicon/hero images — those live in
   `UPLOAD_DIR/branding/` and are served by the **public, unauthenticated**
   `GET /api/site-settings/assets/{filename}` route, the one exception to this app's
@@ -137,7 +142,7 @@ native and Docker dev — see `.env.example`. Notably:
   request's session has already closed and can't safely re-query the ORM row themselves.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
-- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`,
+- `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`, `Highlight`,
   `SiteSetting`, `LdapSetting`, `SmtpSetting`, `PasswordResetToken`, `Notification`, `AuditLog`), all
   imported and re-exported from `app/models/__init__.py`. Alembic's `env.py` does `from app.models
   import *` so every model must be added to that `__init__.py` to be picked up by autogenerate.
@@ -152,6 +157,10 @@ records high-privilege admin actions. File content itself lives on disk under `U
 `UPLOAD_DIR/branding/`, with the response schema deriving the public URL from the filename. `File.display_name` and
 `File.announced_at` are display-only metadata (editable by the owner or an admin via `PATCH
 /api/files/{id}`) and don't affect the real `filename` used for downloads or version matching.
+`Highlight` has no foreign keys at all — rows are ordered by `sort_order` (ties broken by `id`), and
+the four cards that used to be hardcoded in `HomePage.tsx` are seeded by migration `c9d3e17a4b52`.
+Tests won't see those seeded rows: `backend/tests/conftest.py` builds its schema with
+`Base.metadata.create_all`, not by running migrations.
 
 ## Frontend architecture
 

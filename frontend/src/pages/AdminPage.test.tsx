@@ -35,6 +35,12 @@ vi.mock("../api/link-cards", () => ({
   updateLinkCard: vi.fn(),
   deleteLinkCard: vi.fn(),
 }));
+vi.mock("../api/highlights", () => ({
+  listHighlights: vi.fn().mockResolvedValue([]),
+  createHighlight: vi.fn(),
+  updateHighlight: vi.fn(),
+  deleteHighlight: vi.fn(),
+}));
 vi.mock("../api/site-settings", () => ({
   getSiteSettings: vi.fn().mockResolvedValue({
     brand_name: null,
@@ -66,6 +72,7 @@ vi.mock("../api/ldap-settings", () => ({
 import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
+import { createHighlight, deleteHighlight, listHighlights, updateHighlight } from "../api/highlights";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
 import {
   deleteHeroImage,
@@ -520,6 +527,121 @@ describe("AdminPage", () => {
     await user.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => expect(deleteLinkCard).toHaveBeenCalledWith(1));
+  });
+
+  it("creates a highlight from the 首頁特色 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(createHighlight).mockResolvedValue({
+      id: 1,
+      icon: "sparkles",
+      title: "全文搜尋",
+      description: null,
+      sort_order: 50,
+      is_public: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "首頁特色" }));
+
+    await waitFor(() => expect(screen.getByLabelText("標題")).toBeInTheDocument());
+    await user.type(screen.getByLabelText("標題"), "全文搜尋");
+    await user.type(screen.getByLabelText("排序"), "50");
+    await user.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() =>
+      expect(createHighlight).toHaveBeenCalledWith({
+        icon: "sparkles",
+        title: "全文搜尋",
+        description: null,
+        sort_order: 50,
+      }),
+    );
+  });
+
+  it("edits and saves a highlight's title and sort order", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listHighlights).mockResolvedValue([
+      {
+        id: 1,
+        icon: "shield-check",
+        title: "版本歷史",
+        description: "說明文字",
+        sort_order: 20,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(updateHighlight).mockResolvedValue({
+      id: 1,
+      icon: "shield-check",
+      title: "版本歷史（新）",
+      description: "說明文字",
+      sort_order: 205,
+      is_public: true,
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "首頁特色" }));
+
+    const titleInput = await screen.findByDisplayValue("版本歷史");
+    const row = titleInput.closest("tr");
+    if (!row) {
+      throw new Error("highlight row not found");
+    }
+    await user.type(titleInput, "（新）");
+    await user.type(within(row).getByDisplayValue("20"), "5");
+    await user.click(within(row).getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateHighlight).toHaveBeenCalledWith(1, {
+        icon: "shield-check",
+        title: "版本歷史（新）",
+        description: "說明文字",
+        sort_order: 205,
+        is_public: true,
+      }),
+    );
+  });
+
+  it("asks for confirmation before deleting a highlight", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listHighlights).mockResolvedValue([
+      {
+        id: 1,
+        icon: "shield-check",
+        title: "版本歷史",
+        description: null,
+        sort_order: 20,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "首頁特色" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("版本歷史")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    await waitFor(() => expect(screen.getByText(/此操作無法復原/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    await waitFor(() => expect(deleteHighlight).toHaveBeenCalledWith(1));
   });
 
   it("saves site settings from the 站台設定 tab", async () => {

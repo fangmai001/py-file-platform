@@ -21,6 +21,9 @@ vi.mock("../api/folders", () => ({
 vi.mock("../api/link-cards", () => ({
   listLinkCards: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../api/highlights", () => ({
+  listHighlights: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("../api/site-settings", () => ({
   getSiteSettings: vi.fn().mockResolvedValue({
     brand_name: null,
@@ -39,6 +42,7 @@ vi.mock("../api/auth", () => ({
 }));
 
 import { deleteFile, listFiles } from "../api/files";
+import { listHighlights } from "../api/highlights";
 import { listLinkCards } from "../api/link-cards";
 import { getSiteSettings } from "../api/site-settings";
 import { fetchCurrentUser } from "../api/auth";
@@ -261,5 +265,64 @@ describe("HomePage", () => {
 
     await waitFor(() => expect(screen.getByText("公開檔案牆")).toBeInTheDocument());
     expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("renders the highlight cards returned by the API", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(listHighlights).mockResolvedValue([
+      {
+        id: 1,
+        icon: "shield-check",
+        title: "公開／私密控管",
+        description: "每個檔案可獨立設定可見度。",
+        sort_order: 10,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        icon: "history",
+        title: "版本歷史",
+        description: null,
+        sort_order: 20,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("公開／私密控管")).toBeInTheDocument());
+    expect(screen.getByText("每個檔案可獨立設定可見度。")).toBeInTheDocument();
+    expect(screen.getByText("版本歷史")).toBeInTheDocument();
+  });
+
+  it("renders an unknown icon key with the fallback icon instead of crashing", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(listHighlights).mockResolvedValue([
+      {
+        id: 1,
+        icon: "icon-from-a-newer-backend",
+        title: "未來的特色",
+        description: null,
+        sort_order: 10,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("未來的特色")).toBeInTheDocument());
+  });
+
+  it("renders no highlight section when the list is empty", async () => {
+    vi.mocked(listFiles).mockResolvedValue([]);
+    vi.mocked(listHighlights).mockResolvedValue([]);
+
+    renderHomePage();
+
+    await waitFor(() => expect(screen.getByText("公開檔案牆")).toBeInTheDocument());
+    expect(screen.queryByText("公開／私密控管")).not.toBeInTheDocument();
   });
 });

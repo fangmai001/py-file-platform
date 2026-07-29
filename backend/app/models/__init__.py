@@ -2,6 +2,7 @@ from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_version import FileVersion
 from app.models.folder import Folder
+from app.models.highlight import Highlight
 from app.models.ldap_setting import LdapSetting
 from app.models.link_card import LinkCard
 from app.models.notification import Notification
@@ -16,6 +17,7 @@ __all__ = [
     "FileVersion",
     "Folder",
     "LinkCard",
+    "Highlight",
     "SiteSetting",
     "LdapSetting",
     "SmtpSetting",
