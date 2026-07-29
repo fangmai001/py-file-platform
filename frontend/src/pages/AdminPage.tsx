@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { FileText, Folder, Link2, ScrollText, Sparkles, Users } from "lucide-react";
 import { toast } from "sonner";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
@@ -26,9 +27,15 @@ import type {
   LinkCardItem,
   UserItem,
 } from "../api/types";
+import Callout from "../components/Callout";
+import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
+import SectionTitle from "../components/SectionTitle";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
+import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -120,6 +127,18 @@ const BRANDING_IMAGE_LABELS: Record<BrandingImageKind, string> = {
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("zh-TW");
+}
+
+/** Placeholder rows shown while a tab's table is still loading. */
+function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Skeleton className="h-9 w-full" />
+      {Array.from({ length: rows }, (_, i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
+    </div>
+  );
 }
 
 function AdminPage() {
@@ -826,41 +845,82 @@ function AdminPage() {
 
   return (
     <div className="page">
-      <h1>管理後台</h1>
-      <p className="text-sm text-muted-foreground">管理使用者帳號與所有人上傳的檔案。</p>
+      <PageHeader title="管理後台" description="管理使用者帳號與所有人上傳的檔案。" />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 sm:max-w-lg">
         <Card>
-          <CardContent className="flex flex-col gap-1">
-            <span className="text-2xl font-semibold text-foreground">{users?.length ?? "—"}</span>
-            <span className="text-sm text-muted-foreground">使用者總數</span>
+          <CardContent className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Users className="size-4" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {users === null ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                <span className="text-3xl font-semibold text-foreground tabular-nums">
+                  {users.length}
+                </span>
+              )}
+              <span className="text-sm text-muted-foreground">使用者總數</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex flex-col gap-1">
-            <span className="text-2xl font-semibold text-foreground">{totalFiles ?? "—"}</span>
-            <span className="text-sm text-muted-foreground">檔案總數</span>
+          <CardContent className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="size-4" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {totalFiles === null ? (
+                <Skeleton className="h-8 w-12" />
+              ) : (
+                <span className="text-3xl font-semibold text-foreground tabular-nums">
+                  {totalFiles}
+                </span>
+              )}
+              <span className="text-sm text-muted-foreground">檔案總數</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList>
-          <TabsTrigger value="users">使用者</TabsTrigger>
-          <TabsTrigger value="folders">卡片</TabsTrigger>
-          <TabsTrigger value="link-cards">連結卡片</TabsTrigger>
-          <TabsTrigger value="highlights">首頁特色</TabsTrigger>
-          <TabsTrigger value="files">檔案</TabsTrigger>
-          <TabsTrigger value="audit-logs">操作紀錄</TabsTrigger>
-          <TabsTrigger value="site-settings">站台設定</TabsTrigger>
-          <TabsTrigger value="ldap-settings">LDAP 設定</TabsTrigger>
-          <TabsTrigger value="smtp-settings">Email SMTP 設定</TabsTrigger>
+        {/* line variant + flex-none: nine Chinese labels crammed into the default padded
+            trough get squashed, because the stock trigger is flex-1. */}
+        <TabsList variant="line" className="w-full justify-start">
+          <TabsTrigger value="users" className="h-9 flex-none px-3">
+            使用者
+          </TabsTrigger>
+          <TabsTrigger value="folders" className="h-9 flex-none px-3">
+            卡片
+          </TabsTrigger>
+          <TabsTrigger value="link-cards" className="h-9 flex-none px-3">
+            連結卡片
+          </TabsTrigger>
+          <TabsTrigger value="highlights" className="h-9 flex-none px-3">
+            首頁特色
+          </TabsTrigger>
+          <TabsTrigger value="files" className="h-9 flex-none px-3">
+            檔案
+          </TabsTrigger>
+          <TabsTrigger value="audit-logs" className="h-9 flex-none px-3">
+            操作紀錄
+          </TabsTrigger>
+          <TabsTrigger value="site-settings" className="h-9 flex-none px-3">
+            站台設定
+          </TabsTrigger>
+          <TabsTrigger value="ldap-settings" className="h-9 flex-none px-3">
+            LDAP 設定
+          </TabsTrigger>
+          <TabsTrigger value="smtp-settings" className="h-9 flex-none px-3">
+            Email SMTP 設定
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="flex flex-col gap-6 pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>新增使用者</h2>
+              <SectionTitle>新增使用者</SectionTitle>
               <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateUser}>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="new-username">帳號</Label>
@@ -922,7 +982,7 @@ function AdminPage() {
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2>使用者列表</h2>
+                <SectionTitle>使用者列表</SectionTitle>
                 <Input
                   type="search"
                   placeholder="依帳號搜尋…"
@@ -932,12 +992,10 @@ function AdminPage() {
                   aria-label="依帳號搜尋使用者"
                 />
               </div>
-              {usersError && <p className="text-sm text-destructive">{usersError}</p>}
-              {users === null && !usersError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <Callout>{usersError}</Callout>
+              {users === null && !usersError && <TableSkeleton />}
               {filteredUsers !== null && filteredUsers.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  {users !== null && users.length > 0 ? "沒有符合條件的使用者" : "目前沒有使用者"}
-                </div>
+                <EmptyState icon={Users} title={users !== null && users.length > 0 ? "沒有符合條件的使用者" : "目前沒有使用者"} />
               )}
               {filteredUsers !== null && filteredUsers.length > 0 && (
                 <Table>
@@ -1006,10 +1064,14 @@ function AdminPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>{u.is_active ? "啟用" : "停用"}</TableCell>
-                        <TableCell>{formatDateTime(u.created_at)}</TableCell>
-                        <TableCell>{formatDateTime(u.updated_at)}</TableCell>
                         <TableCell>
+                          <Badge variant={u.is_active ? "success" : "secondary"}>
+                            {u.is_active ? "啟用" : "停用"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDateTime(u.created_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDateTime(u.updated_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <div className="flex flex-wrap items-center gap-2">
                             <Button variant="outline" size="sm" onClick={() => handleSaveUser(u)}>
                               儲存
@@ -1027,7 +1089,7 @@ function AdminPage() {
                               重設密碼
                             </Button>
                             <Button
-                              variant="outline"
+                              variant="destructive-outline"
                               size="sm"
                               onClick={() => handleDeleteUser(u)}
                               disabled={currentUser?.id === u.id}
@@ -1072,7 +1134,7 @@ function AdminPage() {
         <TabsContent value="folders" className="flex flex-col gap-6 pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>新增卡片</h2>
+              <SectionTitle>新增卡片</SectionTitle>
               <p className="text-sm text-muted-foreground">卡片用來將首頁的檔案分組呈現，檔案上傳或編輯時可選擇要放入哪張卡片。</p>
               <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateFolder}>
                 <div className="flex flex-col gap-1.5">
@@ -1103,13 +1165,11 @@ function AdminPage() {
 
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>卡片列表</h2>
-              {foldersError && <p className="text-sm text-destructive">{foldersError}</p>}
-              {folders === null && !foldersError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <SectionTitle>卡片列表</SectionTitle>
+              <Callout>{foldersError}</Callout>
+              {folders === null && !foldersError && <TableSkeleton />}
               {folders !== null && folders.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  目前沒有卡片
-                </div>
+                <EmptyState icon={Folder} title="目前沒有卡片" />
               )}
               {folders !== null && folders.length > 0 && (
                 <Table>
@@ -1152,7 +1212,7 @@ function AdminPage() {
                             <Button variant="outline" size="sm" onClick={() => handleSaveFolder(folder)}>
                               儲存
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteFolder(folder)}>
+                            <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteFolder(folder)}>
                               刪除
                             </Button>
                           </div>
@@ -1169,7 +1229,7 @@ function AdminPage() {
         <TabsContent value="link-cards" className="flex flex-col gap-6 pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>新增連結卡片</h2>
+              <SectionTitle>新增連結卡片</SectionTitle>
               <p className="text-sm text-muted-foreground">
                 連結卡片會與檔案卡片一併顯示在首頁，點擊後在新分頁開啟指定網址，不涉及檔案上傳/下載。
               </p>
@@ -1233,13 +1293,11 @@ function AdminPage() {
 
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>連結卡片列表</h2>
-              {linkCardsError && <p className="text-sm text-destructive">{linkCardsError}</p>}
-              {linkCards === null && !linkCardsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <SectionTitle>連結卡片列表</SectionTitle>
+              <Callout>{linkCardsError}</Callout>
+              {linkCards === null && !linkCardsError && <TableSkeleton />}
               {linkCards !== null && linkCards.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  目前沒有連結卡片
-                </div>
+                <EmptyState icon={Link2} title="目前沒有連結卡片" />
               )}
               {linkCards !== null && linkCards.length > 0 && (
                 <Table>
@@ -1341,7 +1399,7 @@ function AdminPage() {
                             <Button variant="outline" size="sm" onClick={() => handleSaveLinkCard(card)}>
                               儲存
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteLinkCard(card)}>
+                            <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteLinkCard(card)}>
                               刪除
                             </Button>
                           </div>
@@ -1358,7 +1416,7 @@ function AdminPage() {
         <TabsContent value="highlights" className="flex flex-col gap-6 pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>新增首頁特色</h2>
+              <SectionTitle>新增首頁特色</SectionTitle>
               <p className="text-sm text-muted-foreground">
                 首頁特色會顯示在首頁歡迎區塊下方，用來介紹站台的主要功能。數字越小越前面，版面會依張數自動調整。
               </p>
@@ -1428,13 +1486,11 @@ function AdminPage() {
 
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>首頁特色列表</h2>
-              {highlightsError && <p className="text-sm text-destructive">{highlightsError}</p>}
-              {highlights === null && !highlightsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <SectionTitle>首頁特色列表</SectionTitle>
+              <Callout>{highlightsError}</Callout>
+              {highlights === null && !highlightsError && <TableSkeleton />}
               {highlights !== null && highlights.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  目前沒有首頁特色
-                </div>
+                <EmptyState icon={Sparkles} title="目前沒有首頁特色" />
               )}
               {highlights !== null && highlights.length > 0 && (
                 <Table>
@@ -1541,7 +1597,7 @@ function AdminPage() {
                             <Button variant="outline" size="sm" onClick={() => handleSaveHighlight(highlight)}>
                               儲存
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteHighlight(highlight)}>
+                            <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteHighlight(highlight)}>
                               刪除
                             </Button>
                           </div>
@@ -1559,7 +1615,7 @@ function AdminPage() {
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2>所有檔案</h2>
+                <SectionTitle>所有檔案</SectionTitle>
                 <Input
                   type="search"
                   placeholder="依檔名搜尋…"
@@ -1569,12 +1625,10 @@ function AdminPage() {
                   aria-label="依檔名搜尋檔案"
                 />
               </div>
-              {filesError && <p className="text-sm text-destructive">{filesError}</p>}
-              {fileGroups === null && !filesError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <Callout>{filesError}</Callout>
+              {fileGroups === null && !filesError && <TableSkeleton />}
               {filteredFiles !== null && filteredFiles.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  {totalFiles !== null && totalFiles > 0 ? "沒有符合條件的檔案" : "目前沒有檔案"}
-                </div>
+                <EmptyState icon={FileText} title={totalFiles !== null && totalFiles > 0 ? "沒有符合條件的檔案" : "目前沒有檔案"} />
               )}
               {filteredFiles !== null && filteredFiles.length > 0 && (
                 <Table>
@@ -1595,11 +1649,15 @@ function AdminPage() {
                         <TableCell>{file.filename}</TableCell>
                         <TableCell>{file.display_name ?? "—"}</TableCell>
                         <TableCell>{folderName}</TableCell>
-                        <TableCell>{file.announced_at ?? "—"}</TableCell>
-                        <TableCell>{file.owner_id}</TableCell>
-                        <TableCell>{file.is_public ? "公開" : "私密"}</TableCell>
+                        <TableCell className="whitespace-nowrap">{file.announced_at ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap">{file.owner_id}</TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleDeleteFile(file)}>
+                          <Badge variant={file.is_public ? "success" : "secondary"}>
+                            {file.is_public ? "公開" : "私密"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteFile(file)}>
                             刪除
                           </Button>
                         </TableCell>
@@ -1616,7 +1674,7 @@ function AdminPage() {
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2>操作紀錄</h2>
+                <SectionTitle>操作紀錄</SectionTitle>
                 <Select value={auditActionFilter} onValueChange={(value) => value && setAuditActionFilter(value)}>
                   <SelectTrigger className="w-48" aria-label="依動作類型篩選">
                     <SelectValue>{(value: string) => (value === ALL_ACTIONS ? "全部動作" : value)}</SelectValue>
@@ -1632,12 +1690,10 @@ function AdminPage() {
                 </Select>
               </div>
               <p className="text-sm text-muted-foreground">高權限操作的稽核紀錄，僅顯示最近 {AUDIT_LOG_LIMIT} 筆。</p>
-              {auditLogsError && <p className="text-sm text-destructive">{auditLogsError}</p>}
-              {auditLogs === null && !auditLogsError && <p className="text-sm text-muted-foreground">載入中…</p>}
+              <Callout>{auditLogsError}</Callout>
+              {auditLogs === null && !auditLogsError && <TableSkeleton />}
               {filteredAuditLogs !== null && filteredAuditLogs.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
-                  {auditLogs !== null && auditLogs.length > 0 ? "沒有符合條件的操作紀錄" : "目前沒有操作紀錄"}
-                </div>
+                <EmptyState icon={ScrollText} title={auditLogs !== null && auditLogs.length > 0 ? "沒有符合條件的操作紀錄" : "目前沒有操作紀錄"} />
               )}
               {filteredAuditLogs !== null && filteredAuditLogs.length > 0 && (
                 <Table>
@@ -1653,9 +1709,9 @@ function AdminPage() {
                   <TableBody>
                     {filteredAuditLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell>{formatDateTime(log.created_at)}</TableCell>
-                        <TableCell>{log.actor_username}</TableCell>
-                        <TableCell>{log.action}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDateTime(log.created_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{log.actor_username}</TableCell>
+                        <TableCell className="whitespace-nowrap">{log.action}</TableCell>
                         <TableCell>{log.target ?? "—"}</TableCell>
                         <TableCell>{log.detail ?? "—"}</TableCell>
                       </TableRow>
@@ -1670,7 +1726,7 @@ function AdminPage() {
         <TabsContent value="site-settings" className="pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>站台設定</h2>
+              <SectionTitle>站台設定</SectionTitle>
               <p className="text-sm text-muted-foreground">
                 自訂導覽列／瀏覽器分頁顯示的站台名稱，以及首頁歡迎卡片的主標題與副標說明文字。欄位留空時使用預設文案。
               </p>
@@ -1718,7 +1774,7 @@ function AdminPage() {
 
               <div className="flex flex-col gap-6 border-t border-border pt-6">
                 <div>
-                  <h3 className="text-base font-medium">站台圖片</h3>
+                  <SectionTitle as="h3" size="sm">站台圖片</SectionTitle>
                   <p className="text-sm text-muted-foreground">
                     支援 SVG / PNG / JPG / GIF / WebP / ICO。選擇檔案後會立即上傳並套用，未設定時使用內建預設圖示。
                   </p>
@@ -1728,13 +1784,17 @@ function AdminPage() {
                   <Label htmlFor="site-favicon">網站圖示（瀏覽器分頁 favicon，上限 512 KB）</Label>
                   <div className="flex flex-wrap items-center gap-3">
                     {siteSettings.faviconUrl ? (
-                      <img
-                        src={siteSettings.faviconUrl}
-                        alt="目前的網站圖示"
-                        className="h-8 w-8 rounded border border-border object-contain"
-                      />
+                      <span className="flex h-16 items-center justify-center rounded-lg border border-border bg-muted/40 px-4">
+                        <img
+                          src={siteSettings.faviconUrl}
+                          alt="目前的網站圖示"
+                          className="size-8 rounded-md object-contain"
+                        />
+                      </span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">尚未設定</span>
+                      <span className="flex h-16 items-center rounded-lg border border-dashed border-border bg-muted/30 px-4 text-sm text-muted-foreground">
+                        尚未設定
+                      </span>
                     )}
                     <Input
                       id="site-favicon"
@@ -1761,13 +1821,17 @@ function AdminPage() {
                   <Label htmlFor="site-hero-image">首頁歡迎圖片（顯示於主標題上方，上限 2 MB）</Label>
                   <div className="flex flex-wrap items-center gap-3">
                     {siteSettings.heroImageUrl ? (
-                      <img
-                        src={siteSettings.heroImageUrl}
-                        alt="目前的首頁歡迎圖片"
-                        className="h-16 w-auto max-w-[160px] rounded border border-border object-contain"
-                      />
+                      <span className="flex h-16 items-center justify-center rounded-lg border border-border bg-muted/40 px-3">
+                        <img
+                          src={siteSettings.heroImageUrl}
+                          alt="目前的首頁歡迎圖片"
+                          className="h-12 w-auto max-w-[160px] object-contain"
+                        />
+                      </span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">尚未設定</span>
+                      <span className="flex h-16 items-center rounded-lg border border-dashed border-border bg-muted/30 px-4 text-sm text-muted-foreground">
+                        尚未設定
+                      </span>
                     )}
                     <Input
                       id="site-hero-image"
@@ -1797,12 +1861,12 @@ function AdminPage() {
         <TabsContent value="ldap-settings" className="pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>LDAP 設定</h2>
+              <SectionTitle>LDAP 設定</SectionTitle>
               <p className="text-sm text-muted-foreground">
                 設定後，使用者可用 LDAP 帳號密碼登入（本機帳號優先，找不到本機帳號時才會嘗試 LDAP 驗證）。
                 密碼欄位留空表示不變更目前已儲存的密碼。
               </p>
-              {ldapSettingsError && <p className="text-sm text-destructive">{ldapSettingsError}</p>}
+              <Callout>{ldapSettingsError}</Callout>
               <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSaveLdapSettings}>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -1875,12 +1939,12 @@ function AdminPage() {
         <TabsContent value="smtp-settings" className="pt-4">
           <Card>
             <CardContent className="flex flex-col gap-4 text-left">
-              <h2>Email SMTP 設定</h2>
+              <SectionTitle>Email SMTP 設定</SectionTitle>
               <p className="text-sm text-muted-foreground">
                 設定後，系統會透過此 SMTP 伺服器寄送重設密碼信件與上傳通知信；未啟用或未設定時，信件內容僅會寫入後端日誌。
                 密碼欄位留空表示不變更目前已儲存的密碼。
               </p>
-              {smtpSettingsError && <p className="text-sm text-destructive">{smtpSettingsError}</p>}
+              <Callout>{smtpSettingsError}</Callout>
               <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSaveSmtpSettings}>
                 <div className="flex items-center gap-2">
                   <Checkbox

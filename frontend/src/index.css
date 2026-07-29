@@ -1,4 +1,4 @@
-@layer theme, base, legacy, components, utilities;
+@layer theme, base, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -80,50 +80,22 @@
     0 4px 8px -4px oklch(0.2 0.04 265 / 0.1), 0 16px 36px -8px oklch(0.2 0.04 265 / 0.14);
 }
 
-@layer legacy {
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--foreground);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-
-.page {
-  text-align: left;
-  padding: 40px 32px;
+/* The un-scoped h1/h2 element rules that used to live here are gone: their margins
+   stacked on top of the flex gaps of every container they landed in, and pages had
+   started hand-overriding them with contradictory Tailwind classes. Headings now opt
+   into the named type scale (text-display / text-title / text-section / text-sub)
+   via PageHeader and SectionTitle. */
+@utility page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-@media (max-width: 640px) {
-  .page {
-    padding-left: 20px;
-    padding-right: 20px;
+  gap: calc(var(--spacing) * 7);
+  padding: calc(var(--spacing) * 10) calc(var(--spacing) * 8) calc(var(--spacing) * 14);
+  text-align: left;
+  @media (width < 40rem) {
+    padding-inline: calc(var(--spacing) * 5);
+    padding-block-start: calc(var(--spacing) * 7);
   }
 }
-
-} /* end @layer legacy */
 
 @theme inline {
   --font-sans: var(--sans);
