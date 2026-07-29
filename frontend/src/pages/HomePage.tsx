@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, FileText, Folder } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ApiError } from "../api/client";
@@ -9,9 +9,14 @@ import { listHighlights } from "../api/highlights";
 import { listLinkCards } from "../api/link-cards";
 import type { FileItem, FolderGroup, FolderItem, HighlightItem, LinkCardItem } from "../api/types";
 import { highlightIcon } from "../lib/highlight-icons";
+import Callout from "../components/Callout";
+import EmptyState from "../components/EmptyState";
+import SectionTitle from "../components/SectionTitle";
+import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
+import { Card, CardAction, CardContent, CardHeader } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { Skeleton } from "../components/ui/skeleton";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../context/AuthContext";
@@ -255,7 +260,7 @@ function HomePage() {
 
   return (
     <div className="page">
-      <section className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-gradient-to-b from-accent/50 to-transparent px-6 py-14 text-center">
+      <section className="relative flex flex-col items-center gap-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-accent/60 via-background to-background px-6 py-16 text-center shadow-xs">
         {heroImageUrl && (
           <img
             src={heroImageUrl}
@@ -263,7 +268,7 @@ function HomePage() {
             className="max-h-40 w-auto max-w-full object-contain"
           />
         )}
-        <h1>{heroTitle}</h1>
+        <h1 className="text-display text-balance text-foreground">{heroTitle}</h1>
         <p className="mx-auto max-w-[560px] text-[17px] leading-[1.55] text-muted-foreground">{heroSubtitle}</p>
         <div className="flex flex-wrap justify-center gap-3">
           <a href="#file-list" className={buttonVariants({ size: "lg" })}>
@@ -281,18 +286,21 @@ function HomePage() {
         </div>
 
         {stats && (
-          <dl className="mt-2 flex flex-wrap justify-center gap-10">
-            <div className="flex flex-col items-center gap-0.5">
-              <dt className="text-sm text-muted-foreground">可瀏覽檔案</dt>
-              <dd className="text-2xl font-semibold text-foreground">{stats.files}</dd>
+          // gap-px over bg-border gives hairline dividers between the tiles for free.
+          <dl className="mt-2 grid w-full max-w-md grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border">
+            <div className="flex flex-col items-center gap-1 bg-card px-4 py-4">
+              <dt className="text-xs text-muted-foreground">可瀏覽檔案</dt>
+              <dd className="text-xl font-semibold text-foreground tabular-nums">{stats.files}</dd>
             </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <dt className="text-sm text-muted-foreground">資料夾分類</dt>
-              <dd className="text-2xl font-semibold text-foreground">{stats.folders}</dd>
+            <div className="flex flex-col items-center gap-1 bg-card px-4 py-4">
+              <dt className="text-xs text-muted-foreground">資料夾分類</dt>
+              <dd className="text-xl font-semibold text-foreground tabular-nums">{stats.folders}</dd>
             </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <dt className="text-sm text-muted-foreground">總容量</dt>
-              <dd className="text-2xl font-semibold text-foreground">{formatSize(stats.totalSize)}</dd>
+            <div className="flex flex-col items-center gap-1 bg-card px-4 py-4">
+              <dt className="text-xs text-muted-foreground">總容量</dt>
+              <dd className="text-xl font-semibold text-foreground tabular-nums">
+                {formatSize(stats.totalSize)}
+              </dd>
             </div>
           </dl>
         )}
@@ -303,10 +311,12 @@ function HomePage() {
           {highlights.map((highlight) => {
             const Icon = highlightIcon(highlight.icon);
             return (
-              <Card key={highlight.id}>
-                <CardContent className="flex flex-col gap-2 text-left">
-                  <Icon className="size-5 text-foreground" />
-                  <h3 className="text-base font-medium text-foreground">{highlight.title}</h3>
+              <Card key={highlight.id} className="transition-shadow hover:shadow-sm">
+                <CardContent className="flex flex-col gap-2.5 text-left">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="size-4.5" />
+                  </div>
+                  <h3 className="text-sub text-foreground">{highlight.title}</h3>
                   {highlight.description && <p className="text-sm text-muted-foreground">{highlight.description}</p>}
                 </CardContent>
               </Card>
@@ -316,9 +326,9 @@ function HomePage() {
       )}
 
       <Card id="file-list">
-        <CardContent className="flex flex-col gap-4 text-left">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2>檔案列表</h2>
+        <CardHeader>
+          <SectionTitle>檔案列表</SectionTitle>
+          <CardAction>
             <div className="flex flex-wrap gap-2">
               <Input
                 type="search"
@@ -346,18 +356,27 @@ function HomePage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {groups === null && !error && <p className="text-sm text-muted-foreground">載入中…</p>}
-          {groups !== null && !hasFiles && (
-            <div className="rounded-md border border-dashed border-border p-8 text-center">
-              <p className="mb-1 font-medium text-foreground">目前沒有可檢視的檔案</p>
-              <p className="text-sm text-muted-foreground">
-                {search || folderFilter !== ALL_FOLDERS
-                  ? "沒有符合搜尋條件的檔案。"
-                  : "登入後即可上傳檔案，公開的檔案會顯示在這裡。"}
-              </p>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 text-left">
+          <Callout>{error}</Callout>
+          {groups === null && !error && (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
             </div>
+          )}
+          {groups !== null && !hasFiles && (
+            <EmptyState
+              icon={FileText}
+              title="目前沒有可檢視的檔案"
+              description={
+                search || folderFilter !== ALL_FOLDERS
+                  ? "沒有符合搜尋條件的檔案。"
+                  : "登入後即可上傳檔案，公開的檔案會顯示在這裡。"
+              }
+            />
           )}
           {groups !== null && hasFiles && (
             <div className="flex flex-col gap-6">
@@ -368,7 +387,13 @@ function HomePage() {
                 const remaining = group.files.length - visibleFiles.length;
                 return (
                   <div key={groupKey}>
-                    <h3 className="mb-0.5 text-base text-foreground">{group.folder?.name ?? "未分類"}</h3>
+                    <h3 className="mb-1.5 flex items-center gap-2 text-sub text-foreground">
+                      <Folder className="size-4 text-muted-foreground" />
+                      {group.folder?.name ?? "未分類"}
+                      <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                        {group.files.length}
+                      </span>
+                    </h3>
                     {group.folder?.description && (
                       <p className="mb-2 text-sm text-muted-foreground">{group.folder.description}</p>
                     )}
@@ -391,9 +416,7 @@ function HomePage() {
                                   <span className="text-sm text-muted-foreground">{card.description}</span>
                                 )}
                               </div>
-                              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                連結
-                              </span>
+                              <Badge variant="default">連結</Badge>
                             </a>
                           </li>
                         ))}
@@ -402,7 +425,10 @@ function HomePage() {
                     <ul className="flex flex-col gap-2">
                       {visibleFiles.map((file) =>
                       editingFileId === file.id ? (
-                        <li key={file.id} className="rounded-lg border border-border p-3">
+                        <li
+                          key={file.id}
+                          className="rounded-lg border border-primary/40 bg-accent/30 p-3 ring-1 ring-primary/10"
+                        >
                           <form
                             className="flex flex-col gap-3"
                             onSubmit={(event) => handleSaveEdit(event, file)}
@@ -470,19 +496,29 @@ function HomePage() {
                       ) : (
                         <li
                           key={file.id}
-                          className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-3"
+                          className="group flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-accent/40"
                         >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-foreground">
-                              {file.display_name || file.filename}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {formatSize(file.size)} &middot; {file.is_public ? "公開" : "私密"}
-                              {file.announced_at && <> &middot; 公告於 {file.announced_at}</>}
-                            </span>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                              <FileText className="size-4" />
+                            </div>
+                            <div className="flex min-w-0 flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium text-foreground">
+                                  {file.display_name || file.filename}
+                                </span>
+                                <Badge variant={file.is_public ? "success" : "secondary"}>
+                                  {file.is_public ? "公開" : "私密"}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {formatSize(file.size)}
+                                {file.announced_at && <> &middot; 公告於 {file.announced_at}</>}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleDownload(file)}>
+                          <div className="flex flex-wrap gap-2 transition-opacity sm:opacity-70 sm:group-hover:opacity-100">
+                            <Button size="sm" onClick={() => handleDownload(file)}>
                               下載
                             </Button>
                             {canManage(file) && (
@@ -493,7 +529,11 @@ function HomePage() {
                                 <Button variant="outline" size="sm" onClick={() => handleToggleVisibility(file)}>
                                   設為{file.is_public ? "私密" : "公開"}
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleDelete(file)}>
+                                <Button
+                                  variant="destructive-outline"
+                                  size="sm"
+                                  onClick={() => handleDelete(file)}
+                                >
                                   刪除
                                 </Button>
                               </>
