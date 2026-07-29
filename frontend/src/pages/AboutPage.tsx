@@ -1,40 +1,61 @@
-import { Card, CardContent } from "../components/ui/card";
+import { Check } from "lucide-react";
+import PageHeader from "../components/PageHeader";
+import SectionTitle from "../components/SectionTitle";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
+
+const IMPLEMENTED_FEATURES = [
+  "本機帳號登入 / JWT 驗證，亦支援串接 LDAP 進行驗證",
+  "檔案上傳、下載，並可設定公開／私密可見度",
+  "檔案版本歷史（同名檔案上傳不覆蓋，保留舊版本）",
+  "資料夾卡片與連結卡片分類瀏覽",
+  "使用者自助密碼重設，登入後亦可自行修改姓名與密碼",
+  "上傳通知（新檔案上傳後，站內通知其他使用者，並視情況寄送 Email）",
+  "管理員使用者管理與站台設定",
+  "高權限操作稽核紀錄（Audit Log）",
+];
 
 function AboutPage() {
   return (
     <div className="page">
+      <PageHeader title="關於本專案" />
+
       <Card>
-        <CardContent className="flex flex-col gap-6 text-left">
-          <div className="flex flex-col gap-2">
-            <h2>關於本專案</h2>
-            <p className="text-sm text-muted-foreground">
-              py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並下載公開檔案，登入後才能上傳與管理自己的檔案。
-            </p>
-            <p className="text-sm text-muted-foreground">
-              本專案的主要目的是測試 Python（FastAPI）後端在前後端互動中，處理資料增刪查改（CRUD）與 API 的支援能力。
-            </p>
-          </div>
+        <CardContent className="flex flex-col gap-3 text-left">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並下載公開檔案，登入後才能上傳與管理自己的檔案。
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            本專案的主要目的是測試 Python（FastAPI）後端在前後端互動中，處理資料增刪查改（CRUD）與 API 的支援能力。
+          </p>
+        </CardContent>
+      </Card>
 
-          <div className="flex flex-col gap-2">
-            <h2>已實作功能</h2>
-            <ul className="text-sm text-muted-foreground">
-              <li>本機帳號登入 / JWT 驗證，亦支援串接 LDAP 進行驗證</li>
-              <li>檔案上傳、下載，並可設定公開／私密可見度</li>
-              <li>檔案版本歷史（同名檔案上傳不覆蓋，保留舊版本）</li>
-              <li>資料夾卡片與連結卡片分類瀏覽</li>
-              <li>使用者自助密碼重設，登入後亦可自行修改姓名與密碼</li>
-              <li>上傳通知（新檔案上傳後，站內通知其他使用者，並視情況寄送 Email）</li>
-              <li>管理員使用者管理與站台設定</li>
-              <li>高權限操作稽核紀錄（Audit Log）</li>
-            </ul>
-          </div>
+      <Card>
+        <CardHeader>
+          <SectionTitle>已實作功能</SectionTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Tailwind's preflight strips list markers and padding, so this list used to
+              render as flush grey lines. Icons suit a feature roster better than bullets. */}
+          <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+            {IMPLEMENTED_FEATURES.map((feature) => (
+              <li key={feature} className="flex gap-2.5">
+                <Check className="mt-0.5 size-4 shrink-0 text-success" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
-          <div className="flex flex-col gap-2">
-            <h2>技術棧</h2>
-            <p className="text-sm text-muted-foreground">
-              FastAPI（後端）＋ React / Vite（前端）＋ PostgreSQL，以 docker-compose 部署。
-            </p>
-          </div>
+      <Card>
+        <CardHeader>
+          <SectionTitle>技術棧</SectionTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            FastAPI（後端）＋ React / Vite（前端）＋ PostgreSQL，以 docker-compose 部署。
+          </p>
         </CardContent>
       </Card>
     </div>
