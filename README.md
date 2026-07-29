@@ -18,13 +18,13 @@
 | **管理後台－檔案**                                     | **管理後台－操作紀錄**                                   |
 | ![管理後台檔案列表](docs/screenshots/admin-files.png)  | ![管理後台操作紀錄](docs/screenshots/admin-audit-logs.png) |
 | **管理後台－站台設定**                                 | **管理後台－LDAP 設定**                                  |
-| ![管理後台站台設定](docs/screenshots/admin-site-settings.png) | （待補圖：`docs/screenshots/admin-ldap-settings.png`） |
+| ![管理後台站台設定](docs/screenshots/admin-site-settings.png) | ![管理後台 LDAP 設定](docs/screenshots/admin-ldap-settings.png) |
 | **管理後台－Email SMTP 設定**                          | **個人資料頁**                                           |
-| （待補圖：`docs/screenshots/admin-smtp-settings.png`）  | （待補圖：`docs/screenshots/profile.png`）               |
+| ![管理後台 Email SMTP 設定](docs/screenshots/admin-smtp-settings.png) | ![個人資料頁](docs/screenshots/profile.png) |
 | **通知中心**                                           |                                                          |
 | （待補圖：`docs/screenshots/notifications.png`）        |                                                          |
 
-> 標示「待補圖」的畫面尚未截圖，之後補上對應的 png 到 `docs/screenshots/` 後再改成圖片連結即可。
+> 通知中心的截圖待補（需要帳號實際收到通知才拍得出未讀徽章與「全部標記已讀」）；補上 png 到 `docs/screenshots/` 後改成圖片連結即可。
 
 ## 🌟 專案特點
 
@@ -45,7 +45,7 @@
 *   **檔案儲存**：檔案實體存放於伺服器本機檔案系統，資料庫僅儲存檔案 metadata。
 *   **檔案大小限制**：上傳檔案設有大小上限，避免磁碟空間被過大檔案佔滿。
 *   **操作稽核紀錄（Audit Log）**：記錄管理員的高權限操作（如建立/停用/刪除使用者帳號、刪除他人檔案等），包含操作者、時間、對象與動作內容，以利事後追溯。
-*   **集中式管理後台**：`/admin` 以分頁形式集中所有管理功能，共八個分頁——使用者、卡片、連結卡片、檔案、操作紀錄、站台設定、LDAP 設定、Email SMTP 設定。
+*   **集中式管理後台**：`/admin` 以分頁形式集中所有管理功能，共九個分頁——使用者、卡片、連結卡片、首頁特色、檔案、操作紀錄、站台設定、LDAP 設定、Email SMTP 設定。
 *   **前後端分離測試**：驗證前端與 Python 後端 API 的資料對接與傳輸效率。
 
 ## 🛠️ 技術棧 (Tech Stack)
