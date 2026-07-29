@@ -6,7 +6,34 @@
          no type attribute here - the uploaded image is not necessarily an SVG. -->
     <link rel="icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="內部文件共享平台" />
+    <!-- These are the --canvas colours (the surface outside the content sheet), not --background. -->
+    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1c1d21" media="(prefers-color-scheme: dark)" />
+    <!-- SiteSettingsContext overwrites this from browser_title, whose default is this same
+         string - changing it here would desync the pre- and post-hydration titles. -->
     <title>py-file-platform</title>
+    <!-- Applies the theme class before first paint so dark-mode users don't get a white flash.
+         Must mirror getInitialTheme() in src/context/ThemeContext.tsx exactly - same "theme"
+         key, same "stored value wins, else prefers-color-scheme" precedence - or the theme
+         would flip once React hydrates. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var dark =
+            stored === "dark" ||
+            (stored !== "light" &&
+              typeof window.matchMedia === "function" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", dark);
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (e) {
+          /* localStorage unavailable (private mode); fall back to the light default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

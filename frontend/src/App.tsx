@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Moon, Sun } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Loader2, Moon, Sun } from "lucide-react";
 import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
@@ -18,17 +18,29 @@ import { SiteSettingsProvider, useSiteSettings } from "./context/SiteSettingsCon
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { cn } from "./lib/utils";
 
+// Nav links and the header's ghost/icon buttons all settle on the same 32px pill so the row
+// reads as one control cluster instead of three different metaphors.
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return cn(
-    "rounded-full px-3.5 py-1.5 text-sm text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground",
-    isActive && "bg-accent text-foreground",
+    "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground",
+    isActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+  );
+}
+
+// Auth guards used to render null while resolving, which flashed an empty page.
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60svh] items-center justify-center" role="status" aria-live="polite">
+      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <span className="sr-only">載入中…</span>
+    </div>
   );
 }
 
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) {
-    return null;
+    return <RouteFallback />;
   }
   if (!user || user.role !== "admin") {
     return <Navigate to="/login" replace />;
@@ -39,12 +51,28 @@ function RequireAdmin({ children }: { children: ReactNode }) {
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) {
-    return null;
+    return <RouteFallback />;
   }
   if (!user) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
+}
+
+// Drives the header's scroll shadow. Safe under jsdom, where scrollY stays 0.
+function useIsScrolled(threshold = 4) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > threshold);
+    }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [threshold]);
+
+  return scrolled;
 }
 
 function ThemeToggle() {
@@ -54,8 +82,8 @@ function ThemeToggle() {
   return (
     <Button
       variant="ghost"
-      size="icon"
-      className="ml-1 rounded-full"
+      size="icon-sm"
+      className="rounded-full"
       onClick={toggleTheme}
       aria-label={isDark ? "切換為明亮模式" : "切換為暗黑模式"}
       title={isDark ? "切換為明亮模式" : "切換為暗黑模式"}
@@ -75,7 +103,7 @@ function HeaderNav() {
   }
 
   return (
-    <nav className="flex items-center gap-1">
+    <nav className="flex items-center gap-0.5">
       <NavLink to="/" end className={navLinkClass}>
         首頁
       </NavLink>
@@ -97,8 +125,9 @@ function HeaderNav() {
           <NavLink to="/profile" className={navLinkClass}>
             {user.full_name || user.username}
           </NavLink>
+          <div aria-hidden className="mx-1 h-5 w-px bg-border" />
           <NotificationBell />
-          <Button variant="ghost" onClick={handleLogout}>
+          <Button variant="ghost" size="sm" className="rounded-full px-3" onClick={handleLogout}>
             登出
           </Button>
         </>
@@ -113,12 +142,20 @@ function HeaderNav() {
 }
 
 function AppShell() {
-  const { brandName } = useSiteSettings();
+  const { brandName, faviconUrl } = useSiteSettings();
+  const scrolled = useIsScrolled();
 
   return (
-    <div className="mx-auto box-border flex min-h-svh w-full max-w-[1126px] flex-col border-x border-border">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-8 py-4">
-        <NavLink to="/" className="text-lg font-semibold tracking-tight text-foreground no-underline">
+    <div className="mx-auto box-border flex min-h-svh w-full max-w-app flex-col border-x border-border bg-background">
+      <header
+        data-scrolled={scrolled}
+        className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/85 px-6 py-2.5 backdrop-blur-md transition-shadow supports-backdrop-filter:bg-background/70 data-[scrolled=true]:shadow-sm sm:px-8"
+      >
+        <NavLink
+          to="/"
+          className="flex items-center gap-2 text-base font-semibold tracking-[-0.01em] text-foreground no-underline"
+        >
+          {faviconUrl && <img src={faviconUrl} alt="" className="size-6 rounded-md object-contain" />}
           {brandName}
         </NavLink>
         <HeaderNav />
@@ -156,8 +193,10 @@ function AppShell() {
           />
         </Routes>
       </main>
-      <footer className="mt-auto border-t border-border px-8 py-4 text-sm text-muted-foreground">
-        <span>{brandName} &middot; 內部文件共享平台</span>
+      <footer className="mt-auto border-t border-border bg-muted/25 px-6 py-6 text-xs text-muted-foreground sm:px-8">
+        <span className="font-medium text-foreground">{brandName}</span>
+        <span className="mx-2 text-border">&middot;</span>
+        <span>內部文件共享平台</span>
       </footer>
     </div>
   );

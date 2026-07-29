@@ -6,14 +6,18 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* System fonts only (nothing downloaded), but with a Traditional Chinese
+     fallback chain - without it zh-Hant drops to the browser default, which on
+     Windows/Linux is often a Ming/serif face. */
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', 'Hiragino Sans', sans-serif;
+  --heading: var(--sans);
 
-  font: 16px/145% var(--sans);
+  font: 16px/1.6 var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--foreground);
-  background: var(--background);
+  background: var(--canvas);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,28 +27,33 @@
     font-size: 15px;
   }
 
+  /* Neutrals carry a trace of the primary hue (chroma 0.005-0.014) so they stop
+     reading as dead grey next to the blue primary. Below the JND for a flat
+     swatch - you should not be able to name the colour. */
+  --canvas: oklch(0.968 0.005 265);
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.17 0.014 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.17 0.014 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.17 0.014 265);
   --primary: oklch(0.5 0.16 260);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.965 0.005 265);
+  --secondary-foreground: oklch(0.24 0.014 265);
+  --muted: oklch(0.966 0.005 265);
+  --muted-foreground: oklch(0.505 0.014 265);
+  --accent: oklch(0.955 0.008 265);
+  --accent-foreground: oklch(0.24 0.014 265);
   --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.55 0.14 155);
+  --destructive-foreground: oklch(0.985 0.005 25);
+  --success: oklch(0.52 0.13 156);
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.75 0.16 80);
-  --warning-foreground: oklch(0.205 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --warning: oklch(0.72 0.15 78);
+  --warning-foreground: oklch(0.2 0.02 78);
+  --border: oklch(0.912 0.006 265);
+  --input: oklch(0.898 0.007 265);
+  --ring: oklch(0.5 0.16 260);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -59,6 +68,16 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Elevation. The app previously had no shadows at all; Tailwind's stock
+     --shadow-* are pure black rgb, which is invisible on a dark background, so
+     the @theme inline block below remaps the stock names onto these instead. */
+  --elevation-1:
+    0 1px 2px -1px oklch(0.2 0.04 265 / 0.1), 0 1px 3px 0 oklch(0.2 0.04 265 / 0.06);
+  --elevation-2:
+    0 2px 4px -2px oklch(0.2 0.04 265 / 0.1), 0 6px 14px -3px oklch(0.2 0.04 265 / 0.09);
+  --elevation-3:
+    0 4px 8px -4px oklch(0.2 0.04 265 / 0.1), 0 16px 36px -8px oklch(0.2 0.04 265 / 0.14);
 }
 
 @layer legacy {
@@ -125,7 +144,9 @@ h2 {
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-canvas: var(--canvas);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -151,31 +172,80 @@ h2 {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Replaces the 1126px magic number in App.tsx with max-w-app. */
+  --container-app: 72rem;
+
+  /* Remap the stock shadow scale onto the elevation tokens, so the two existing
+     consumers (select.tsx's shadow-md, tabs.tsx's data-active:shadow-sm) get
+     theme-aware shadows for free and nobody has to learn a new utility name. */
+  --shadow-2xs: var(--elevation-1);
+  --shadow-xs: var(--elevation-1);
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: var(--elevation-3);
+  --shadow-xl: var(--elevation-3);
+  --shadow-2xl: var(--elevation-3);
+
+  /* Type scale. Each role is one class carrying size + leading + tracking +
+     weight, replacing the un-scoped h1/h2 element rules in @layer legacy. */
+  --text-display: clamp(2rem, 1.35rem + 2.4vw, 2.75rem);
+  --text-display--line-height: 1.12;
+  --text-display--letter-spacing: -0.022em;
+  --text-display--font-weight: 600;
+
+  --text-title: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.014em;
+  --text-title--font-weight: 600;
+
+  --text-section: 1rem;
+  --text-section--line-height: 1.4;
+  --text-section--letter-spacing: -0.006em;
+  --text-section--font-weight: 600;
+
+  --text-sub: 0.875rem;
+  --text-sub--line-height: 1.45;
+  --text-sub--font-weight: 600;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.7 0.15 260);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --canvas: oklch(0.125 0.008 265);
+  --background: oklch(0.165 0.008 265);
+  --foreground: oklch(0.972 0.004 265);
+  --card: oklch(0.215 0.009 265);
+  --card-foreground: oklch(0.972 0.004 265);
+  --popover: oklch(0.228 0.009 265);
+  --popover-foreground: oklch(0.972 0.004 265);
+  --primary: oklch(0.72 0.145 262);
+  --primary-foreground: oklch(0.16 0.025 262);
+  --secondary: oklch(0.272 0.009 265);
+  --secondary-foreground: oklch(0.972 0.004 265);
+  --muted: oklch(0.268 0.009 265);
+  --muted-foreground: oklch(0.725 0.012 265);
+  --accent: oklch(0.295 0.011 265);
+  --accent-foreground: oklch(0.972 0.004 265);
   --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.72 0.15 155);
-  --success-foreground: oklch(0.145 0 0);
-  --warning: oklch(0.8 0.16 80);
-  --warning-foreground: oklch(0.145 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --destructive-foreground: oklch(0.16 0.03 25);
+  --success: oklch(0.76 0.15 158);
+  --success-foreground: oklch(0.16 0.02 158);
+  --warning: oklch(0.82 0.15 82);
+  --warning-foreground: oklch(0.18 0.02 82);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.145 262);
+
+  /* A black drop alone is invisible on a near-black surface, so each step also
+     carries an inset top hairline that reads as a lit edge. */
+  --elevation-1:
+    0 1px 2px 0 oklch(0 0 0 / 0.55), inset 0 1px 0 0 oklch(1 0 0 / 0.045);
+  --elevation-2:
+    0 4px 10px -3px oklch(0 0 0 / 0.6), 0 1px 2px 0 oklch(0 0 0 / 0.45),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.05);
+  --elevation-3:
+    0 16px 40px -10px oklch(0 0 0 / 0.72), 0 4px 10px -4px oklch(0 0 0 / 0.5),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.06);
+
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
