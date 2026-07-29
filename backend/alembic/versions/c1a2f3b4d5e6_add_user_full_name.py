@@ -1,4 +1,4 @@
-"""add full_name to users
+"""add user full name
 
 Revision ID: c1a2f3b4d5e6
 Revises: 95ceb1331638

@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Communicate with the user in Traditional Chinese (繁體中文) in this repository, matching README.md.
 Keep code, identifiers, and comments in English as usual.
 
-PR titles and descriptions must also be written in Traditional Chinese.
+PR titles and descriptions must also be written in Traditional Chinese, using full-width punctuation
+（`，`「」`（）`）rather than half-width `,` `()` `:`. PR titles follow the same subject rules as commit
+messages — see "Commit messages and PR titles" under Git workflow.
 
 `gh pr edit` fails on this repo with a `Projects (classic)` GraphQL deprecation error, even for
 unrelated field edits. Use `gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -f title=... -f body=...`
@@ -18,6 +20,46 @@ instead.
 Land changes via a feature branch + PR, merged into `main` on GitHub — not direct commits to `main`.
 This applies even to small changes (e.g. doc-only updates). Every change so far, including prior
 doc-only updates, has followed this path.
+
+### Branch naming
+
+Branches are named `<type>/<kebab-case-description>`, where `<type>` is one of `feat`, `fix`, `docs`,
+`chore`. The description is lowercase English words joined by hyphens — e.g. `feat/backup-automation`,
+`fix/alembic-merge-heads`, `docs/update-readme-features-env`, `chore/cleanup-legacy-css`.
+
+**Worktrees are the one thing that breaks this.** Claude Code names a new worktree's branch
+`worktree-<name>` or `worktree-bridge-cse_<id>`, and several of those have been pushed to `origin` as
+is. Before pushing from a worktree, either rename the branch (`git branch -m feat/whatever`) or push
+under the right name explicitly (`git push -u origin HEAD:feat/whatever`) — the `worktree-` prefix
+must never reach `origin`.
+
+### Commit messages and PR titles
+
+- Subject line: Traditional Chinese, starting with a verb — `新增` / `修正` / `更新` / `移除` / `文件`.
+  **No prefix label.** Do not use Conventional Commits (`feat:` / `fix:`), and do not use the older
+  Chinese label style (`文件：` / `chore：`).
+- Punctuation inside the subject is full-width（`，`「」`（）`）, never half-width `,` `()` `:`.
+  English identifiers embedded in the sentence stay as they are (e.g. `shadcn/ui`, `pg_dump`).
+- Do not hand-write an issue or PR number in the subject. Link the issue from the body with
+  `Closes #N` instead. The `(#NN)` that GitHub appends when a PR is squash-merged is tool behaviour,
+  not a violation, and should not be stripped afterwards.
+- The body explains *why* the change was made rather than restating the diff, and keeps the existing
+  `Co-Authored-By:` trailer.
+
+A good example, from the daily-backup commit:
+`新增每日備份 script（本機 pg_dump + tar，保留 30 天）`
+
+### Release tags
+
+Tags use semver, `vMAJOR.MINOR.PATCH` (e.g. `v0.1.0`), cut from `main`. The repo has no tags yet —
+when the first one is warranted, confirm the version number with the user before pushing it.
+
+### Historical exceptions
+
+Branches merged before PR #31 (`feature-issue-*`, `fix-about-heading`, `theme-blue-dark-light-toggle`,
+`worktree-*`) and early commit subjects (`文件：`, `chore：`, `fix: `, plain-English subjects such as
+`Add file upload/download API`) predate these rules. They are left as they are — rewriting them would
+rewrite published history — so do not treat them as examples to follow.
 
 ## Project overview
 

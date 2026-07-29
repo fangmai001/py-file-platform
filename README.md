@@ -139,6 +139,36 @@ npm run lint    # oxlint
 （例如只改 `README.md` 的 PR 會讓兩個檢查同時卡住）。兩個 workflow 加起來也才約一分半且平行執行，
 因此選擇無條件觸發。
 
+### 分支命名與 commit message
+
+所有變更都走「開分支 → PR → 合併回 `main`」，分支名稱一律使用 `<type>/<kebab-case-description>`
+格式，`<type>` 限定以下四種：
+
+| type | 用途 | 範例 |
+| --- | --- | --- |
+| `feat` | 新功能 | `feat/site-branding-images` |
+| `fix` | 修正錯誤 | `fix/admin-self-demote-guard` |
+| `docs` | 文件變更 | `docs/update-readme-features-env` |
+| `chore` | 雜項維護、環境設定 | `chore/cleanup-legacy-css` |
+
+描述部分用小寫英文加連字號。若使用 git worktree，工具自動產生的 `worktree-xxx` 分支名必須在 push
+之前改掉（`git branch -m feat/xxx`，或用 `git push -u origin HEAD:feat/xxx` 指定正確名稱）。
+
+Commit message 的主旨行用繁體中文、以動詞開頭（新增／修正／更新／移除／文件），**不加任何前綴
+標籤**，中文標點一律使用全形（`，`「」`（）`）：
+
+```
+新增每日備份 script（本機 pg_dump + tar，保留 30 天）
+```
+
+主旨不要手寫 issue 或 PR 編號，關聯的 issue 寫在 commit body 或 PR 內文的 `Closes #N`；PR 若以
+squash 方式合併，GitHub 自動附加的 `(#NN)` 屬工具行為，不需要移除。PR 標題適用同一套規則。
+
+版本標記使用 semver 格式的 git tag（`vMAJOR.MINOR.PATCH`，例如 `v0.1.0`），從 `main` 上建立。
+
+> 早期的 PR（#30 以前）曾出現 `feature-issue-*` 分支名與 `文件：`、`chore：` 等 commit 前綴，屬於
+> 慣例確立前的歷史紀錄，不再沿用，也不會回頭改寫已發布的歷史。
+
 ### 分支保護 (Branch protection)
 
 `main` 分支透過 GitHub **Rulesets**（`Settings → Rules → Rulesets`）套用以下規則：
