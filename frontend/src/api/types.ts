@@ -32,6 +32,18 @@ export interface LinkCardItem {
   created_at: string;
 }
 
+export interface HighlightItem {
+  id: number;
+  // kebab-case key; resolved to a lucide icon by src/lib/highlight-icons.ts.
+  // Kept as a plain string so an icon added by a newer backend still parses.
+  icon: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  is_public: boolean;
+  created_at: string;
+}
+
 export interface FileVersionItem {
   id: number;
   file_id: number;
