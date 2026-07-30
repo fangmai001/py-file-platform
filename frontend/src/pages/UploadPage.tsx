@@ -1,15 +1,19 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { FileText, UploadCloud } from "lucide-react";
 import { ApiError } from "../api/client";
 import { uploadFile } from "../api/files";
 import { listFolders } from "../api/folders";
 import type { FolderItem } from "../api/types";
+import Callout from "../components/Callout";
+import PageHeader from "../components/PageHeader";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { formatSize } from "../lib/format";
 
 const NO_FOLDER = "none";
 
@@ -53,21 +57,43 @@ function UploadPage() {
 
   return (
     <div className="page">
-      <Card>
+      <PageHeader
+        title="上傳檔案"
+        description="上傳的檔案會依你設定的可見度顯示在首頁的檔案列表中，上傳後將自動返回首頁。"
+      />
+      <Card size="lg" className="max-w-2xl">
         <CardContent className="flex flex-col gap-4 text-left">
-          <h2>上傳檔案</h2>
-          <p className="text-sm text-muted-foreground">
-            上傳的檔案會依你設定的可見度顯示在首頁的檔案列表中，上傳後將自動返回首頁。
-          </p>
-          <form className="flex flex-col gap-4" onSubmit={handleUpload}>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="upload">選擇檔案（pdf / doc / xls / docx / xlsx）</Label>
-              <Input
-                id="upload"
-                type="file"
-                accept=".pdf,.doc,.xls,.docx,.xlsx"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-              />
+          <form className="flex max-w-md flex-col gap-4" onSubmit={handleUpload}>
+            <div className="flex flex-col gap-2">
+              {/* The file input stays inside its <label> and only sr-only-hidden, so the
+                  label association (and getByLabelText) keeps working while the label
+                  itself becomes the drop target. Keep the label's text content to this
+                  single string - extra text nodes would change its accessible name. */}
+              <Label
+                htmlFor="upload"
+                className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-muted/30 px-6 py-10 text-center font-normal transition-colors hover:border-primary/50 hover:bg-accent/40 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50"
+              >
+                <UploadCloud className="size-6 text-muted-foreground" />
+                選擇檔案（pdf / doc / xls / docx / xlsx）
+                <Input
+                  id="upload"
+                  type="file"
+                  accept=".pdf,.doc,.xls,.docx,.xlsx"
+                  className="sr-only"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                />
+              </Label>
+              {selectedFile && (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                  <FileText className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {selectedFile.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatSize(selectedFile.size)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="display-name">顯示名稱（選填，預設使用檔名）</Label>
@@ -116,8 +142,8 @@ function UploadPage() {
               />
               <Label htmlFor="is-public">公開（取消勾選則僅本人與管理員可檢視）</Label>
             </div>
-            {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-            <Button type="submit" disabled={!selectedFile || isUploading}>
+            <Callout>{uploadError}</Callout>
+            <Button type="submit" size="lg" className="self-start" disabled={!selectedFile || isUploading}>
               {isUploading ? "上傳中…" : "上傳"}
             </Button>
           </form>

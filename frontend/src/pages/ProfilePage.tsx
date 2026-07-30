@@ -2,6 +2,9 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { changeCurrentUserPassword, updateCurrentUser } from "../api/auth";
 import { ApiError } from "../api/client";
+import Callout from "../components/Callout";
+import PageHeader from "../components/PageHeader";
+import SectionTitle from "../components/SectionTitle";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
@@ -68,14 +71,12 @@ function ProfilePage() {
   }
 
   return (
-    <div className="page flex flex-col gap-6">
+    <div className="page">
+      <PageHeader title="個人資料" description={`帳號：${user.username}`} />
+
       <Card>
-        <CardHeader>
-          <h1 className="text-2xl font-semibold text-foreground">個人資料</h1>
-          <p className="text-sm text-muted-foreground">帳號：{user.username}</p>
-        </CardHeader>
         <CardContent>
-          <form className="flex max-w-sm flex-col gap-4" onSubmit={handleProfileSubmit}>
+          <form className="flex max-w-md flex-col gap-4" onSubmit={handleProfileSubmit}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="full-name">姓名</Label>
               <Input
@@ -104,24 +105,29 @@ function ProfilePage() {
               />
               <Label htmlFor="notify-by-email">上傳通知寄送 Email（站內通知不受影響）</Label>
             </div>
-            {profileError && <p className="text-sm text-destructive">{profileError}</p>}
-            <Button type="submit" disabled={isSavingProfile}>
-              {isSavingProfile ? "儲存中…" : "儲存"}
-            </Button>
+            <Callout>{profileError}</Callout>
+            <div className="-mx-5 -mb-5 mt-2 flex justify-end rounded-b-xl border-t border-border bg-muted/40 px-5 py-3">
+              <Button type="submit" disabled={isSavingProfile}>
+                {isSavingProfile ? "儲存中…" : "儲存"}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <h2 className="text-xl font-semibold text-foreground">變更密碼</h2>
-          {isLdapAccount && (
-            <p className="text-sm text-muted-foreground">此帳號使用 LDAP 驗證，密碼由 LDAP 伺服器管理，無法在此變更。</p>
-          )}
+          <SectionTitle>變更密碼</SectionTitle>
         </CardHeader>
-        {!isLdapAccount && (
+        {isLdapAccount ? (
           <CardContent>
-            <form className="flex max-w-sm flex-col gap-4" onSubmit={handlePasswordSubmit}>
+            <Callout variant="info">
+              此帳號使用 LDAP 驗證，密碼由 LDAP 伺服器管理，無法在此變更。
+            </Callout>
+          </CardContent>
+        ) : (
+          <CardContent>
+            <form className="flex max-w-md flex-col gap-4" onSubmit={handlePasswordSubmit}>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="current-password">目前密碼</Label>
                 <Input
@@ -152,10 +158,12 @@ function ProfilePage() {
                   required
                 />
               </div>
-              {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
-              <Button type="submit" disabled={isChangingPassword}>
-                {isChangingPassword ? "更新中…" : "變更密碼"}
-              </Button>
+              <Callout>{passwordError}</Callout>
+              <div className="-mx-5 -mb-5 mt-2 flex justify-end rounded-b-xl border-t border-border bg-muted/40 px-5 py-3">
+                <Button type="submit" disabled={isChangingPassword}>
+                  {isChangingPassword ? "更新中…" : "變更密碼"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         )}

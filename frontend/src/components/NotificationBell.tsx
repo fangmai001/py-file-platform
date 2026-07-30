@@ -1,17 +1,16 @@
-import { Bell } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from "../api/notifications";
 import type { NotificationItem } from "../api/types";
 import { useAuth } from "../context/AuthContext";
+import EmptyState from "./EmptyState";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Skeleton } from "./ui/skeleton";
+import { formatDateTime, formatRelativeTime } from "../lib/format";
 import { cn } from "../lib/utils";
 
 const PAGE_SIZE = 50;
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("zh-TW");
-}
 
 function NotificationBell() {
   const { user } = useAuth();
@@ -86,12 +85,13 @@ function NotificationBell() {
     <Dialog onOpenChange={(open) => open && loadNotifications()}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="relative rounded-full" aria-label="通知" title="通知" />
+          <Button variant="ghost" size="icon-sm" className="relative rounded-full" aria-label="通知" title="通知" />
         }
       >
         <Bell />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[0.6rem] font-medium text-destructive-foreground">
+          // ring-2 ring-background punches the badge out of the bell glyph behind it.
+          <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-semibold text-destructive-foreground ring-2 ring-background">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -105,10 +105,16 @@ function NotificationBell() {
             </Button>
           )}
         </DialogHeader>
-        <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
-          {notifications === null && <p className="text-sm text-muted-foreground">載入中…</p>}
+        <div className="flex max-h-96 flex-col gap-2 overflow-y-auto scroll-fade-y">
+          {notifications === null && (
+            <>
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+            </>
+          )}
           {notifications !== null && notifications.length === 0 && (
-            <p className="text-sm text-muted-foreground">目前沒有通知</p>
+            <EmptyState icon={BellOff} title="目前沒有通知" className="py-10" />
           )}
           {notifications?.map((n) => (
             <button
@@ -116,12 +122,18 @@ function NotificationBell() {
               type="button"
               onClick={() => handleMarkRead(n)}
               className={cn(
-                "flex flex-col gap-1 rounded-md border border-border p-3 text-left text-sm transition-colors hover:bg-accent",
-                !n.is_read && "bg-accent/50 font-medium",
+                "relative flex flex-col gap-1 rounded-lg p-3 pl-4 text-left text-sm transition-colors hover:bg-accent/50",
+                !n.is_read &&
+                  "bg-accent/50 font-medium before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary",
               )}
             >
               <span>{n.message}</span>
-              <span className="text-xs font-normal text-muted-foreground">{formatDateTime(n.created_at)}</span>
+              <span
+                className="text-xs font-normal text-muted-foreground"
+                title={formatDateTime(n.created_at)}
+              >
+                {formatRelativeTime(n.created_at)}
+              </span>
             </button>
           ))}
           {hasMore && (
