@@ -8,6 +8,8 @@ const DEFAULT_HERO_SUBTITLE =
   "瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。";
 // Falls back to the icon bundled in frontend/public when no favicon has been uploaded.
 const DEFAULT_FAVICON_HREF = "/favicon.svg";
+// Only used until the real, admin-configured limit arrives; mirrors the MAX_UPLOAD_SIZE_MB default.
+const DEFAULT_MAX_UPLOAD_SIZE_MB = 50;
 
 interface SiteSettingsContextValue {
   brandName: string;
@@ -16,6 +18,7 @@ interface SiteSettingsContextValue {
   heroSubtitle: string;
   faviconUrl: string | null;
   heroImageUrl: string | null;
+  maxUploadSizeMb: number;
   refresh: () => Promise<void>;
 }
 
@@ -28,6 +31,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [heroSubtitle, setHeroSubtitle] = useState(DEFAULT_HERO_SUBTITLE);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [maxUploadSizeMb, setMaxUploadSizeMb] = useState(DEFAULT_MAX_UPLOAD_SIZE_MB);
 
   async function refresh() {
     try {
@@ -38,6 +42,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       setHeroSubtitle(settings.hero_subtitle || DEFAULT_HERO_SUBTITLE);
       setFaviconUrl(siteAssetUrl(settings.favicon_url));
       setHeroImageUrl(siteAssetUrl(settings.hero_image_url));
+      setMaxUploadSizeMb(settings.max_upload_size_mb || DEFAULT_MAX_UPLOAD_SIZE_MB);
     } catch {
       // keep the fallback defaults if the request fails
     }
@@ -62,7 +67,16 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
   return (
     <SiteSettingsContext.Provider
-      value={{ brandName, browserTitle, heroTitle, heroSubtitle, faviconUrl, heroImageUrl, refresh }}
+      value={{
+        brandName,
+        browserTitle,
+        heroTitle,
+        heroSubtitle,
+        faviconUrl,
+        heroImageUrl,
+        maxUploadSizeMb,
+        refresh,
+      }}
     >
       {children}
     </SiteSettingsContext.Provider>

@@ -49,6 +49,7 @@ vi.mock("../api/site-settings", () => ({
     hero_subtitle: null,
     favicon_url: null,
     hero_image_url: null,
+    max_upload_size_mb: 50,
   }),
   updateSiteSettings: vi.fn(),
   uploadFavicon: vi.fn(),
@@ -654,6 +655,7 @@ describe("AdminPage", () => {
       hero_subtitle: "舊副標",
       favicon_url: null,
       hero_image_url: null,
+      max_upload_size_mb: 50,
     });
     vi.mocked(updateSiteSettings).mockResolvedValue({
       brand_name: "我的社團",
@@ -662,6 +664,7 @@ describe("AdminPage", () => {
       hero_subtitle: "舊副標",
       favicon_url: null,
       hero_image_url: null,
+      max_upload_size_mb: 50,
     });
 
     renderAdminPage();
@@ -681,8 +684,56 @@ describe("AdminPage", () => {
         browser_title: "舊分頁標題",
         hero_title: "舊主標題",
         hero_subtitle: "舊副標",
+        max_upload_size_mb: 50,
       }),
     );
+  });
+
+  it("saves a new upload size limit", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(updateSiteSettings).mockResolvedValue({
+      brand_name: null,
+      browser_title: null,
+      hero_title: null,
+      hero_subtitle: null,
+      favicon_url: null,
+      hero_image_url: null,
+      max_upload_size_mb: 200,
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "站台設定" }));
+
+    const limitInput = await screen.findByLabelText("單檔上傳大小上限（MB）");
+    await user.clear(limitInput);
+    await user.type(limitInput, "200");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateSiteSettings).toHaveBeenCalledWith(expect.objectContaining({ max_upload_size_mb: 200 })),
+    );
+  });
+
+  it("refuses to save an upload size limit above the ceiling", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "站台設定" }));
+
+    const limitInput = await screen.findByLabelText("單檔上傳大小上限（MB）");
+    await user.clear(limitInput);
+    await user.type(limitInput, "1024");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    expect(updateSiteSettings).not.toHaveBeenCalled();
   });
 
   it("uploads a favicon as soon as a file is picked", async () => {
@@ -695,6 +746,7 @@ describe("AdminPage", () => {
       hero_subtitle: null,
       favicon_url: "/api/site-settings/assets/abc.png",
       hero_image_url: null,
+      max_upload_size_mb: 50,
     });
 
     renderAdminPage();
@@ -719,6 +771,7 @@ describe("AdminPage", () => {
       hero_subtitle: null,
       favicon_url: null,
       hero_image_url: "/api/site-settings/assets/hero.png",
+      max_upload_size_mb: 50,
     });
 
     renderAdminPage();

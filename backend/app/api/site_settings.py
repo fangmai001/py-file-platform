@@ -59,7 +59,13 @@ def _get_or_create_settings(db: Session) -> SiteSetting:
     if settings_row is None:
         settings_row = SiteSetting(id=_SETTINGS_ROW_ID)
         db.add(settings_row)
-        db.flush()
+    # Seed the upload limit from MAX_UPLOAD_SIZE_MB so .env-configured deployments keep
+    # their existing limit until an admin edits it, same lazy-seed idea as
+    # app/core/smtp_config.py. Backfilling rows created before this column existed here
+    # (rather than in the migration) keeps the env var as the single source of the default.
+    if settings_row.max_upload_size_mb is None:
+        settings_row.max_upload_size_mb = settings.max_upload_size_mb
+    db.flush()
     return settings_row
 
 
@@ -137,12 +143,17 @@ def update_site_settings(
     fields_set = payload.model_fields_set
     changes: list[str] = []
 
-    for field in ("brand_name", "browser_title", "hero_title", "hero_subtitle"):
+    for field in ("brand_name", "browser_title", "hero_title", "hero_subtitle", "max_upload_size_mb"):
         if field in fields_set:
             value = getattr(payload, field)
             if value != getattr(settings_row, field):
                 changes.append(f"{field} updated")
                 setattr(settings_row, field, value)
+
+    # An explicit null clears the override; fall back to the env default so both the
+    # response and every later upload still have a concrete number to work with.
+    if settings_row.max_upload_size_mb is None:
+        settings_row.max_upload_size_mb = settings.max_upload_size_mb
 
     if changes:
         write_audit_log(db, actor_id=admin.id, action="site_settings.update", detail="; ".join(changes))

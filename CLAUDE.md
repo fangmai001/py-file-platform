@@ -157,7 +157,8 @@ native and Docker dev — see `.env.example`. Notably:
   `icon` stores a kebab-case string key validated by the `HighlightIconKey` `Literal` in
   `app/schemas/highlight.py`, which `frontend/src/lib/highlight-icons.ts` maps to lucide components
   with a fallback, so the two lists must be kept in sync), `site_settings.py` (branding
-  text, admin-only writes, plus admin-uploaded favicon/hero images — those live in
+  text and the per-file upload limit `max_upload_size_mb`, admin-only writes, plus
+  admin-uploaded favicon/hero images — those live in
   `UPLOAD_DIR/branding/` and are served by the **public, unauthenticated**
   `GET /api/site-settings/assets/{filename}` route, the one exception to this app's
   everything-goes-through-an-authenticated-`FileResponse` rule, because a favicon has to load
@@ -182,6 +183,14 @@ native and Docker dev — see `.env.example`. Notably:
   request (while the DB session is open) and hand it to `app/core/mailer.py`'s `send_email()` /
   `send_upload_notification_emails()` via `BackgroundTasks.add_task`, since those run after the
   request's session has already closed and can't safely re-query the ORM row themselves.
+- `app/core/upload_limit.py` — `get_max_upload_size_mb(db)` reads the admin-editable per-file limit off
+  the `site_settings` row, falling back to `settings.max_upload_size_mb` while it's still `NULL`.
+  Deliberately a plain read rather than the get-or-create used by `ldap_config.py`/`smtp_config.py`:
+  it runs on every upload, so the seeding lives on the admin read path
+  (`_get_or_create_settings` in `app/api/site_settings.py`) instead. Also defines
+  `MAX_UPLOAD_SIZE_MB_CEILING` (512), the value the schema validates against — `nginx/nginx.conf`'s
+  `client_max_body_size` and `MAX_UPLOAD_SIZE_MB_CEILING` in `frontend/src/pages/AdminPage.tsx`
+  hardcode the same number and must be changed together.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
 - `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`, `Highlight`,

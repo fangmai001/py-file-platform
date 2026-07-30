@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.upload_limit import MAX_UPLOAD_SIZE_MB_CEILING
 from app.models import AuditLog
 from tests.conftest import auth_headers, make_user
 
@@ -218,3 +219,61 @@ def test_non_admin_cannot_delete_branding_images(client, db_session):
 
     assert client.delete("/api/site-settings/favicon", headers=auth_headers(user)).status_code == 403
     assert client.delete("/api/site-settings/hero-image", headers=auth_headers(user)).status_code == 403
+
+
+def test_site_settings_seed_max_upload_size_from_env(client, monkeypatch):
+    monkeypatch.setattr(settings, "max_upload_size_mb", 25)
+
+    response = client.get("/api/site-settings")
+    assert response.status_code == 200
+    assert response.json()["max_upload_size_mb"] == 25
+
+
+def test_admin_can_update_max_upload_size(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.patch(
+        "/api/site-settings",
+        headers=auth_headers(admin),
+        json={"max_upload_size_mb": 120},
+    )
+    assert response.status_code == 200
+    assert response.json()["max_upload_size_mb"] == 120
+    assert client.get("/api/site-settings").json()["max_upload_size_mb"] == 120
+
+
+def test_non_admin_cannot_update_max_upload_size(client, db_session):
+    user = make_user(db_session)
+
+    response = client.patch(
+        "/api/site-settings",
+        headers=auth_headers(user),
+        json={"max_upload_size_mb": 120},
+    )
+    assert response.status_code == 403
+
+
+def test_max_upload_size_must_stay_within_ceiling(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    for invalid in (0, MAX_UPLOAD_SIZE_MB_CEILING + 1):
+        response = client.patch(
+            "/api/site-settings",
+            headers=auth_headers(admin),
+            json={"max_upload_size_mb": invalid},
+        )
+        assert response.status_code == 422
+
+
+def test_clearing_max_upload_size_falls_back_to_env_default(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "max_upload_size_mb", 50)
+    admin = make_user(db_session, username="root", role="admin")
+    client.patch("/api/site-settings", headers=auth_headers(admin), json={"max_upload_size_mb": 120})
+
+    response = client.patch(
+        "/api/site-settings",
+        headers=auth_headers(admin),
+        json={"max_upload_size_mb": None},
+    )
+    assert response.status_code == 200
+    assert response.json()["max_upload_size_mb"] == 50

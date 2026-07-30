@@ -7,6 +7,7 @@ export interface SiteSettings {
   hero_subtitle: string | null;
   favicon_url: string | null;
   hero_image_url: string | null;
+  max_upload_size_mb: number;
 }
 
 export interface UpdateSiteSettingsInput {
@@ -14,6 +15,7 @@ export interface UpdateSiteSettingsInput {
   browser_title?: string | null;
   hero_title?: string | null;
   hero_subtitle?: string | null;
+  max_upload_size_mb?: number;
 }
 
 export function getSiteSettings(): Promise<SiteSettings> {

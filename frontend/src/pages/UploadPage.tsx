@@ -13,12 +13,14 @@ import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import { formatSize } from "../lib/format";
 
 const NO_FOLDER = "none";
 
 function UploadPage() {
   const navigate = useNavigate();
+  const { maxUploadSizeMb } = useSiteSettings();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isPublic, setIsPublic] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -33,6 +35,18 @@ function UploadPage() {
       .then(setFolders)
       .catch(() => setFolders([]));
   }, []);
+
+  // Checked here rather than only on submit so an oversized file is rejected the moment it's
+  // picked, instead of after the browser has finished uploading it just to receive a 413.
+  function handleFileChange(file: File | null) {
+    if (file && file.size > maxUploadSizeMb * 1024 * 1024) {
+      setSelectedFile(null);
+      setUploadError(`檔案超過大小上限（${maxUploadSizeMb} MB）`);
+      return;
+    }
+    setSelectedFile(file);
+    setUploadError(null);
+  }
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,19 +82,20 @@ function UploadPage() {
               {/* The file input stays inside its <label> and only sr-only-hidden, so the
                   label association (and getByLabelText) keeps working while the label
                   itself becomes the drop target. Keep the label's text content to this
-                  single string - extra text nodes would change its accessible name. */}
+                  single line, limit included - extra text nodes would change its
+                  accessible name. */}
               <Label
                 htmlFor="upload"
                 className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-muted/30 px-6 py-10 text-center font-normal transition-colors hover:border-primary/50 hover:bg-accent/40 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50"
               >
                 <UploadCloud className="size-6 text-muted-foreground" />
-                選擇檔案（pdf / doc / xls / docx / xlsx）
+                選擇檔案（pdf / doc / xls / docx / xlsx，單檔上限 {maxUploadSizeMb} MB）
                 <Input
                   id="upload"
                   type="file"
                   accept=".pdf,.doc,.xls,.docx,.xlsx"
                   className="sr-only"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                 />
               </Label>
               {selectedFile && (
