@@ -118,6 +118,9 @@ function toHighlightDrafts(items: HighlightItem[]): Record<number, HighlightDraf
 const AUDIT_LOG_LIMIT = 50;
 const ALL_ACTIONS = "__all__";
 const NO_FOLDER = "none";
+// Mirrors MAX_UPLOAD_SIZE_MB_CEILING in backend/app/core/upload_limit.py, which is also
+// what nginx's client_max_body_size is pinned to - all three move together.
+const MAX_UPLOAD_SIZE_MB_CEILING = 512;
 
 type BrandingImageKind = "favicon" | "heroImage";
 
@@ -148,6 +151,7 @@ function AdminPage() {
     browserTitle: siteSettings.browserTitle,
     heroTitle: siteSettings.heroTitle,
     heroSubtitle: siteSettings.heroSubtitle,
+    maxUploadSizeMb: String(siteSettings.maxUploadSizeMb),
   });
   const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
   const [brandingImageBusy, setBrandingImageBusy] = useState<BrandingImageKind | null>(null);
@@ -338,8 +342,15 @@ function AdminPage() {
       browserTitle: siteSettings.browserTitle,
       heroTitle: siteSettings.heroTitle,
       heroSubtitle: siteSettings.heroSubtitle,
+      maxUploadSizeMb: String(siteSettings.maxUploadSizeMb),
     });
-  }, [siteSettings.brandName, siteSettings.browserTitle, siteSettings.heroTitle, siteSettings.heroSubtitle]);
+  }, [
+    siteSettings.brandName,
+    siteSettings.browserTitle,
+    siteSettings.heroTitle,
+    siteSettings.heroSubtitle,
+    siteSettings.maxUploadSizeMb,
+  ]);
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -683,6 +694,15 @@ function AdminPage() {
 
   async function handleSaveSiteSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // Checked here as well as server-side: the backend rejects out-of-range values with a
+    // 422 whose detail is a validation-error list, which wouldn't render as a readable message.
+    const maxUploadSizeMb = Number(siteSettingsDraft.maxUploadSizeMb);
+    if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > MAX_UPLOAD_SIZE_MB_CEILING) {
+      toast.error(`上傳大小上限須為 1 到 ${MAX_UPLOAD_SIZE_MB_CEILING} 之間的整數（MB）`);
+      return;
+    }
+
     setIsSavingSiteSettings(true);
     try {
       await updateSiteSettings({
@@ -690,6 +710,7 @@ function AdminPage() {
         browser_title: siteSettingsDraft.browserTitle.trim() || null,
         hero_title: siteSettingsDraft.heroTitle.trim() || null,
         hero_subtitle: siteSettingsDraft.heroSubtitle.trim() || null,
+        max_upload_size_mb: maxUploadSizeMb,
       });
       await siteSettings.refresh();
       toast.success("已更新站台設定");
@@ -1763,6 +1784,21 @@ function AdminPage() {
                     value={siteSettingsDraft.heroSubtitle}
                     onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, heroSubtitle: e.target.value }))}
                   />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="site-max-upload-size">單檔上傳大小上限（MB）</Label>
+                  <Input
+                    id="site-max-upload-size"
+                    type="number"
+                    min={1}
+                    max={MAX_UPLOAD_SIZE_MB_CEILING}
+                    step={1}
+                    value={siteSettingsDraft.maxUploadSizeMb}
+                    onChange={(e) => setSiteSettingsDraft((draft) => ({ ...draft, maxUploadSizeMb: e.target.value }))}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    可設定 1 到 {MAX_UPLOAD_SIZE_MB_CEILING} MB。此上限即時生效，會套用在上傳頁的提示與後端檢查。
+                  </p>
                 </div>
                 <Button type="submit" className="self-start" disabled={isSavingSiteSettings}>
                   {isSavingSiteSettings ? "儲存中…" : "儲存"}

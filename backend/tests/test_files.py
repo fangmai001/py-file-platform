@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from app.core.config import settings
 from app.models import Folder
 from tests.conftest import auth_headers, make_user
 
@@ -278,3 +281,38 @@ def test_files_are_grouped_by_folder(client, db_session):
     response = client.get("/api/files")
     groups = {g["folder"]["name"] if g["folder"] else None: {f["filename"] for f in g["files"]} for g in response.json()}
     assert groups == {"財務": {"grouped.pdf"}, None: {"ungrouped.pdf"}}
+
+
+def test_upload_rejects_file_over_size_limit(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "max_upload_size_mb", 1)
+    user = make_user(db_session)
+    oversized = PDF_BYTES + b"\x00" * (2 * 1024 * 1024)
+
+    response = client.post(
+        "/api/files/upload",
+        headers=auth_headers(user),
+        files={"upload": ("big.pdf", oversized, "application/pdf")},
+        data={"is_public": "true"},
+    )
+    assert response.status_code == 413
+    assert "1 MB" in response.json()["detail"]
+    # the partially written file must not be left behind on disk
+    assert list((Path(settings.upload_dir) / str(user.id)).glob("*")) == []
+
+
+def test_upload_limit_follows_site_settings_not_env(client, db_session, monkeypatch):
+    """The admin-configured limit wins over MAX_UPLOAD_SIZE_MB once it has been set."""
+    monkeypatch.setattr(settings, "max_upload_size_mb", 50)
+    admin = make_user(db_session, username="root", role="admin")
+    client.patch(
+        "/api/site-settings", headers=auth_headers(admin), json={"max_upload_size_mb": 1}
+    )
+
+    response = client.post(
+        "/api/files/upload",
+        headers=auth_headers(admin),
+        files={"upload": ("big.pdf", PDF_BYTES + b"\x00" * (2 * 1024 * 1024), "application/pdf")},
+        data={"is_public": "true"},
+    )
+    assert response.status_code == 413
+    assert "1 MB" in response.json()["detail"]

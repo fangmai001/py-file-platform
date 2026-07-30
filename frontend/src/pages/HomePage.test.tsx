@@ -32,6 +32,7 @@ vi.mock("../api/site-settings", () => ({
     hero_subtitle: null,
     favicon_url: null,
     hero_image_url: null,
+    max_upload_size_mb: 50,
   }),
   updateSiteSettings: vi.fn(),
   siteAssetUrl: (path: string | null) => path,
@@ -224,6 +225,7 @@ describe("HomePage", () => {
       hero_subtitle: "這裡是自訂的副標說明",
       favicon_url: null,
       hero_image_url: null,
+      max_upload_size_mb: 50,
     });
 
     renderHomePage();
@@ -241,6 +243,7 @@ describe("HomePage", () => {
       hero_subtitle: null,
       favicon_url: null,
       hero_image_url: "/api/site-settings/assets/abc.png",
+      max_upload_size_mb: 50,
     });
 
     const { container } = renderHomePage();
@@ -259,6 +262,7 @@ describe("HomePage", () => {
       hero_subtitle: null,
       favicon_url: null,
       hero_image_url: null,
+      max_upload_size_mb: 50,
     });
 
     const { container } = renderHomePage();

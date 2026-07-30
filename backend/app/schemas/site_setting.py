@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.core.upload_limit import MAX_UPLOAD_SIZE_MB_CEILING
+
 BRANDING_ASSET_URL_PREFIX = "/api/site-settings/assets"
 
 
@@ -8,6 +10,7 @@ class SiteSettingUpdate(BaseModel):
     browser_title: str | None = None
     hero_title: str | None = None
     hero_subtitle: str | None = None
+    max_upload_size_mb: int | None = Field(default=None, ge=1, le=MAX_UPLOAD_SIZE_MB_CEILING)
 
 
 class SiteSettingResponse(BaseModel):
@@ -17,6 +20,8 @@ class SiteSettingResponse(BaseModel):
     browser_title: str | None
     hero_title: str | None
     hero_subtitle: str | None
+    # Never null in practice: reads go through _get_or_create_settings, which backfills it.
+    max_upload_size_mb: int
 
     # Clients only ever see the URLs; the raw filenames stay server-side. Each upload gets a
     # fresh uuid filename, so the URL changes too and browsers pick the new asset up without

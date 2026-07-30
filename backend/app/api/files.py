@@ -14,6 +14,7 @@ from app.core.audit import write_audit_log
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.notifications import notify_file_uploaded
+from app.core.upload_limit import get_max_upload_size_mb
 from app.models import File, FileVersion, Folder, Notification, User
 from app.schemas.file import FileResponse, FileUpdate, FileVersionResponse, FolderGroup
 from app.schemas.folder import FolderResponse
@@ -75,7 +76,8 @@ def upload_file(
             detail=f"不支援的檔案類型：{extension or '(無副檔名)'}",
         )
 
-    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+    max_size_mb = get_max_upload_size_mb(db)
+    max_size_bytes = max_size_mb * 1024 * 1024
     dest_dir = Path(settings.upload_dir) / str(current_user.id)
     dest_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}{extension}"
@@ -90,7 +92,7 @@ def upload_file(
                 if size > max_size_bytes:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=f"檔案超過大小上限（{settings.max_upload_size_mb} MB）",
+                        detail=f"檔案超過大小上限（{max_size_mb} MB）",
                     )
                 if len(header) < 8:
                     header += chunk
