@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { FileText, Folder, Link2, ScrollText, Sparkles, Users } from "lucide-react";
+import { FileText, Folder, KeyRound, Link2, Power, Save, ScrollText, Sparkles, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { ApiError } from "../api/client";
@@ -1090,29 +1090,44 @@ function AdminPage() {
                         <TableCell className="whitespace-nowrap">{formatDateTime(u.created_at)}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDateTime(u.updated_at)}</TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleSaveUser(u)}>
-                              儲存
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
-                              {u.is_active ? "停用" : "啟用"}
+                          <div className="flex flex-nowrap items-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="icon-sm"
+                              aria-label="儲存"
+                              title="儲存"
+                              onClick={() => handleSaveUser(u)}
+                            >
+                              <Save />
                             </Button>
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon-sm"
+                              aria-label={u.is_active ? "停用" : "啟用"}
+                              title={u.is_active ? "停用" : "啟用"}
+                              onClick={() => handleToggleActive(u)}
+                            >
+                              <Power />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon-sm"
+                              aria-label="重設密碼"
+                              title={u.auth_source === "ldap" ? "LDAP 帳號的密碼由 LDAP 伺服器管理" : "重設密碼"}
                               onClick={() => handleResetPassword(u)}
                               disabled={u.auth_source === "ldap"}
-                              title={u.auth_source === "ldap" ? "LDAP 帳號的密碼由 LDAP 伺服器管理" : undefined}
                             >
-                              重設密碼
+                              <KeyRound />
                             </Button>
                             <Button
                               variant="destructive-outline"
-                              size="sm"
+                              size="icon-sm"
+                              aria-label="刪除"
+                              title="刪除"
                               onClick={() => handleDeleteUser(u)}
                               disabled={currentUser?.id === u.id}
                             >
-                              刪除
+                              <Trash2 />
                             </Button>
                           </div>
                         </TableCell>
