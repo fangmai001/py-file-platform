@@ -27,6 +27,7 @@ import type {
   LinkCardItem,
   UserItem,
 } from "../api/types";
+import { formatDateTime } from "../lib/format";
 import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
@@ -124,10 +125,6 @@ const BRANDING_IMAGE_LABELS: Record<BrandingImageKind, string> = {
   favicon: "網站圖示",
   heroImage: "首頁歡迎圖片",
 };
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("zh-TW");
-}
 
 /** Placeholder rows shown while a tab's table is still loading. */
 function TableSkeleton({ rows = 5 }: { rows?: number }) {

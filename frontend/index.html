@@ -8,9 +8,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="內部文件共享平台" />
-    <!-- These are the --canvas colours (the surface outside the content sheet), not --background. -->
-    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1c1d21" media="(prefers-color-scheme: dark)" />
+    <!-- The light --canvas colour (the surface outside the content sheet), not --background.
+         Deliberately not keyed on prefers-color-scheme: a stored theme overrides the system
+         preference, so a media query would tint the mobile toolbar for the wrong theme. The
+         boot script below covers the dark first paint and ThemeContext takes over after that. -->
+    <meta name="theme-color" content="#f4f5f8" />
     <!-- SiteSettingsContext overwrites this from browser_title, whose default is this same
          string - changing it here would desync the pre- and post-hydration titles. -->
     <title>py-file-platform</title>
@@ -29,6 +31,11 @@
               window.matchMedia("(prefers-color-scheme: dark)").matches);
           document.documentElement.classList.toggle("dark", dark);
           document.documentElement.style.colorScheme = dark ? "dark" : "light";
+          if (dark) {
+            var meta = document.querySelector('meta[name="theme-color"]');
+            // The dark --canvas; ThemeContext re-reads it from the stylesheet once mounted.
+            if (meta) meta.content = "#1c1d21";
+          }
         } catch (e) {
           /* localStorage unavailable (private mode); fall back to the light default */
         }

@@ -8,6 +8,7 @@ import { listFolders } from "../api/folders";
 import { listHighlights } from "../api/highlights";
 import { listLinkCards } from "../api/link-cards";
 import type { FileItem, FolderGroup, FolderItem, HighlightItem, LinkCardItem } from "../api/types";
+import { formatSize } from "../lib/format";
 import { highlightIcon } from "../lib/highlight-icons";
 import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
@@ -27,20 +28,6 @@ const NO_FOLDER = "none";
 const ALL_FOLDERS = "__all__";
 const SEARCH_DEBOUNCE_MS = 300;
 const FILES_PAGE_SIZE = 20;
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
-}
 
 interface EditDraft {
   displayName: string;
