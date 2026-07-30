@@ -21,10 +21,8 @@
 | ![管理後台站台設定](docs/screenshots/admin-site-settings.png) | ![管理後台 LDAP 設定](docs/screenshots/admin-ldap-settings.png) |
 | **管理後台－Email SMTP 設定**                          | **個人資料頁**                                           |
 | ![管理後台 Email SMTP 設定](docs/screenshots/admin-smtp-settings.png) | ![個人資料頁](docs/screenshots/profile.png) |
-| **通知中心**                                           |                                                          |
-| （待補圖：`docs/screenshots/notifications.png`）        |                                                          |
-
-> 通知中心的截圖待補（需要帳號實際收到通知才拍得出未讀徽章與「全部標記已讀」）；補上 png 到 `docs/screenshots/` 後改成圖片連結即可。
+| **管理後台－首頁特色**                                 | **通知中心**                                             |
+| ![管理後台首頁特色](docs/screenshots/admin-highlights.png) | ![通知中心](docs/screenshots/notifications.png)       |
 
 ## 🌟 專案特點
 
@@ -42,6 +40,8 @@
 *   **Email SMTP 設定**：寄送重設密碼信、上傳通知信所使用的 SMTP 伺服器、帳密等設定，可直接在管理後台網頁上設定，無需改動伺服器環境變數；未啟用或未設定時，信件內容僅會寫入後端日誌，方便本機開發測試。
 *   **站台外觀設定**：站台名稱、瀏覽器分頁標題、首頁歡迎卡片的主標題與副標說明文字，以及網站圖示（favicon）與首頁歡迎圖片，皆可直接在管理後台的「站台設定」中修改；圖片支援 SVG / PNG / JPG / GIF / WebP / ICO 上傳，未設定時使用內建預設值。
 *   **首頁特色介紹**：首頁歡迎區塊下方的特色卡片（圖示、標題、說明文字、排序、是否顯示）可在管理後台的「首頁特色」中自行新增、編輯與刪除；圖示由下拉選單挑選，卡片張數不固定，首頁版面會依張數自動調整。
+*   **深色／明亮模式**：右上角可一鍵切換深色與明亮外觀，選擇會記在瀏覽器本機（`localStorage` 的 `theme`）；第一次造訪時跟隨作業系統的深色偏好（`prefers-color-scheme`），且在頁面首次繪製之前就套用主題，深色使用者不會先看到一片白再跳暗。
+*   **一致的介面設計**：全站的色彩、圓角與間距統一由設計 token 定義（明亮／深色各一套，見 `frontend/src/index.css`），資料載入中顯示骨架（skeleton）佔位、沒有資料時顯示統一的空狀態說明，操作成功或失敗則以畫面右下角的浮動訊息（toast）提示；版面與字級會依螢幕寬度自動調整。
 *   **檔案儲存**：檔案實體存放於伺服器本機檔案系統，資料庫僅儲存檔案 metadata。
 *   **檔案大小限制**：上傳檔案設有單檔大小上限，避免磁碟空間被過大檔案佔滿。上限可由管理員在管理後台的「站台設定」中調整（1 到 512 MB），調整後立即生效，上傳頁面也會同步顯示目前上限並在選檔當下就擋下過大的檔案。
 *   **操作稽核紀錄（Audit Log）**：記錄管理員的高權限操作（如建立/停用/刪除使用者帳號、刪除他人檔案等），包含操作者、時間、對象與動作內容，以利事後追溯。
@@ -53,19 +53,20 @@
 *   **後端 (Backend)**: Python / FastAPI
 *   **前端 (Frontend)**: React + TypeScript + Vite，UI 使用 Tailwind CSS v4 + shadcn（`base-nova`
     style，元件基底為 `@base-ui/react`）+ `lucide-react` 圖示，樣式組合用
-    `class-variance-authority` / `tailwind-merge`
+    `class-variance-authority` / `tailwind-merge`，浮動訊息（toast）用 `sonner`、動畫用
+    `tw-animate-css`；明亮／深色兩套設計 token 定義在 `frontend/src/index.css`
 *   **資料庫 (Database)**: PostgreSQL
 
 ## 🗺️ 頁面與權限 (Pages)
 
 | 路徑                | 頁面                                       | 需要登入                  |
 | ------------------- | ------------------------------------------ | ------------------------- |
-| `/`                 | 公開檔案牆（檔案卡片與連結卡片）           | 否，訪客可瀏覽下載公開檔案 |
+| `/`                 | 公開檔案牆（檔案卡片與連結卡片）；登入後可在此管理自己的檔案（公開／私密切換、版本、刪除） | 否，訪客可瀏覽下載公開檔案 |
 | `/about`            | 關於本站                                   | 否                        |
 | `/login`            | 登入                                       | 否                        |
 | `/forgot-password`  | 忘記密碼（寄送重設連結）                   | 否                        |
 | `/reset-password`   | 以 Email 連結重設密碼                      | 否                        |
-| `/upload`           | 上傳檔案與管理自己的檔案                   | 是                        |
+| `/upload`           | 上傳檔案（可設定顯示名稱、卡片分類、公告日期與可見度） | 是                        |
 | `/profile`          | 個人資料（姓名／Email／密碼／通知偏好）    | 是                        |
 | `/admin`            | 管理後台                                   | 是，且需 admin 角色       |
 
