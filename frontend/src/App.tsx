@@ -6,6 +6,7 @@ import AdminPage from "./pages/AdminPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/ProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import UploadPage from "./pages/UploadPage";
@@ -191,6 +192,7 @@ function AppShell() {
               </RequireAdmin>
             }
           />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
       <footer className="mt-auto border-t border-border bg-muted/25 px-6 py-6 text-xs text-muted-foreground sm:px-8">
