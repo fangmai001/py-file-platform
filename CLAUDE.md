@@ -123,6 +123,12 @@ docker compose up --build
 `alembic upgrade head`，見 `backend/Dockerfile`）、`frontend`（vite 開發伺服器於 :5173）。host 上的
 `./uploads` 目錄會 bind-mount 進 backend 容器，讓已上傳的檔案在容器重建後仍然存在。
 
+正式環境（`docker-compose.prod.yml`）用的是完全不同的組合：只有 `app` 與 `db` 兩個 service。`app` 由
+**專案根目錄的 `Dockerfile`** 以 multi-stage build 產生（node 階段建置前端 → python 階段將 `dist/`
+複製為 image 內的 `/app/static`），前端靜態檔由 FastAPI 直接伺服，因此前後端同 origin、沒有 nginx 或
+任何反向代理。改前端不需要在 host 上先跑 `npm run build`。dev 的 `docker-compose.yml` 與
+`frontend/Dockerfile` 維持 Vite dev server 不受影響。
+
 ## Configuration
 
 放在**專案根目錄**（而非 `backend/` 之下）的單一 `.env` 是原生開發與 Docker 開發共同的設定來源——見
@@ -136,7 +142,13 @@ docker compose up --build
 
 ## Backend architecture
 
-- `app/main.py` — FastAPI 應用程式進入點；掛載 `app/api/router.py` 提供的單一 router。
+- `app/main.py` — FastAPI 應用程式進入點；掛載 `app/api/router.py` 提供的單一 router，接著（順序很重要，
+  必須在 `include_router` 之後）呼叫 `app/core/static.py` 的 `mount_frontend()`，因為它註冊的 catch-all
+  route 會匹配所有路徑，早一步註冊就會遮蔽掉整組 API。另外掛了 `GZipMiddleware`（沒有反向代理後，壓縮
+  是這裡的責任）。
+- `app/core/static.py` — production image 內建的前端靜態檔伺服：實際檔案優先，其餘 fallback 回
+  `index.html` 支援 react-router 深層連結，但 `/api/...` 開頭的未註冊路徑仍回 404 JSON。
+  `settings.static_dir`（預設 `./static`）不存在時整個掛載會被跳過，所以原生開發完全不受影響。
 - `app/api/router.py` — `APIRouter(prefix="/api")`，納入各個功能 router，每個都是 `app/api/` 底下獨立的
   模組：`auth.py`（登入／JWT——本機密碼或透過 `app/core/ldap.py` 的 LDAP bind，以及 `/me`）、
   `files.py`（上傳下載、版本、可見性切換、依 folder 分組的列表，並觸發上傳通知）、
@@ -173,9 +185,9 @@ docker compose up --build
   每檔上限，在該欄位仍為 `NULL` 時退回 `settings.max_upload_size_mb`。這裡刻意採用單純讀取，而非
   `ldap_config.py`／`smtp_config.py` 使用的 get-or-create：它每次上傳都會執行，所以填入初始值的邏輯改放在
   管理員的讀取路徑（`app/api/site_settings.py` 中的 `_get_or_create_settings`）。此檔案也定義了
-  `MAX_UPLOAD_SIZE_MB_CEILING`（512），也就是 schema 驗證時對照的值——`nginx/nginx.conf` 的
-  `client_max_body_size` 與 `frontend/src/pages/admin/useSiteSettingsAdmin.ts` 中的
-  `MAX_UPLOAD_SIZE_MB_CEILING` 都寫死同一個數字，必須一起修改。
+  `MAX_UPLOAD_SIZE_MB_CEILING`（512），也就是 schema 驗證時對照的值——
+  `frontend/src/pages/admin/useSiteSettingsAdmin.ts` 中的 `MAX_UPLOAD_SIZE_MB_CEILING` 寫死同一個
+  數字，必須一起修改。正式環境已無反向代理，這兩處就是唯一的上限來源。
 - `app/core/database.py` — SQLAlchemy 的 engine／session 設定；所有 model 繼承的 `Base`
   （DeclarativeBase），以及供 FastAPI 依賴注入使用的 `get_db()` generator。
 - `app/models/` — 一張表一個檔案（`User`、`File`、`FileVersion`、`Folder`、`LinkCard`、`Highlight`、

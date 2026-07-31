@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 50
 
+    # Where the built frontend lives, relative to the working directory. The production
+    # Dockerfile builds it into /app/static and the app serves it from the same origin
+    # as the API (see app/core/static.py). Nothing exists here in native dev, where
+    # Vite serves the frontend instead, so the mount is simply skipped.
+    static_dir: str = "./static"
+
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
