@@ -182,3 +182,38 @@ describe("profile route gating", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "個人資料" })).toBeInTheDocument());
   });
 });
+
+describe("unknown routes", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  // Without the catch-all route these URLs rendered header and footer around an empty
+  // <main>, which reads as a broken page rather than a missing one.
+  it("renders the not-found page for an unknown URL", async () => {
+    render(
+      <MemoryRouter initialEntries={["/no-such-page"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "找不到頁面" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "回到首頁" })).toHaveAttribute("href", "/");
+  });
+
+  it("does not swallow a known route", async () => {
+    render(
+      <MemoryRouter initialEntries={["/about"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "關於本專案" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("heading", { name: "找不到頁面" })).not.toBeInTheDocument();
+  });
+});
