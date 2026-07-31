@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import TableSkeleton from "./TableSkeleton";
-import type { useFoldersAdmin } from "./useFoldersAdmin";
+import { isFolderDirty, type useFoldersAdmin } from "./useFoldersAdmin";
 
 function FoldersTab(props: ReturnType<typeof useFoldersAdmin>) {
   const {
@@ -105,7 +105,12 @@ function FoldersTab(props: ReturnType<typeof useFoldersAdmin>) {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleSaveFolder(folder)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSaveFolder(folder)}
+                          disabled={!isFolderDirty(folder, folderDrafts[folder.id])}
+                        >
                           儲存
                         </Button>
                         <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteFolder(folder)}>
