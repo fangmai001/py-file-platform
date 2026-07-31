@@ -58,7 +58,7 @@ function FilesTab(props: ReturnType<typeof useFilesAdmin>) {
                       {file.is_public ? "公開" : "私密"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteFile(file)}>
                       刪除
                     </Button>

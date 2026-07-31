@@ -103,8 +103,8 @@ function FoldersTab(props: ReturnType<typeof useFoldersAdmin>) {
                         }
                       />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex flex-nowrap items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
