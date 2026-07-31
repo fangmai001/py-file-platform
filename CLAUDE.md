@@ -216,8 +216,62 @@ Tests won't see those seeded rows: `backend/tests/conftest.py` builds its schema
 ## Frontend architecture
 
 Vite + React 19 + TypeScript + `react-router-dom` v7. Routing is defined in `App.tsx` with routes for
-`/`, `/login`, `/upload`, `/about`, and `/admin` (→ `HomePage`, `LoginPage`, `UploadPage`, `AboutPage`,
-`AdminPage`), all wired to the backend API via `src/api/` (`auth.ts`, `files.ts`, `folders.ts`,
-`admin.ts`, `client.ts`); `AuthContext.tsx` holds the logged-in user and JWT. `/upload` is gated to any
-logged-in user and `/admin` to admin users specifically (both redirect to `/login` otherwise, gated
-client-side). Linting uses `oxlint` (config in `.oxlintrc.json`), not eslint.
+`/`, `/login`, `/forgot-password`, `/reset-password`, `/upload`, `/profile`, `/about`, and `/admin`
+(→ `HomePage`, `LoginPage`, `ForgotPasswordPage`, `ResetPasswordPage`, `UploadPage`, `ProfilePage`,
+`AboutPage`, `AdminPage`), all wired to the backend API via `src/api/` (`auth.ts`, `files.ts`,
+`folders.ts`, `admin.ts`, `client.ts`); `AuthContext.tsx` holds the logged-in user and JWT. `/upload`
+and `/profile` are gated to any logged-in user and `/admin` to admin users specifically (all redirect
+to `/login` otherwise, gated client-side). Linting uses `oxlint` (config in `.oxlintrc.json`), not
+eslint.
+
+### Design system
+
+Everything visual comes from the tokens in `frontend/src/index.css` — the point of the pass in PR #93
+was to stop pages hand-rolling their own sizes, shadows and error text. New UI should reach for the
+existing token or shared component rather than a one-off Tailwind class.
+
+- **Surfaces.** `--canvas` is the page backdrop *outside* the content sheet (it is what `:root` sets
+  as `background`); `--background` and `--card` are the sheet and the cards on it. The neutrals are
+  not pure grey: they carry chroma 0.005–0.014 of the primary hue so they don't read as dead grey
+  next to the blue primary. Any new neutral has to be mixed the same way.
+- **Elevation.** Three steps, `--elevation-1/2/3`. The `@theme inline` block remaps the stock shadow
+  scale onto them, so `shadow-xs`/`shadow-sm` → step 1, `shadow-md` → step 2, `shadow-lg` and above →
+  step 3, and all of them are theme-aware for free. In dark mode each step also carries an inset top
+  hairline, because a black drop shadow is invisible on a near-black surface. Don't write
+  `shadow-[...]` by hand.
+- **Type scale.** `text-display` / `text-title` / `text-section` / `text-sub`, each carrying size,
+  leading, tracking and weight in one class. The un-scoped `h1`/`h2` element rules are gone (their
+  margins stacked onto container flex gaps), so headings must opt in — in practice via `PageHeader`
+  and `SectionTitle` rather than a hand-written `text-2xl font-bold`.
+- **Layout and fonts.** `@utility page` is the standard page container (column flex, page rhythm and
+  responsive padding); `App.tsx` uses `max-w-app` (`--container-app`) for the shell width. `--sans`
+  (and `font-heading`, which currently aliases it) is a system-font stack with an explicit zh-Hant
+  fallback chain — nothing is downloaded, but without that chain Traditional Chinese drops to a
+  Ming/serif face on Windows and Linux.
+- **Status vocabulary.** Inline messages go through `Callout` (`destructive` / `success` / `info`),
+  never a bare `<p className="text-destructive">`; empty lists through `EmptyState`; loading
+  placeholders through `ui/skeleton`; the result of an action through a `sonner` toast. For
+  destructive buttons, `destructive-outline` is the per-row variant (a red hint without turning a
+  table red) and solid `destructive` is reserved for the confirm dialog, where the action really is
+  consequential.
+
+Shared components in `frontend/src/components/` (the `ui/` subdirectory is shadcn's, generally left
+as generated):
+
+| Component | Use for |
+| --- | --- |
+| `PageHeader` | The `<h1>` block at the top of a page, with optional description and actions. |
+| `SectionTitle` | Card and section headings; `as` picks `h2`/`h3`/`h4`, `size` picks the type step. |
+| `Callout` | Inline error/success/info messages inside a form or tab. |
+| `EmptyState` | The dashed placeholder for a list with no rows. |
+| `AuthLayout` | The centred card shell shared by login, forgot-password and reset-password. |
+| `ui/badge` | Status pills (`success` / `warning` / `destructive` / `outline` / …). |
+| `ui/skeleton` | Loading placeholders. |
+
+`PageHeader` and `SectionTitle` deliberately render real heading elements: a number of tests locate
+pages and sections with `getByRole("heading")`, and shadcn's `CardTitle` renders a `<div>`.
+`SectionTitle` also keeps `data-slot="card-title"` so `CardHeader`'s grid still lays out correctly
+when a `CardAction` sits beside it. `Callout` returns `null` for falsy `children` (so a caller can
+pass a possibly-empty error string straight in) and switches its `role` between `alert`
+(destructive) and `status` (the rest), so a screen reader doesn't announce an info box as an alert —
+neither behaviour is incidental.
