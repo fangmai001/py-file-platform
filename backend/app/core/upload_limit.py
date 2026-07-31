@@ -5,8 +5,10 @@ from app.models import SiteSetting
 
 _SETTINGS_ROW_ID = 1
 
-# Upper bound an admin can set the per-file limit to. nginx can't follow a DB value, so
-# nginx/nginx.conf pins client_max_body_size to this same number - change both together.
+# Upper bound an admin can set the per-file limit to. The admin UI validates against the
+# same number (MAX_UPLOAD_SIZE_MB_CEILING in
+# frontend/src/pages/admin/useSiteSettingsAdmin.ts) - change both together. No reverse
+# proxy caps the request body any more, so these two are the only ceiling.
 MAX_UPLOAD_SIZE_MB_CEILING = 512
 
 

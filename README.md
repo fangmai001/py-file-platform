@@ -129,7 +129,7 @@ INITIAL_ADMIN_PASSWORD=change-me-to-a-real-password
 | --------------------------------------- | ------------------------------------------------------------- |
 | `FRONTEND_BASE_URL`                     | 產生密碼重設信連結時使用的前端網址                            |
 | `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES`   | 重設密碼 token 有效時間（分鐘），預設 `30`                    |
-| `VITE_API_BASE_URL`                     | 前端開發時要打的後端網址；正式建置時**不要**設定，見下方「發布模式執行方式」 |
+| `VITE_API_BASE_URL`                     | 僅供前端開發使用的後端網址；正式建置在 `Dockerfile` 內進行且不讀這個檔案，因此不需要設定 |
 
 **SMTP_\* 與 LDAP_\*（只是初始種子值）**
 
@@ -274,43 +274,53 @@ squash 方式合併，GitHub 自動附加的 `(#NN)` 屬工具行為，不需要
 
 `docker compose up`（即 `docker-compose.yml`）啟動的 frontend container 內部是跑 `npm run dev`
 （Vite dev server），只適合開發用途。正式環境改用獨立的 `docker-compose.prod.yml`（**不要**跟
-`docker-compose.yml` 疊加使用，兩者的 frontend/nginx 服務會同時啟動）：內含 db／backend／nginx 三個
-service，用 nginx（`nginx/nginx.conf`）取代 Vite dev server，直接靜態伺服 `frontend/dist/` 並將
-`/api/` 轉發給 backend，對外只暴露一個 port（80）。
+`docker-compose.yml` 疊加使用，兩者的 frontend 服務會同時啟動）：只有 `app` 與 `db` 兩個 service，
+對外只暴露一個 port（80）。
 
-### 1. 建置前端靜態檔案
+`app` 由專案根目錄的 `Dockerfile` 以 multi-stage build 產生：第一階段用 `node:22-alpine` 執行
+`npm ci && npm run build`，第二階段的 `python:3.12-slim` 再把產出的 `dist/` 複製成 image 內的
+`/app/static`，由 FastAPI 直接靜態伺服（見 `backend/app/core/static.py`）。因此前後端是同一個
+origin，不需要反向代理，正式環境總共只有 **app 與 postgres 兩個 image**。
 
-```bash
-cd frontend
-npm run build     # tsc -b && vite build，輸出到 frontend/dist/
-```
-
-`docker-compose.prod.yml` 會把 `frontend/dist/` 以唯讀 volume 掛進 nginx container，所以每次改動前端
-程式碼後，部署前都要重新執行這個步驟。
-
-> 建置時**不要**設定 `VITE_API_BASE_URL`（開發用的 `.env` 只給 `npm run dev` 用）。這個情境下前端與
-> 後端是同一個 nginx origin，API client 沒抓到這個變數時會 fallback 成相對路徑 `/api/...`，直接交由
-> nginx 的 `location /api/` 轉發即可；若建置時不小心帶了開發用的 `http://localhost:8000`，前端會跳過
-> nginx 直接打 8000 port，但 `docker-compose.prod.yml` 並未對外開放該 port，會直接連線失敗。
-
-### 2. 啟動 db／backend／nginx
+### 1. 啟動 app／db
 
 ```bash
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-- `nginx` service：監聽 `:80`，靜態伺服 `frontend/dist/`；`location /api/` 轉發給 `backend:8000`；
-  非 `/api` 且非實際靜態檔案的路徑一律 fallback 回 `index.html`（支援 `react-router-dom` 的
-  client-side routing，重新整理 `/admin` 等子路徑不會 404）。`location /api/` 另設
-  `client_max_body_size 512m`，對應後端可設定的上傳上限天花板（見
-  `backend/app/core/upload_limit.py` 的 `MAX_UPLOAD_SIZE_MB_CEILING`）；nginx 無法跟著後台設定
-  動態調整，兩處必須一起改，否則超過 nginx 這個值的上傳會在反向代理層就被擋掉。
-- `backend`／`db` 不再對外暴露 port（`8000`／`5432`），只能透過 docker 內部網路被 `nginx` 存取，
-  對外僅開放 80。
-- backend container 啟動時一樣會自動跑 `alembic upgrade head`（見 `backend/Dockerfile`）。
+- `app` service：對外監聽 `:80`（對應 container 內的 `8000`）。`/api/...` 由 FastAPI 的 router 處理，
+  其餘路徑優先回傳 `/app/static` 底下的實際檔案，找不到則 fallback 回 `index.html`（支援
+  `react-router-dom` 的 client-side routing，重新整理 `/admin` 等子路徑不會 404）；未註冊的
+  `/api/...` 路徑則維持回傳 404 JSON，不會被 fallback 吃掉。
+- 前端在建置階段沒有 `VITE_API_BASE_URL`，API client 會 fallback 成相對路徑 `/api/...`，直接打同一個
+  origin。host 上的 `.env` 不會參與這個建置，因此開發用的 `VITE_API_BASE_URL=http://localhost:8000`
+  不會誤入正式建置。
+- 前端程式碼改動後**不需要**手動 `npm run build`，重跑 `up --build -d` 即可；建置是 image 的一部分。
+- `db` 不對外暴露 `5432`，只能透過 docker 內部網路被 `app` 存取。
+- app container 啟動時一樣會自動跑 `alembic upgrade head`（見根目錄 `Dockerfile`）。
+- 上傳大小的天花板只剩後端這一道（`backend/app/core/upload_limit.py` 的
+  `MAX_UPLOAD_SIZE_MB_CEILING`，預設 512 MB），不再有反向代理層先擋掉。
 
-若需要調整 backend 的 worker 數／monitoring，修改 `backend/Dockerfile` 的啟動指令即可；此設定原本
-就不含 `--reload`，可直接用於正式環境。
+若需要調整 worker 數／monitoring，修改根目錄 `Dockerfile` 的啟動指令即可；此設定原本就不含
+`--reload`，可直接用於正式環境。
+
+### 2. 離線環境交付
+
+只有兩個 image，可在有網路的機器上打包後整批搬到離線主機：
+
+```bash
+# 有網路的機器
+docker compose -f docker-compose.prod.yml build
+docker save py-file-platform-app postgres:16-alpine -o py-file-platform-images.tar
+
+# 離線主機（連同 docker-compose.prod.yml 與 .env 一起帶過去）
+docker load -i py-file-platform-images.tar
+docker compose -f docker-compose.prod.yml up -d      # 注意：不加 --build
+```
+
+`docker save` 的第一個參數是 compose 建置出來的 image 名稱，實際名稱取決於專案目錄名，可先用
+`docker compose -f docker-compose.prod.yml images` 確認。離線主機上務必省略 `--build`，否則 compose
+會嘗試重新建置（需要連網抓 base image 與 npm 套件）而失敗。
 
 ### 3. 設定每日備份
 
@@ -347,7 +357,7 @@ crontab 開頭加上 `PATH=...` 或改用 `docker` 執行檔的絕對路徑。`b
 
 ## 🚀 部署 (Deployment)
 
-*   **部署方式**：以 Docker 容器化部署，FastAPI（後端）、React（前端）、PostgreSQL（資料庫）分別建立 container，並以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
+*   **部署方式**：以 Docker 容器化部署，正式環境只有兩個 image——`app`（FastAPI 後端，內含建置好的 React 前端靜態檔）與 PostgreSQL（資料庫），以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
 *   **存取範圍**：僅限內部網路存取，不對外公開。
 *   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」。備份檔只保留在部署主機本機，傳送至外部 NAS／其他主機的異地備份不在本專案規劃範圍內。
 

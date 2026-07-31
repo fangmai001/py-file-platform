@@ -10,8 +10,8 @@ import {
 } from "../../api/site-settings";
 import { useSiteSettings } from "../../context/SiteSettingsContext";
 
-// Mirrors MAX_UPLOAD_SIZE_MB_CEILING in backend/app/core/upload_limit.py, which is also
-// what nginx's client_max_body_size is pinned to - all three move together.
+// Mirrors MAX_UPLOAD_SIZE_MB_CEILING in backend/app/core/upload_limit.py - the two move
+// together. No reverse proxy caps the request body any more, so those are the only two.
 export const MAX_UPLOAD_SIZE_MB_CEILING = 512;
 
 export type BrandingImageKind = "favicon" | "heroImage";

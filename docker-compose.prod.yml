@@ -11,30 +11,23 @@ services:
       timeout: 5s
       retries: 10
 
-  backend:
-    build: ./backend
+  # Single image built from the repo-root Dockerfile: the frontend is built into it and
+  # served by FastAPI itself, so the SPA and the API share one origin and one port.
+  # Together with db that makes exactly two images to ship for an offline install.
+  app:
+    build:
+      context: .
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-platform}:${POSTGRES_PASSWORD:-platform}@db:5432/${POSTGRES_DB:-platform}
+    ports:
+      - "80:8000"
     volumes:
       - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
-
-  # Serves the pre-built frontend/dist/ (run `npm run build` in frontend/ first) and
-  # reverse-proxies /api/ to the backend, so only one origin/port is exposed publicly.
-  nginx:
-    image: nginx:1.27-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - backend
 
 volumes:
   db_data:
