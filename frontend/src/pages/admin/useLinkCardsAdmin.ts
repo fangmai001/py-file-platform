@@ -31,6 +31,23 @@ function toLinkCardDrafts(items: LinkCardItem[]): Record<number, LinkCardDraft> 
   );
 }
 
+/**
+ * Whether a row differs from what the server holds. Normalised exactly like the payload in
+ * handleSaveLinkCard, so the 儲存 button never enables for an edit that would send nothing.
+ */
+export function isLinkCardDirty(card: LinkCardItem, draft: LinkCardDraft | undefined): boolean {
+  if (!draft) {
+    return false;
+  }
+  return (
+    draft.title !== card.title ||
+    (draft.description.trim() || null) !== (card.description ?? null) ||
+    draft.url !== card.url ||
+    (draft.folderId === NO_FOLDER ? null : Number(draft.folderId)) !== card.folder_id ||
+    draft.isPublic !== card.is_public
+  );
+}
+
 /** State and actions behind the 連結卡片 tab. */
 export function useLinkCardsAdmin() {
   const confirm = useConfirm();
@@ -87,6 +104,9 @@ export function useLinkCardsAdmin() {
 
   async function handleSaveLinkCard(linkCard: LinkCardItem) {
     const draft = linkCardDrafts[linkCard.id];
+    if (!isLinkCardDirty(linkCard, draft)) {
+      return;
+    }
     try {
       await updateLinkCard(linkCard.id, {
         title: draft.title,

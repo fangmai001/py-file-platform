@@ -235,6 +235,33 @@ describe("AdminPage", () => {
     await waitFor(() => expect(updateUser).toHaveBeenCalledWith(2, { email: "bob@example.com" }));
   });
 
+  it("keeps a user row's 儲存 disabled until something in it actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([
+      {
+        id: 2,
+        username: "bob",
+        role: "user",
+        is_active: true,
+        email: "bob@example.com",
+        full_name: null,
+        auth_source: "local",
+        notify_by_email: true,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("bob")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "儲存" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("「bob」的姓名"), "小巴");
+    expect(screen.getByRole("button", { name: "儲存" })).toBeEnabled();
+  });
+
   it("resets a user's password after confirmation and reveals the generated password", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([
@@ -497,6 +524,40 @@ describe("AdminPage", () => {
         is_public: true,
       }),
     );
+  });
+
+  it("keeps a link card row's 儲存 disabled until something in it actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listLinkCards).mockResolvedValue([
+      {
+        id: 1,
+        title: "社團官網",
+        description: "官方網站",
+        url: "https://example.com/",
+        folder_id: null,
+        is_public: true,
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "連結卡片" }));
+
+    const titleInput = await screen.findByDisplayValue("社團官網");
+    const row = titleInput.closest("tr");
+    if (!row) {
+      throw new Error("link card row not found");
+    }
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeDisabled();
+
+    // The 公開／私密 toggle only edits the draft, so it counts as a change like any other.
+    await user.click(within(row).getByRole("button", { name: "公開" }));
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeEnabled();
+    expect(updateLinkCard).not.toHaveBeenCalled();
   });
 
   it("asks for confirmation before deleting a link card", async () => {

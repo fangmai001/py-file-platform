@@ -29,6 +29,24 @@ function toHighlightDrafts(items: HighlightItem[]): Record<number, HighlightDraf
   );
 }
 
+/**
+ * Whether a row differs from what the server holds. Normalised exactly like the payload in
+ * handleSaveHighlight - note the sort order is compared as a number, so "3" and "03" both
+ * count as unchanged, matching what a save would actually send.
+ */
+export function isHighlightDirty(highlight: HighlightItem, draft: HighlightDraft | undefined): boolean {
+  if (!draft) {
+    return false;
+  }
+  return (
+    draft.icon !== highlight.icon ||
+    draft.title !== highlight.title ||
+    (draft.description.trim() || null) !== (highlight.description ?? null) ||
+    (Number(draft.sortOrder) || 0) !== highlight.sort_order ||
+    draft.isPublic !== highlight.is_public
+  );
+}
+
 /** State and actions behind the 首頁特色 tab. */
 export function useHighlightsAdmin() {
   const confirm = useConfirm();
@@ -85,6 +103,9 @@ export function useHighlightsAdmin() {
 
   async function handleSaveHighlight(highlight: HighlightItem) {
     const draft = highlightDrafts[highlight.id];
+    if (!isHighlightDirty(highlight, draft)) {
+      return;
+    }
     try {
       await updateHighlight(highlight.id, {
         icon: draft.icon,

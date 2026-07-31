@@ -10,7 +10,7 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import TableSkeleton from "./TableSkeleton";
-import { NO_FOLDER, type useLinkCardsAdmin } from "./useLinkCardsAdmin";
+import { NO_FOLDER, isLinkCardDirty, type useLinkCardsAdmin } from "./useLinkCardsAdmin";
 
 function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: FolderItem[] | null }) {
   const {
@@ -204,7 +204,12 @@ function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: F
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleSaveLinkCard(card)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSaveLinkCard(card)}
+                          disabled={!isLinkCardDirty(card, linkCardDrafts[card.id])}
+                        >
                           儲存
                         </Button>
                         <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteLinkCard(card)}>

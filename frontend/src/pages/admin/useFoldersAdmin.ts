@@ -15,6 +15,17 @@ function toFolderDrafts(items: FolderItem[]): Record<number, FolderDraft> {
 }
 
 /**
+ * Whether a row differs from what the server holds. Normalised exactly like the payload in
+ * handleSaveFolder, so the 儲存 button never enables for an edit that would send nothing.
+ */
+export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined): boolean {
+  if (!draft) {
+    return false;
+  }
+  return draft.name !== folder.name || (draft.description.trim() || null) !== (folder.description ?? null);
+}
+
+/**
  * State and actions behind the 卡片 tab. The folder list is also read by the 連結卡片 tab's
  * folder picker, and deleting a folder re-lists files, so this lives at page level.
  */
@@ -64,6 +75,9 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
 
   async function handleSaveFolder(folder: FolderItem) {
     const draft = folderDrafts[folder.id];
+    if (!isFolderDirty(folder, draft)) {
+      return;
+    }
     try {
       await updateFolder(folder.id, { name: draft.name, description: draft.description.trim() || null });
       await loadFolders();

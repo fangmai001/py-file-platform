@@ -18,6 +18,29 @@ function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
 }
 
 /**
+ * The fields a save would actually send, plus which of them changed. Both the 儲存 button's
+ * enabled state and the PATCH payload are derived from this, so they cannot drift apart.
+ */
+function diffUser(target: UserItem, draft: UserDraft | undefined) {
+  const email = draft?.email.trim() || null;
+  const role = draft?.role ?? target.role;
+  const fullName = draft?.full_name.trim() || null;
+  return {
+    email,
+    role,
+    fullName,
+    emailChanged: email !== (target.email ?? null),
+    roleChanged: role !== target.role,
+    fullNameChanged: fullName !== (target.full_name ?? null),
+  };
+}
+
+export function isUserDirty(target: UserItem, draft: UserDraft | undefined): boolean {
+  const { emailChanged, roleChanged, fullNameChanged } = diffUser(target, draft);
+  return emailChanged || roleChanged || fullNameChanged;
+}
+
+/**
  * State and actions behind the 使用者 tab. Lives here rather than inside UsersTab because
  * AdminPage's stat cards need the user count even while another tab is showing - see the
  * note in AdminPage.tsx.
@@ -82,13 +105,10 @@ export function useUsersAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Prom
   }
 
   async function handleSaveUser(target: UserItem) {
-    const draft = userDrafts[target.id];
-    const email = draft?.email.trim() || null;
-    const role = draft?.role ?? target.role;
-    const fullName = draft?.full_name.trim() || null;
-    const emailChanged = email !== (target.email ?? null);
-    const roleChanged = role !== target.role;
-    const fullNameChanged = fullName !== (target.full_name ?? null);
+    const { email, role, fullName, emailChanged, roleChanged, fullNameChanged } = diffUser(
+      target,
+      userDrafts[target.id],
+    );
     if (!emailChanged && !roleChanged && !fullNameChanged) {
       return;
     }

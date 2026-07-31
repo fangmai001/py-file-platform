@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useAuth } from "../../context/AuthContext";
 import { formatDateTime } from "../../lib/format";
 import TableSkeleton from "./TableSkeleton";
-import type { useUsersAdmin } from "./useUsersAdmin";
+import { isUserDirty, type useUsersAdmin } from "./useUsersAdmin";
 
 function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
   const {
@@ -209,6 +209,7 @@ function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
                           aria-label="儲存"
                           title="儲存"
                           onClick={() => handleSaveUser(u)}
+                          disabled={!isUserDirty(u, userDrafts[u.id])}
                         >
                           <Save />
                         </Button>

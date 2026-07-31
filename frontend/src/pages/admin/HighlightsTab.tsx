@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { DEFAULT_HIGHLIGHT_ICON, HIGHLIGHT_ICON_OPTIONS, highlightIcon, highlightIconLabel } from "../../lib/highlight-icons";
 import TableSkeleton from "./TableSkeleton";
-import type { useHighlightsAdmin } from "./useHighlightsAdmin";
+import { isHighlightDirty, type useHighlightsAdmin } from "./useHighlightsAdmin";
 
 function HighlightsTab(props: ReturnType<typeof useHighlightsAdmin>) {
   const {
@@ -214,7 +214,12 @@ function HighlightsTab(props: ReturnType<typeof useHighlightsAdmin>) {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleSaveHighlight(highlight)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSaveHighlight(highlight)}
+                          disabled={!isHighlightDirty(highlight, highlightDrafts[highlight.id])}
+                        >
                           儲存
                         </Button>
                         <Button variant="destructive-outline" size="sm" onClick={() => handleDeleteHighlight(highlight)}>
