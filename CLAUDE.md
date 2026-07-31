@@ -189,8 +189,9 @@ native and Docker dev — see `.env.example`. Notably:
   it runs on every upload, so the seeding lives on the admin read path
   (`_get_or_create_settings` in `app/api/site_settings.py`) instead. Also defines
   `MAX_UPLOAD_SIZE_MB_CEILING` (512), the value the schema validates against — `nginx/nginx.conf`'s
-  `client_max_body_size` and `MAX_UPLOAD_SIZE_MB_CEILING` in `frontend/src/pages/AdminPage.tsx`
-  hardcode the same number and must be changed together.
+  `client_max_body_size` and `MAX_UPLOAD_SIZE_MB_CEILING` in
+  `frontend/src/pages/admin/useSiteSettingsAdmin.ts` hardcode the same number and must be changed
+  together.
 - `app/core/database.py` — SQLAlchemy engine/session setup; `Base` (DeclarativeBase) that all models
   inherit from, and a `get_db()` generator intended for use as a FastAPI dependency.
 - `app/models/` — one file per table (`User`, `File`, `FileVersion`, `Folder`, `LinkCard`, `Highlight`,
@@ -221,3 +222,13 @@ Vite + React 19 + TypeScript + `react-router-dom` v7. Routing is defined in `App
 `admin.ts`, `client.ts`); `AuthContext.tsx` holds the logged-in user and JWT. `/upload` is gated to any
 logged-in user and `/admin` to admin users specifically (both redirect to `/login` otherwise, gated
 client-side). Linting uses `oxlint` (config in `.oxlintrc.json`), not eslint.
+
+`AdminPage.tsx` is only the shell: the stat cards and the nine `<Tabs>` triggers. Each tab is a pair
+of files under `src/pages/admin/` — `useXxxAdmin.ts` (state, loaders, handlers) and `XxxTab.tsx` (the
+markup, taking the hook's return value as its props). The hooks are called by `AdminPage`, not by the
+tab components, because the stat cards read the user and file totals from outside `<Tabs>`, tabs
+depend on each other (the 連結卡片 folder picker reads the folder list, mutations refresh the audit
+log, deleting a folder re-lists files), and Radix unmounts the inactive `TabsContent` — state held
+inside a tab would drop unsaved LDAP/SMTP edits every time the admin switched away. `AdminPage.test.tsx`
+stays a single suite driving the whole page, which is what makes it a safety net for changes to any
+one tab.
