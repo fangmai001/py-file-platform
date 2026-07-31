@@ -10,6 +10,7 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import TableSkeleton from "./TableSkeleton";
+import VisibilityToggle from "./VisibilityToggle";
 import { NO_FOLDER, isLinkCardDirty, type useLinkCardsAdmin } from "./useLinkCardsAdmin";
 
 function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: FolderItem[] | null }) {
@@ -189,21 +190,18 @@ function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: F
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
+                      <VisibilityToggle
+                        isPublic={linkCardDrafts[card.id]?.isPublic ?? false}
+                        onToggle={() =>
                           setLinkCardDrafts((drafts) => ({
                             ...drafts,
                             [card.id]: { ...drafts[card.id], isPublic: !drafts[card.id]?.isPublic },
                           }))
                         }
-                      >
-                        {linkCardDrafts[card.id]?.isPublic ? "公開" : "私密"}
-                      </Button>
+                      />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex flex-nowrap items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"

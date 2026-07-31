@@ -1,4 +1,4 @@
-import { KeyRound, Power, Save, Trash2, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { toast } from "sonner";
 import Callout from "../../components/Callout";
 import EmptyState from "../../components/EmptyState";
@@ -205,42 +205,31 @@ function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
                       <div className="flex flex-nowrap items-center gap-1.5">
                         <Button
                           variant="outline"
-                          size="icon-sm"
-                          aria-label="儲存"
-                          title="儲存"
+                          size="sm"
                           onClick={() => handleSaveUser(u)}
                           disabled={!isUserDirty(u, userDrafts[u.id])}
                         >
-                          <Save />
+                          儲存
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleToggleActive(u)}>
+                          {u.is_active ? "停用" : "啟用"}
                         </Button>
                         <Button
                           variant="outline"
-                          size="icon-sm"
-                          aria-label={u.is_active ? "停用" : "啟用"}
-                          title={u.is_active ? "停用" : "啟用"}
-                          onClick={() => handleToggleActive(u)}
-                        >
-                          <Power />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label="重設密碼"
-                          title={u.auth_source === "ldap" ? "LDAP 帳號的密碼由 LDAP 伺服器管理" : "重設密碼"}
+                          size="sm"
+                          title={u.auth_source === "ldap" ? "LDAP 帳號的密碼由 LDAP 伺服器管理" : undefined}
                           onClick={() => handleResetPassword(u)}
                           disabled={u.auth_source === "ldap"}
                         >
-                          <KeyRound />
+                          重設密碼
                         </Button>
                         <Button
                           variant="destructive-outline"
-                          size="icon-sm"
-                          aria-label="刪除"
-                          title="刪除"
+                          size="sm"
                           onClick={() => handleDeleteUser(u)}
                           disabled={currentUser?.id === u.id}
                         >
-                          <Trash2 />
+                          刪除
                         </Button>
                       </div>
                     </TableCell>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { DEFAULT_HIGHLIGHT_ICON, HIGHLIGHT_ICON_OPTIONS, highlightIcon, highlightIconLabel } from "../../lib/highlight-icons";
 import TableSkeleton from "./TableSkeleton";
+import VisibilityToggle from "./VisibilityToggle";
 import { isHighlightDirty, type useHighlightsAdmin } from "./useHighlightsAdmin";
 
 function HighlightsTab(props: ReturnType<typeof useHighlightsAdmin>) {
@@ -199,21 +200,18 @@ function HighlightsTab(props: ReturnType<typeof useHighlightsAdmin>) {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
+                      <VisibilityToggle
+                        isPublic={highlightDrafts[highlight.id]?.isPublic ?? false}
+                        onToggle={() =>
                           setHighlightDrafts((drafts) => ({
                             ...drafts,
                             [highlight.id]: { ...drafts[highlight.id], isPublic: !drafts[highlight.id]?.isPublic },
                           }))
                         }
-                      >
-                        {highlightDrafts[highlight.id]?.isPublic ? "公開" : "私密"}
-                      </Button>
+                      />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex flex-nowrap items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
