@@ -129,6 +129,13 @@ docker compose up --build
 任何反向代理。改前端不需要在 host 上先跑 `npm run build`。dev 的 `docker-compose.yml` 與
 `frontend/Dockerfile` 維持 Vite dev server 不受影響。
 
+`app` 有明確的 `image: py-file-platform-app:${APP_VERSION:-latest}`，不能拿掉——少了它，compose 會用
+「專案目錄名 + 服務名」推導 image 名稱，離線主機只要不是部署在 `py-file-platform/` 目錄下就會找不到
+載入的 image 而改去執行 build，在沒有網路的機器上必然失敗。離線交付走 `scripts/package-images.sh`，
+產出**兩個**分開的 tar（`app` 與 `postgres`）加一份 `MANIFEST.sha256`，而不是合併成單一 tar：兩個
+image 沒有共用 layer，合併省不到空間，分開則讓釘死版本的 postgres 不必隨每次改版重新傳輸。該 script
+沿用 `scripts/backup.sh` 的慣例，特別是以 regex 讀取 `.env` 而非 `source`。
+
 ## Configuration
 
 放在**專案根目錄**（而非 `backend/` 之下）的單一 `.env` 是原生開發與 Docker 開發共同的設定來源——見

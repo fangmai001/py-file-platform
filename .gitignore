@@ -21,6 +21,11 @@ uploads/*
 backups/*
 !backups/.gitkeep
 
+# Offline delivery artifacts (scripts/package-images.sh output). Image tars run to
+# tens of MB and would blow past GitHub's 100 MB per-file limit.
+release/
+*.tar
+
 # Editors/OS
 .vscode/
 .idea/
