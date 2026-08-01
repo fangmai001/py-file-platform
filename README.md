@@ -306,21 +306,42 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 ### 2. 離線環境交付
 
-只有兩個 image，可在有網路的機器上打包後整批搬到離線主機：
+兩個 image 分別打包成兩個 tar，而不是合併成一個。`app` 每次改版都要重出，`postgres:16-alpine` 則是
+釘死的版本，可能一年都不動——分開之後日常改版只需要搬 app 那一份（約 70 MB，而非兩者合計的 180 MB），
+保留舊版以備回滾時也不必每一份都複製一次 postgres。兩個 image 一個是 Debian 底、一個是 Alpine 底，
+沒有任何共用 layer，所以合併成單一 tar 也省不到空間。
+
+在有網路的機器上執行：
 
 ```bash
-# 有網路的機器
-docker compose -f docker-compose.prod.yml build
-docker save py-file-platform-app postgres:16-alpine -o py-file-platform-images.tar
+./scripts/package-images.sh              # 建置 app、匯出兩個 tar、產生 sha256 清單
+./scripts/package-images.sh --app-only   # 日常改版：只重出 app tar（postgres 沒變就不必重傳）
+```
 
-# 離線主機（連同 docker-compose.prod.yml 與 .env 一起帶過去）
-docker load -i py-file-platform-images.tar
+產出在 `PACKAGE_OUTPUT_DIR`（`.env` 可覆寫，預設 `./release`）：
+
+```
+release/
+  py-file-platform-app-latest.tar               # 檔名中的版本取自 .env 的 APP_VERSION
+  py-file-platform-db-postgres-16-alpine.tar
+  MANIFEST.sha256
+```
+
+把這三個檔案連同 `docker-compose.prod.yml` 與 `.env` 帶到離線主機，然後：
+
+```bash
+sha256sum -c MANIFEST.sha256                         # 先驗完整性，再載入
+docker load -i py-file-platform-app-latest.tar
+docker load -i py-file-platform-db-postgres-16-alpine.tar
 docker compose -f docker-compose.prod.yml up -d      # 注意：不加 --build
 ```
 
-`docker save` 的第一個參數是 compose 建置出來的 image 名稱，實際名稱取決於專案目錄名，可先用
-`docker compose -f docker-compose.prod.yml images` 確認。離線主機上務必省略 `--build`，否則 compose
-會嘗試重新建置（需要連網抓 base image 與 npm 套件）而失敗。
+離線主機上務必省略 `--build`，否則 compose 會嘗試重新建置（需要連網抓 base image 與 npm 套件）而失敗。
+
+`.env` 的 `APP_VERSION` 同時決定三件事：`docker-compose.prod.yml` 裡 `app` 解析出的 image tag、
+`package-images.sh` 產出的 tar 檔名、以及離線主機 `up -d` 時要啟動哪一版。因為 compose 的 `app` 有明確
+的 `image:` 標籤，image 名稱不會隨部署目錄名改變，離線主機放在哪個路徑下都能正確對應到載入的 image。
+只有 `db` 那個 tar 內的 image 維持上游原名 `postgres:16-alpine`，方便日後查 CVE 與升級。
 
 ### 3. 設定每日備份
 
@@ -354,6 +375,51 @@ BACKUP_RETENTION_DAYS=30
 `/opt/py-file-platform` 需換成實際部署路徑；cron 預設的 `PATH` 可能抓不到 `docker`，必要時在
 crontab 開頭加上 `PATH=...` 或改用 `docker` 執行檔的絕對路徑。`backup.log` 會持續成長，之後若需要
 輪替（logrotate）是另外的維運工作，這裡不處理。
+
+### 4. 版本升級與回滾
+
+#### 升級 app（migration 會自動執行）
+
+根目錄 `Dockerfile` 的啟動指令是 `alembic upgrade head && uvicorn ...`，所以 container 一啟動就會把
+資料庫 schema 套用到新版，離線主機上**不需要**進 container 手動跑任何 migration 指令。上傳的檔案與
+資料庫內容都不受影響：`db_data` 是 named volume、`uploads/` 是 bind mount，換 image 只會 recreate
+container，兩者都在 container 之外。
+
+但 migration 執行了就直接改下去，沒有自動的還原點，所以**升級的第一步是先手動備份**：
+
+```bash
+./scripts/backup.sh                                  # 確認 backups/ 產出 db_*.sql.gz
+docker load -i py-file-platform-app-<新版本>.tar
+# 編輯 .env 的 APP_VERSION 為新版本
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml logs -f app # 確認 migration 與啟動都成功
+```
+
+若 migration 失敗，`&&` 會讓 uvicorn 不啟動，加上 `restart: unless-stopped`，container 會不斷重啟。
+這是刻意的——帶著改壞的 schema 硬跑更糟——遇到服務起不來時請先看 `logs app` 的內容，而不是直接判定
+image 有問題。
+
+#### 回滾 app
+
+`alembic upgrade head` 只會往前，**不會**自動降版，所以只把 image 換回舊版會讓舊版程式碼對上新版
+schema。正確順序是先還原資料庫，再換 image：
+
+```bash
+gunzip -c backups/db_<時間戳>.sql.gz | \
+  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+docker load -i py-file-platform-app-<舊版本>.tar
+# 編輯 .env 的 APP_VERSION 為舊版本
+docker compose -f docker-compose.prod.yml up -d
+```
+
+因此 `release/` 底下建議保留最近幾版的 `py-file-platform-app-*.tar`（每版約 70 MB），否則要回滾時
+會沒有可載入的舊 image。`postgres` 那份不隨版本變動，留一份即可。
+
+#### 升級 postgres
+
+**major 版本（例如 16 → 17）不能只改 `docker-compose.prod.yml` 的 tag**，資料目錄的版本對不上，
+container 會直接拒絕啟動。必須走 `pg_dump` 匯出 → 改 tag → 清空 `db_data` volume → restore 的流程。
+patch 版（例如 `16.8` → `16.9`）則可以直接換 tag、重新 `package-images.sh` 出 db tar，app 完全不用重建。
 
 ## 🚀 部署 (Deployment)
 

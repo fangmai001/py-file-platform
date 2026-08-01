@@ -14,7 +14,13 @@ services:
   # Single image built from the repo-root Dockerfile: the frontend is built into it and
   # served by FastAPI itself, so the SPA and the API share one origin and one port.
   # Together with db that makes exactly two images to ship for an offline install.
+  #
+  # image: is set explicitly so the name does not depend on the deployment directory
+  # name - without it compose derives "<project>-app" and an offline host deployed
+  # under any other directory would fail to find the loaded image and try to build.
+  # APP_VERSION also ties the tag to the tar filenames scripts/package-images.sh emits.
   app:
+    image: py-file-platform-app:${APP_VERSION:-latest}
     build:
       context: .
     restart: unless-stopped
