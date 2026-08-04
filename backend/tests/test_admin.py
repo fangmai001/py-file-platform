@@ -1,6 +1,10 @@
+from datetime import UTC, datetime
+
+from app.api.admin import DELETED_ACTOR_USERNAME
 from app.core.security import verify_password
-from app.models import AuditLog, User
+from app.models import AuditLog, Notification, PasswordResetToken, User
 from tests.conftest import auth_headers, make_ldap_user, make_user
+from tests.test_files import _upload
 
 
 def test_non_admin_cannot_access_admin_routes(client, db_session):
@@ -85,6 +89,53 @@ def test_admin_can_delete_user(client, db_session):
     assert len(logs) == 1
 
 
+def test_admin_can_delete_user_who_has_notifications_and_tokens(client, db_session):
+    """Three FKs point at users.id besides files.owner_id, and any one of them left behind
+    makes the delete fail with a 500 on Postgres. A user only has to have received a single
+    upload notification for that to happen, which is to say: nearly always."""
+    admin = make_user(db_session, username="root", role="admin")
+    uploader = make_user(db_session, username="alice")
+    bob = make_user(db_session, username="bob")
+
+    _upload(client, uploader, is_public=True)  # notifies every other active user, incl. bob
+    assert db_session.query(Notification).filter(Notification.recipient_id == bob.id).count() == 1
+
+    db_session.add(
+        PasswordResetToken(user_id=bob.id, token_hash="deadbeef", expires_at=datetime.now(UTC))
+    )
+    db_session.add(AuditLog(actor_id=bob.id, action="user.self_update", target="bob"))
+    db_session.commit()
+
+    response = client.delete(f"/api/admin/users/{bob.id}", headers=auth_headers(admin))
+    assert response.status_code == 204
+    assert db_session.get(User, bob.id) is None
+
+    assert db_session.query(Notification).filter(Notification.recipient_id == bob.id).count() == 0
+    assert db_session.query(PasswordResetToken).filter(PasswordResetToken.user_id == bob.id).count() == 0
+
+    # The audit entry survives with a NULL actor - deleting the account must not erase the
+    # record of what it did.
+    orphaned = db_session.query(AuditLog).filter(AuditLog.action == "user.self_update").one()
+    assert orphaned.actor_id is None
+    assert orphaned.target == "bob"
+
+
+def test_audit_log_of_deleted_actor_still_listed(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+    db_session.add(AuditLog(actor_id=bob.id, action="user.self_update", target="bob"))
+    db_session.commit()
+
+    assert client.delete(f"/api/admin/users/{bob.id}", headers=auth_headers(admin)).status_code == 204
+
+    response = client.get("/api/admin/audit-logs", headers=auth_headers(admin))
+    assert response.status_code == 200
+    orphaned = [log for log in response.json() if log["action"] == "user.self_update"]
+    assert len(orphaned) == 1
+    assert orphaned[0]["actor_id"] is None
+    assert orphaned[0]["actor_username"] == DELETED_ACTOR_USERNAME
+
+
 def test_admin_cannot_delete_self(client, db_session):
     admin = make_user(db_session, username="root", role="admin")
 
@@ -150,8 +201,6 @@ def test_admin_can_update_another_users_full_name(client, db_session):
 
 
 def test_admin_cannot_delete_user_who_owns_files(client, db_session):
-    from tests.test_files import _upload
-
     admin = make_user(db_session, username="root", role="admin")
     bob = make_user(db_session, username="bob")
     _upload(client, bob)

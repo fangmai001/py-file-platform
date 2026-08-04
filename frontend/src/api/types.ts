@@ -74,7 +74,9 @@ export interface NotificationItem {
 
 export interface AuditLogItem {
   id: number;
-  actor_id: number;
+  // null once the actor's account is deleted; actor_username still carries a readable
+  // placeholder from the backend, so render that rather than this.
+  actor_id: number | null;
   actor_username: string;
   action: string;
   target: string | null;
