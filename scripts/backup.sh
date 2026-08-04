@@ -47,8 +47,14 @@ DB_DUMP_PATH="$BACKUP_LOCAL_DIR/db_${TS}.sql.gz"
 UPLOADS_TAR_PATH="$BACKUP_LOCAL_DIR/uploads_${TS}.tar.gz"
 
 log INFO "Dumping database ($POSTGRES_DB) to $DB_DUMP_PATH"
+# --clean --if-exists is what makes this dump restorable. The restore target is always a
+# database the app container has already run `alembic upgrade head` against, so a plain
+# dump would hit "already exists" on every CREATE and duplicate keys on every COPY -
+# psql keeps going past those, so the restore looks like it worked while leaving the data
+# untouched. With these flags each object is dropped first (and missing ones are skipped
+# with a notice on an empty database, which is harmless).
 docker compose -f "$COMPOSE_FILE" exec -T db \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$DB_DUMP_PATH"
+  pg_dump --clean --if-exists -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$DB_DUMP_PATH"
 
 log INFO "Packing $UPLOAD_DIR to $UPLOADS_TAR_PATH"
 tar -czf "$UPLOADS_TAR_PATH" -C "$(dirname "$UPLOAD_DIR")" "$(basename "$UPLOAD_DIR")"
