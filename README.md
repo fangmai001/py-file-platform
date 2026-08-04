@@ -311,7 +311,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 保留舊版以備回滾時也不必每一份都複製一次 postgres。兩個 image 一個是 Debian 底、一個是 Alpine 底，
 沒有任何共用 layer，所以合併成單一 tar 也省不到空間。
 
-在有網路的機器上執行：
+打包前先確認 `.env` 的 `APP_VERSION` 是這次要發布的版號（例如 `v0.1.0`），再於有網路的機器上執行：
 
 ```bash
 ./scripts/package-images.sh              # 建置 app、匯出兩個 tar、產生 sha256 清單
@@ -322,7 +322,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 ```
 release/
-  py-file-platform-app-latest.tar               # 檔名中的版本取自 .env 的 APP_VERSION
+  py-file-platform-app-v0.1.0.tar               # 檔名中的版本取自 .env 的 APP_VERSION
   py-file-platform-db-postgres-16-alpine.tar
   MANIFEST.sha256
 ```
@@ -331,17 +331,23 @@ release/
 
 ```bash
 sha256sum -c MANIFEST.sha256                         # 先驗完整性，再載入
-docker load -i py-file-platform-app-latest.tar
+docker load -i py-file-platform-app-v0.1.0.tar
 docker load -i py-file-platform-db-postgres-16-alpine.tar
 docker compose -f docker-compose.prod.yml up -d      # 注意：不加 --build
+curl -s http://localhost/health                      # {"status":"ok","version":"v0.1.0"}
 ```
 
 離線主機上務必省略 `--build`，否則 compose 會嘗試重新建置（需要連網抓 base image 與 npm 套件）而失敗。
 
-`.env` 的 `APP_VERSION` 同時決定三件事：`docker-compose.prod.yml` 裡 `app` 解析出的 image tag、
-`package-images.sh` 產出的 tar 檔名、以及離線主機 `up -d` 時要啟動哪一版。因為 compose 的 `app` 有明確
-的 `image:` 標籤，image 名稱不會隨部署目錄名改變，離線主機放在哪個路徑下都能正確對應到載入的 image。
-只有 `db` 那個 tar 內的 image 維持上游原名 `postgres:16-alpine`，方便日後查 CVE 與升級。
+`.env` 的 `APP_VERSION` 同時決定四件事：`docker-compose.prod.yml` 裡 `app` 解析出的 image tag、
+`package-images.sh` 產出的 tar 檔名、離線主機 `up -d` 時要啟動哪一版，以及建置時烙進 image、由
+`GET /health` 回報的版本。因為 compose 的 `app` 有明確的 `image:` 標籤，image 名稱不會隨部署目錄名改變，
+離線主機放在哪個路徑下都能正確對應到載入的 image。只有 `db` 那個 tar 內的 image 維持上游原名
+`postgres:16-alpine`，方便日後查 CVE 與升級。
+
+`APP_VERSION` 是**必填**，且不接受 `latest`：兩個版本共用同一個 tag，會讓後打的 tar 覆蓋前一份、
+`docker load` 把 tag 重新指到新 image，離線主機因此沒有任何舊版可以退回去。未設定或設成 `latest` 時，
+`package-images.sh` 會直接失敗而不產出檔案，`docker compose` 也會以明確訊息中止。
 
 ### 3. 設定每日備份
 
@@ -393,6 +399,7 @@ docker load -i py-file-platform-app-<新版本>.tar
 # 編輯 .env 的 APP_VERSION 為新版本
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f app # 確認 migration 與啟動都成功
+curl -s http://localhost/health                       # 確認跑的確實是新版本
 ```
 
 若 migration 失敗，`&&` 會讓 uvicorn 不啟動，加上 `restart: unless-stopped`，container 會不斷重啟。
@@ -410,10 +417,28 @@ gunzip -c backups/db_<時間戳>.sql.gz | \
 docker load -i py-file-platform-app-<舊版本>.tar
 # 編輯 .env 的 APP_VERSION 為舊版本
 docker compose -f docker-compose.prod.yml up -d
+curl -s http://localhost/health                      # 確認確實退回舊版本
 ```
 
 因此 `release/` 底下建議保留最近幾版的 `py-file-platform-app-*.tar`（每版約 70 MB），否則要回滾時
 會沒有可載入的舊 image。`postgres` 那份不隨版本變動，留一份即可。
+
+#### 確認目前執行的版本
+
+`GET /health` 會回報 image 建置時烙入的版本（根目錄 `Dockerfile` 的 `ARG APP_VERSION` →
+`ENV APP_BUILD_VERSION`），因此它反映的是**實際在跑的** image，而不是 `.env` 裡打了什麼：
+
+```bash
+curl -s http://localhost/health
+# {"status":"ok","version":"v0.1.0"}
+```
+
+若要在不啟動 container 的情況下確認某個 image 的版本，可以直接看 label：
+
+```bash
+docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' \
+  py-file-platform-app:v0.1.0
+```
 
 #### 升級 postgres
 

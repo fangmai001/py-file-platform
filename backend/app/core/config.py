@@ -9,6 +9,13 @@ _ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
+    # Reported by GET /health so an offline host can verify which build is running with a
+    # single HTTP request. The repo-root Dockerfile bakes it in (ARG APP_VERSION -> ENV
+    # APP_BUILD_VERSION); the name differs from APP_VERSION so compose's `env_file: .env`
+    # can't shadow the build stamp with whatever the deployer typed. "dev" is what native
+    # dev reports, since nothing built an image there.
+    app_build_version: str = "dev"
+
     database_url: str = "postgresql+psycopg2://platform:platform@localhost:5432/platform"
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 50

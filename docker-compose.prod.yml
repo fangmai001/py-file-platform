@@ -18,11 +18,17 @@ services:
   # image: is set explicitly so the name does not depend on the deployment directory
   # name - without it compose derives "<project>-app" and an offline host deployed
   # under any other directory would fail to find the loaded image and try to build.
-  # APP_VERSION also ties the tag to the tar filenames scripts/package-images.sh emits.
+  # APP_VERSION also ties the tag to the tar filenames scripts/package-images.sh emits,
+  # and is baked into the image so GET /health can report the running version. It has no
+  # fallback on purpose: "latest" made every release share one tag, so the offline host
+  # had nothing to roll back to. Failing here with a clear message beats resolving to a
+  # tag that was never delivered and watching compose try to build without a network.
   app:
-    image: py-file-platform-app:${APP_VERSION:-latest}
+    image: py-file-platform-app:${APP_VERSION:?APP_VERSION must be set in .env (e.g. v0.1.0)}
     build:
       context: .
+      args:
+        APP_VERSION: ${APP_VERSION}
     restart: unless-stopped
     env_file: .env
     environment:
