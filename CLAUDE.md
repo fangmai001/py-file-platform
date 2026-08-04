@@ -136,13 +136,21 @@ docker compose up --build
 「專案目錄名 + 服務名」推導 image 名稱，離線主機只要不是部署在 `py-file-platform/` 目錄下就會找不到
 載入的 image 而改去執行 build，在沒有網路的機器上必然失敗。離線交付走 `scripts/package-images.sh`，
 產出**兩個**分開的 tar（`app` 與 `postgres`）加一份 `MANIFEST.sha256`，而不是合併成單一 tar：兩個
-image 沒有共用 layer，合併省不到空間，分開則讓釘死版本的 postgres 不必隨每次改版重新傳輸。該 script
-沿用 `scripts/backup.sh` 的慣例，特別是以 regex 讀取 `.env` 而非 `source`。
+image 沒有共用 layer，合併省不到空間，分開則讓釘死版本的 postgres 不必隨每次改版重新傳輸。
+
+`scripts/` 底下的三支 script（`backup.sh`、`restore.sh`、`package-images.sh`）都 `source` 同目錄的
+`scripts/lib.sh`，共用 `log()`／`die()`／`env_get()`／`resolve_path()`／`require_env_file()`，路徑則由
+`lib.sh` 以自身的 `BASH_SOURCE` 推導，因此不論從哪個 cwd（例如 cron）呼叫都指向同一個部署根目錄。
+`env_get` 一律以 regex 讀取 `.env` 而非 `source`，`.env` 的內容永遠不會被當成 shell code 執行——新增
+script 請沿用同一套，不要再複製一份函式。離線交付時 `scripts/` 要整個帶過去，少了 `lib.sh` 每一支都跑不動。
 
 `scripts/backup.sh` 的 `pg_dump` 帶 `--clean --if-exists`，不要拿掉：還原目標永遠是已經被
 `alembic upgrade head` 建好 schema 的資料庫，沒有這兩個參數的 plain dump 灌回去只會一路噴
-`already exists` 與 duplicate key，而 `psql` 預設不會中止，結果是「看起來還原了、其實沒有」。還原流程
-（含 `uploads/` 與在新主機重建）寫在 README 的「5. 從備份還原」。
+`already exists` 與 duplicate key，而 `psql` 預設不會中止，結果是「看起來還原了、其實沒有」。同樣的
+道理，還原時的 `psql` 一律要帶 `-v ON_ERROR_STOP=1`。備份的兩個檔案都先寫成 `.partial`、通過
+`gzip -t` 與大小下限檢查後才改名，所以失敗絕不會留下看似正常的檔案——驗收請看結束碼，不要看
+`backups/` 裡有沒有東西。還原走與 `backup.sh` 對稱的 `scripts/restore.sh`（`--timestamp` 一次還原
+資料庫與 `uploads/`），完整流程與手動指令寫在 README 的「5. 從備份還原」。
 
 `APP_VERSION` 是必填且不接受 `latest`（issue #110）：它同時是 image tag、tar 檔名與 `/health` 回報的
 版本，共用一個 tag 會讓新版覆蓋舊版的 tar 與 image，離線主機因此無法回滾。未設定或設成 `latest` 時，

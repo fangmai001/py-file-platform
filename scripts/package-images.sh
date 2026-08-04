@@ -7,14 +7,7 @@ set -euo pipefail
 # app tar (~70 MB) instead of both (~180 MB). The two images share no layers -
 # python:3.12-slim vs alpine - so merging them would save nothing anyway.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$REPO_ROOT/.env"
-COMPOSE_FILE="$REPO_ROOT/docker-compose.prod.yml"
-
-log() {
-  printf '%s [%s] %s\n' "$(date -Iseconds)" "$1" "$2"
-}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 usage() {
   cat <<'USAGE'
@@ -26,32 +19,17 @@ Usage: scripts/package-images.sh [--app-only]
 USAGE
 }
 
-# Only ever reads KEY=value lines by regex - never sourced, so .env content is
-# never executed as shell code.
-env_get() {
-  local val
-  val=$(grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2-)
-  echo "${val:-${2:-}}"
-}
-
-# Resolves a possibly-relative path against REPO_ROOT, so values like "./release"
-# behave the same regardless of the cwd this script was invoked from.
-resolve_path() {
-  case "$1" in
-    /*) echo "$1" ;;
-    *) echo "$REPO_ROOT/${1#./}" ;;
-  esac
-}
-
 APP_ONLY=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --app-only) APP_ONLY=true ;;
     -h|--help) usage; exit 0 ;;
-    *) usage >&2; log ERROR "Unknown argument: $1"; exit 1 ;;
+    *) usage >&2; die "Unknown argument: $1" ;;
   esac
   shift
 done
+
+require_env_file
 
 APP_VERSION="$(env_get APP_VERSION)"
 OUTPUT_DIR="$(resolve_path "$(env_get PACKAGE_OUTPUT_DIR ./release)")"
@@ -61,18 +39,15 @@ OUTPUT_DIR="$(resolve_path "$(env_get PACKAGE_OUTPUT_DIR ./release)")"
 # release overwrites the previous tar, re-points the tag, and leaves nothing to roll back
 # to. Better to refuse here than to hand over a delivery that can only go forwards.
 if [ -z "$APP_VERSION" ]; then
-  log ERROR "APP_VERSION is not set in $ENV_FILE - set it to the release version (e.g. v0.1.0)"
-  exit 1
+  die "APP_VERSION is not set in $ENV_FILE - set it to the release version (e.g. v0.1.0)"
 fi
 if [ "$APP_VERSION" = "latest" ]; then
-  log ERROR "APP_VERSION=latest is not allowed - every release would overwrite the previous tar and image tag, leaving no version to roll back to. Set a real version (e.g. v0.1.0)."
-  exit 1
+  die "APP_VERSION=latest is not allowed - every release would overwrite the previous tar and image tag, leaving no version to roll back to. Set a real version (e.g. v0.1.0)."
 fi
 # Docker's tag charset, which is also what keeps the tar filename sane - a "/" or a space
 # would silently produce a broken path below.
 if ! printf '%s' "$APP_VERSION" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9._-]*$'; then
-  log ERROR "APP_VERSION='$APP_VERSION' is not a valid image tag - use only letters, digits, '.', '_' and '-' (e.g. v0.1.0)"
-  exit 1
+  die "APP_VERSION='$APP_VERSION' is not a valid image tag - use only letters, digits, '.', '_' and '-' (e.g. v0.1.0)"
 fi
 
 # Exported so compose interpolates the same tag we stamp into the tar filename and pass
@@ -85,8 +60,7 @@ APP_IMAGE="py-file-platform-app:${APP_VERSION}"
 # for which postgres version this deployment pins.
 DB_IMAGE="$(docker compose -f "$COMPOSE_FILE" config --images | grep -vFx "$APP_IMAGE" | head -n1)"
 if [ -z "$DB_IMAGE" ]; then
-  log ERROR "Could not resolve the db image from $COMPOSE_FILE"
-  exit 1
+  die "Could not resolve the db image from $COMPOSE_FILE"
 fi
 
 # Both tars share the py-file-platform- prefix so a delivery sorts together in a
