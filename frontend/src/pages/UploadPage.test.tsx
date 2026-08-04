@@ -109,12 +109,12 @@ describe("UploadPage", () => {
 
   it("rejects a file over the limit as soon as it is picked, without uploading", async () => {
     renderUploadPage();
-    // wait for the admin-configured limit to arrive before picking a file
+    // 先等管理員設定的上限抵達，再挑選檔案
     await waitFor(() => expect(getSiteSettings).toHaveBeenCalled());
 
     const user = userEvent.setup();
     const file = new File(["hello"], "big.pdf", { type: "application/pdf" });
-    // faking size beats allocating 50 MB of test data just to cross the threshold
+    // 偽造檔案大小，好過為了跨過門檻而真的配置 50 MB 的測試資料
     Object.defineProperty(file, "size", { value: 51 * 1024 * 1024 });
     await user.upload(screen.getByLabelText(FILE_INPUT_LABEL), file);
 

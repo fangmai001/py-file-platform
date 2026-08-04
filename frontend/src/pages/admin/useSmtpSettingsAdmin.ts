@@ -52,7 +52,7 @@ export function useSmtpSettingsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () 
         host: smtpDraft.host.trim() || null,
         port: Number.isNaN(port) ? undefined : port,
         username: smtpDraft.username.trim() || null,
-        // Omitted entirely when blank so the currently stored password is kept.
+        // 留白時完全省略這個欄位，好沿用目前存著的密碼。
         ...(smtpDraft.password.trim() ? { password: smtpDraft.password.trim() } : {}),
         from_address: smtpDraft.fromAddress.trim() || undefined,
         use_tls: smtpDraft.useTls,

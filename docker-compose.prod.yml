@@ -11,18 +11,15 @@ services:
       timeout: 5s
       retries: 10
 
-  # Single image built from the repo-root Dockerfile: the frontend is built into it and
-  # served by FastAPI itself, so the SPA and the API share one origin and one port.
-  # Together with db that makes exactly two images to ship for an offline install.
+  # 由 repo 根目錄的 Dockerfile 建出的單一 image：前端建置進去、由 FastAPI 自己提供，
+  # 因此 SPA 與 API 共用同一個 origin 與同一個 port。加上 db，離線安裝要帶的就正好是兩個 image。
   #
-  # image: is set explicitly so the name does not depend on the deployment directory
-  # name - without it compose derives "<project>-app" and an offline host deployed
-  # under any other directory would fail to find the loaded image and try to build.
-  # APP_VERSION also ties the tag to the tar filenames scripts/package-images.sh emits,
-  # and is baked into the image so GET /health can report the running version. It has no
-  # fallback on purpose: "latest" made every release share one tag, so the offline host
-  # had nothing to roll back to. Failing here with a clear message beats resolving to a
-  # tag that was never delivered and watching compose try to build without a network.
+  # image: 明確寫出來，讓名稱不依賴部署目錄的名字——少了它，compose 會推導出 "<project>-app"，
+  # 而部署在其他任何目錄底下的離線主機就會找不到載入的 image，轉而嘗試 build。
+  # APP_VERSION 同時也把 tag 與 scripts/package-images.sh 產出的 tar 檔名綁在一起，並烙進
+  # image 裡，讓 GET /health 能回報執行中的版本。它刻意沒有 fallback："latest" 會讓每次發版
+  # 共用同一個 tag，離線主機因此無版可回滾。在這裡帶著清楚訊息失敗，好過解析到一個從未交付的
+  # tag，然後眼睜睜看著 compose 在沒有網路的情況下嘗試 build。
   app:
     image: py-file-platform-app:${APP_VERSION:?APP_VERSION must be set in .env (e.g. v0.1.0)}
     build:

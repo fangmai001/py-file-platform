@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "../lib/utils";
 
 /**
- * The heading block at the top of a page. Emits a real <h1> — several tests look
- * pages up with getByRole("heading"), which shadcn's CardTitle (a <div>) would break.
+ * 頁面頂端的標題區塊。會產生真正的 <h1>——有好幾個測試是用 getByRole("heading")
+ * 來定位頁面，而 shadcn 的 CardTitle（一個 <div>）會讓它們失效。
  */
 function PageHeader({
   title,

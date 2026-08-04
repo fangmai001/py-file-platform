@@ -19,9 +19,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Nullable with no server default on purpose: NULL means "never configured", which the
-    # app backfills from the MAX_UPLOAD_SIZE_MB env var, so existing deployments keep the
-    # limit they already had instead of being silently reset to a hardcoded number here.
+    # 刻意設成可為 null 且不給 server default：NULL 代表「從未設定過」，應用程式會以
+    # MAX_UPLOAD_SIZE_MB 環境變數回填，讓既有部署保有原本的上限，
+    # 而不是被這裡某個寫死的數字悄悄重設掉。
     op.add_column('site_settings', sa.Column('max_upload_size_mb', sa.Integer(), nullable=True))
 
 

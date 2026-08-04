@@ -30,9 +30,8 @@ function toHighlightDrafts(items: HighlightItem[]): Record<number, HighlightDraf
 }
 
 /**
- * Whether a row differs from what the server holds. Normalised exactly like the payload in
- * handleSaveHighlight - note the sort order is compared as a number, so "3" and "03" both
- * count as unchanged, matching what a save would actually send.
+ * 判斷某一列是否與伺服器上的資料不同。正規化方式與 handleSaveHighlight 的 payload 完全一致——
+ * 注意排序值是以數字比較的，所以 "3" 與 "03" 都算沒有變動，這與實際儲存時會送出的內容一致。
  */
 export function isHighlightDirty(highlight: HighlightItem, draft: HighlightDraft | undefined): boolean {
   if (!draft) {

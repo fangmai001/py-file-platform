@@ -11,7 +11,7 @@ from app.schemas.user import AdminPasswordResetResponse, UserCreate, UserRespons
 
 router = APIRouter()
 
-# Shown in place of the username for audit entries whose actor has since been deleted.
+# 稽核紀錄的操作者帳號若已被刪除，就以這個字串取代原本的 username 顯示。
 DELETED_ACTOR_USERNAME = "（已刪除的使用者）"
 
 
@@ -142,9 +142,9 @@ def list_audit_logs(
     skip = max(skip, 0)
     limit = min(max(limit, 1), 200)
 
-    # outerjoin, not join: audit_logs.actor_id is SET NULL when the account is deleted (see
-    # app/models/audit_log.py), and an inner join would drop exactly those rows - throwing
-    # away the record the SET NULL was there to preserve.
+    # 用 outerjoin 而非 join：帳號被刪除時 audit_logs.actor_id 會被 SET NULL（見
+    # app/models/audit_log.py），inner join 會剛好把那些資料列濾掉——等於丟棄了
+    # SET NULL 當初就是要保留的那筆紀錄。
     rows = (
         db.query(AuditLog, User.username)
         .outerjoin(User, AuditLog.actor_id == User.id)

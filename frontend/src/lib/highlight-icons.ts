@@ -24,10 +24,10 @@ export interface HighlightIconOption {
   Icon: LucideIcon;
 }
 
-// Keep these keys in sync with HighlightIconKey in backend/app/schemas/highlight.py
-// (same keys, same order) — the backend rejects anything outside that list with a 422.
-// Note: the "link" key maps to lucide's Link2 because lucide's Link would collide with
-// react-router-dom's Link in pages that use both.
+// 這些 key 必須與 backend/app/schemas/highlight.py 中的 HighlightIconKey 保持同步
+//（相同的 key、相同的順序）——不在那份清單裡的值，後端一律以 422 拒絕。
+// 注意："link" 這個 key 對應到 lucide 的 Link2，因為在同時用到兩者的頁面裡，
+// lucide 的 Link 會與 react-router-dom 的 Link 撞名。
 export const HIGHLIGHT_ICON_OPTIONS: HighlightIconOption[] = [
   { key: "shield-check", label: "安全盾牌", Icon: ShieldCheck },
   { key: "history", label: "歷史紀錄", Icon: History },
@@ -51,12 +51,12 @@ export const DEFAULT_HIGHLIGHT_ICON = "sparkles";
 
 const ICONS_BY_KEY = new Map(HIGHLIGHT_ICON_OPTIONS.map((option) => [option.key, option]));
 
-/** Resolves an icon key to a lucide component, falling back for keys this build doesn't know. */
+/** 把圖示 key 對應成 lucide 元件；這份 build 不認得的 key 會退回預設值。 */
 export function highlightIcon(key: string): LucideIcon {
   return ICONS_BY_KEY.get(key)?.Icon ?? Sparkles;
 }
 
-/** Chinese label for an icon key, falling back to the key itself for unknown values. */
+/** 圖示 key 的中文標籤；遇到未知的值就退回 key 本身。 */
 export function highlightIconLabel(key: string): string {
   return ICONS_BY_KEY.get(key)?.label ?? key;
 }

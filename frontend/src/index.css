@@ -6,9 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* System fonts only (nothing downloaded), but with a Traditional Chinese
-     fallback chain - without it zh-Hant drops to the browser default, which on
-     Windows/Linux is often a Ming/serif face. */
+  /* 只用系統字型（不下載任何字型），但帶有一條繁體中文的 fallback 鏈——少了它，
+     zh-Hant 會掉回瀏覽器預設，而那在 Windows／Linux 上經常是明體或襯線字。 */
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
     'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', 'Hiragino Sans', sans-serif;
   --heading: var(--sans);
@@ -27,9 +26,8 @@
     font-size: 15px;
   }
 
-  /* Neutrals carry a trace of the primary hue (chroma 0.005-0.014) so they stop
-     reading as dead grey next to the blue primary. Below the JND for a flat
-     swatch - you should not be able to name the colour. */
+  /* 中性色帶有一絲 primary 的色相（彩度 0.005-0.014），這樣擺在藍色 primary 旁邊
+     才不會看起來像死灰。這個量低於單色塊的 JND——你應該說不出它是什麼顏色。 */
   --canvas: oklch(0.968 0.005 265);
   --background: oklch(1 0 0);
   --foreground: oklch(0.17 0.014 265);
@@ -56,9 +54,8 @@
   --ring: oklch(0.5 0.16 260);
   --radius: 0.625rem;
 
-  /* Elevation. The app previously had no shadows at all; Tailwind's stock
-     --shadow-* are pure black rgb, which is invisible on a dark background, so
-     the @theme inline block below remaps the stock names onto these instead. */
+  /* Elevation。這個應用程式以前完全沒有陰影；Tailwind 內建的 --shadow-* 是純黑 rgb，
+     在深色背景上看不見，所以下方的 @theme inline 區塊把內建名稱重新對應到這裡的值。 */
   --elevation-1:
     0 1px 2px -1px oklch(0.2 0.04 265 / 0.1), 0 1px 3px 0 oklch(0.2 0.04 265 / 0.06);
   --elevation-2:
@@ -67,11 +64,10 @@
     0 4px 8px -4px oklch(0.2 0.04 265 / 0.1), 0 16px 36px -8px oklch(0.2 0.04 265 / 0.14);
 }
 
-/* The un-scoped h1/h2 element rules that used to live here are gone: their margins
-   stacked on top of the flex gaps of every container they landed in, and pages had
-   started hand-overriding them with contradictory Tailwind classes. Headings now opt
-   into the named type scale (text-display / text-title / text-section / text-sub)
-   via PageHeader and SectionTitle. */
+/* 原本放在這裡、未加 scope 的 h1／h2 元素規則已經移除：它們的 margin 會疊加到所在容器的
+   flex gap 之上，而且各頁面已經開始用互相矛盾的 Tailwind class 手動覆寫它們。標題現在改為
+   透過 PageHeader 與 SectionTitle 主動選用具名的字級階層
+   （text-display / text-title / text-section / text-sub）。 */
 @utility page {
   display: flex;
   flex-direction: column;
@@ -119,12 +115,12 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Replaces the 1126px magic number in App.tsx with max-w-app. */
+  /* 用 max-w-app 取代 App.tsx 裡 1126px 這個魔術數字。 */
   --container-app: 72rem;
 
-  /* Remap the stock shadow scale onto the elevation tokens, so the two existing
-     consumers (select.tsx's shadow-md, tabs.tsx's data-active:shadow-sm) get
-     theme-aware shadows for free and nobody has to learn a new utility name. */
+  /* 把內建的 shadow 尺標重新對應到 elevation token，這樣現有的兩個使用者
+     （select.tsx 的 shadow-md、tabs.tsx 的 data-active:shadow-sm）就能免費取得
+     具主題感知的陰影，也沒有人需要去記一個新的 utility 名稱。 */
   --shadow-2xs: var(--elevation-1);
   --shadow-xs: var(--elevation-1);
   --shadow-sm: var(--elevation-1);
@@ -133,8 +129,8 @@
   --shadow-xl: var(--elevation-3);
   --shadow-2xl: var(--elevation-3);
 
-  /* Type scale. Each role is one class carrying size + leading + tracking +
-     weight, replacing the un-scoped h1/h2 element rules in @layer legacy. */
+  /* 字級階層。每個角色都是單一 class，帶齊字級、行高、字距與字重，
+     用來取代 @layer legacy 裡那些未加 scope 的 h1／h2 元素規則。 */
   --text-display: clamp(2rem, 1.35rem + 2.4vw, 2.75rem);
   --text-display--line-height: 1.12;
   --text-display--letter-spacing: -0.022em;
@@ -181,8 +177,8 @@
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.72 0.145 262);
 
-  /* A black drop alone is invisible on a near-black surface, so each step also
-     carries an inset top hairline that reads as a lit edge. */
+  /* 單靠黑色投影在近黑色的表面上看不見，因此每一階還會多帶一條 inset 的頂部細線，
+     看起來像是被打亮的邊緣。 */
   --elevation-1:
     0 1px 2px 0 oklch(0 0 0 / 0.55), inset 0 1px 0 0 oklch(1 0 0 / 0.045);
   --elevation-2:

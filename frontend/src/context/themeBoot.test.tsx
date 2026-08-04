@@ -4,13 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 
 /**
- * index.html carries an inline boot script that applies the theme before first paint, and
- * its comment says it "must mirror getInitialTheme() exactly". That agreement was held up
- * by the comment alone: change the storage key or the precedence on either side and
- * nothing fails to compile - the only symptom is the theme flipping once React hydrates.
+ * index.html 內含一段 inline 的 boot script，會在第一次繪製前套用主題，而它的註解寫著
+ * 「必須與 getInitialTheme() 完全一致」。這份約定過去只靠那句註解撐著：只要在任一邊改動
+ * storage key 或優先順序，編譯都不會失敗——唯一的症狀是 React hydrate 之後主題閃一下就翻掉。
  *
- * This test runs the real script out of index.html and compares what it does to the
- * documentElement against what ThemeProvider does from the same starting state.
+ * 這個測試會把 index.html 裡真正的 script 抓出來執行，比對它對 documentElement 做的事，
+ * 與 ThemeProvider 從相同起始狀態出發所做的事是否一致。
  */
 const bootScript = indexHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
@@ -32,8 +31,8 @@ function reset() {
 }
 
 function stubPrefersDark(prefersDark: boolean) {
-  // jsdom's matchMedia always reports matches: false, so the system-preference half of
-  // the precedence rules can only be exercised with a stub.
+  // jsdom 的 matchMedia 永遠回報 matches: false，所以優先順序規則中「系統偏好」的那一半
+  // 只能靠 stub 才跑得到。
   vi.stubGlobal(
     "matchMedia",
     (query: string) =>
@@ -68,7 +67,7 @@ describe("index.html boot script", () => {
     { stored: "light", prefersDark: false, expected: "light" },
     { stored: null, prefersDark: true, expected: "dark" },
     { stored: null, prefersDark: false, expected: "light" },
-    // An unrecognised value must not be treated as a preference either way.
+    // 無法辨識的值，不論如何都不該被當成一種偏好設定。
     { stored: "blue", prefersDark: true, expected: "dark" },
     { stored: "blue", prefersDark: false, expected: "light" },
   ];

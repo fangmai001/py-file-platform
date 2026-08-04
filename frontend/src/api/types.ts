@@ -34,8 +34,8 @@ export interface LinkCardItem {
 
 export interface HighlightItem {
   id: number;
-  // kebab-case key; resolved to a lucide icon by src/lib/highlight-icons.ts.
-  // Kept as a plain string so an icon added by a newer backend still parses.
+  // kebab-case 的 key，由 src/lib/highlight-icons.ts 對應到 lucide 圖示。
+  // 型別保持單純的 string，這樣較新版後端新增的圖示仍然解析得出來。
   icon: string;
   title: string;
   description: string | null;
@@ -74,8 +74,8 @@ export interface NotificationItem {
 
 export interface AuditLogItem {
   id: number;
-  // null once the actor's account is deleted; actor_username still carries a readable
-  // placeholder from the backend, so render that rather than this.
+  // 操作者的帳號被刪除後即為 null；actor_username 仍會帶著後端給的可讀佔位字串，
+  // 因此請渲染那個欄位，而不是這一個。
   actor_id: number | null;
   actor_username: string;
   action: string;

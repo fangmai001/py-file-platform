@@ -23,9 +23,9 @@ router = APIRouter()
 
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
-# Magic-byte signatures for the office document types this platform accepts, so a
-# renamed-extension attack (e.g. malware.exe -> report.pdf) gets caught, not just trusted
-# by filename. docx/xlsx are zip containers so they share the same signature.
+# 本平台接受的 office 文件類型對應的 magic byte 簽章，用來擋下改副檔名的攻擊
+# （例如把 malware.exe 改名成 report.pdf），而不是單純相信檔名。docx／xlsx 都是 zip
+# 容器，因此共用同一組簽章。
 _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".pdf": (b"%PDF-",),
     ".doc": (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",),
@@ -56,10 +56,10 @@ def _assert_can_view(file_row: File, current_user: User | None) -> None:
 def upload_file(
     background_tasks: BackgroundTasks,
     upload: UploadFile = UploadFileParam(...),
-    # None means "not sent", not "false" - a multipart form can't tell an omitted field from
-    # a cleared one, so every field here is applied only when present. The new-file branch
-    # below falls back to the old default of public; to actually clear a field, use
-    # PATCH /api/files/{id}, which distinguishes the two via model_fields_set.
+    # None 代表「沒有送出」而非「false」——multipart 表單無法分辨欄位是被省略還是被清空，
+    # 所以這裡每個欄位都只在有值時才套用。下方的新檔案分支會退回原本的預設值 public；
+    # 若真的要清掉某個欄位，請改用 PATCH /api/files/{id}，它會透過 model_fields_set
+    # 區分這兩種情況。
     is_public: bool | None = Form(None),
     folder_id: int | None = Form(None),
     display_name: str | None = Form(None),
@@ -110,8 +110,8 @@ def upload_file(
 
     stored_path = f"{current_user.id}/{stored_name}"
 
-    # Same filename from the same owner is treated as a new version of the existing file,
-    # not a separate upload, so past versions stay downloadable instead of being overwritten.
+    # 同一位擁有者上傳同名檔案時，視為既有檔案的新版本而非另一次獨立上傳，
+    # 這樣過去的版本仍可下載，不會被覆蓋掉。
     existing_file = (
         db.query(File)
         .filter(File.owner_id == current_user.id, File.filename == upload.filename)
@@ -124,10 +124,9 @@ def upload_file(
         )
         db.add(FileVersion(file_id=existing_file.id, version_no=latest_version_no + 1, stored_path=stored_path))
         existing_file.size = size
-        # The same form fields the new-file branch honours, applied here too. Dropping them
-        # silently made the outcome depend on whether this filename had been uploaded before -
-        # something the uploader can't see. Worse, re-uploading a public file as private left
-        # it public and then re-broadcast it to everyone via notify_file_uploaded below.
+        # 新檔案分支會採用的那些表單欄位，這裡同樣要套用。以前靜默丟棄它們，會讓結果取決於
+        # 這個檔名先前有沒有被上傳過——而上傳者根本看不到這件事。更糟的是，把一個公開檔案
+        # 重新上傳成私密時，它會維持公開，接著又透過下方的 notify_file_uploaded 再廣播給所有人。
         if is_public is not None:
             existing_file.is_public = is_public
         if folder_id is not None:
@@ -244,16 +243,14 @@ def delete_file(
         db.delete(version)
     for notification in db.query(Notification).filter(Notification.file_id == file_id).all():
         db.delete(notification)
-    # Flush the child-row deletes before deleting the file itself - file_versions.file_id
-    # and notifications.file_id both have a FK to files.id, and without an explicit ORM
-    # relationship() between the models, SQLAlchemy's unit-of-work won't infer the
-    # child-before-parent delete order on its own (Postgres then rejects it; SQLite in
-    # tests doesn't enforce the FK at all).
+    # 先把子資料列的刪除 flush 出去，再刪檔案本身——file_versions.file_id 與
+    # notifications.file_id 都有指向 files.id 的 FK，而 model 之間沒有明確的 ORM
+    # relationship()，SQLAlchemy 的 unit-of-work 無法自行推導出「先子後父」的刪除順序
+    # （Postgres 因此會拒絕；測試用的 SQLite 則根本不強制 FK）。
     db.flush()
 
-    # Deleting someone else's file is only possible for admins, and is exactly the kind of
-    # high-privilege action the audit trail exists for (see #7); an owner deleting their own
-    # file is routine and doesn't need one.
+    # 只有管理員才刪得掉別人的檔案，而這正是稽核紀錄存在的目的——高權限操作（見 #7）；
+    # 擁有者刪自己的檔案屬於日常行為，不需要留下紀錄。
     if not is_owner:
         write_audit_log(
             db,
@@ -328,7 +325,7 @@ def list_files(
         query = query.filter(File.is_public.is_(True))
     elif current_user.role != "admin":
         query = query.filter(or_(File.is_public.is_(True), File.owner_id == current_user.id))
-    # admin: no filter, can see every file regardless of owner or visibility
+    # 管理員：不加任何過濾條件，不論擁有者與可見性都看得到每一個檔案
 
     if search:
         keyword = f"%{search.strip()}%"

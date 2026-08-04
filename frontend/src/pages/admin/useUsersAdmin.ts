@@ -18,8 +18,8 @@ function toUserDrafts(items: UserItem[]): Record<number, UserDraft> {
 }
 
 /**
- * The fields a save would actually send, plus which of them changed. Both the 儲存 button's
- * enabled state and the PATCH payload are derived from this, so they cannot drift apart.
+ * 一次儲存實際會送出的欄位，以及其中哪些有變動。「儲存」按鈕的啟用狀態與 PATCH 的 payload
+ * 都由這裡推導出來，因此兩者不可能脫節。
  */
 function diffUser(target: UserItem, draft: UserDraft | undefined) {
   const email = draft?.email.trim() || null;
@@ -41,9 +41,8 @@ export function isUserDirty(target: UserItem, draft: UserDraft | undefined): boo
 }
 
 /**
- * State and actions behind the 使用者 tab. Lives here rather than inside UsersTab because
- * AdminPage's stat cards need the user count even while another tab is showing - see the
- * note in AdminPage.tsx.
+ * 使用者分頁背後的狀態與操作。放在這裡而不是 UsersTab 內部，是因為即使正在顯示其他分頁，
+ * AdminPage 的統計卡片仍需要使用者數量——見 AdminPage.tsx 的說明。
  */
 export function useUsersAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const confirm = useConfirm();

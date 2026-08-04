@@ -74,8 +74,8 @@ def test_path_traversal_falls_back_to_index_html(tmp_path):
     secret.write_text("do not serve me")
     client = _client(_build_dist(tmp_path))
 
-    # httpx normalises `..` in the URL, so the traversal is sent pre-encoded the way an
-    # attacker would have to send it to reach the app at all.
+    # httpx 會把 URL 裡的 `..` 正規化掉，所以這裡改用預先編碼過的形式送出——攻擊者
+    # 想讓請求真的抵達應用程式，本來也只能這樣送。
     response = client.get("/%2e%2e/secret.txt")
     assert response.status_code == 200
     assert "do not serve me" not in response.text

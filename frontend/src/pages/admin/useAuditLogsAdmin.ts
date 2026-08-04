@@ -4,12 +4,12 @@ import { ApiError } from "../../api/client";
 import type { AuditLogItem } from "../../api/types";
 
 export const AUDIT_LOG_LIMIT = 50;
-/** Sentinel for "no action filter" - a Select item cannot carry an empty string as its value. */
+/** 代表「不篩選操作類型」的哨符值——Select item 的 value 不能是空字串。 */
 export const ALL_ACTIONS = "__all__";
 
 /**
- * State behind the 操作紀錄 tab. Every tab that performs a high-privilege action calls
- * `reload` afterwards, so this is the one hook the others depend on.
+ * 操作紀錄分頁背後的狀態。每個會執行高權限操作的分頁事後都會呼叫 `reload`，
+ * 因此這是其他分頁都依賴的那個 hook。
  */
 export function useAuditLogsAdmin() {
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[] | null>(null);

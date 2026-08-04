@@ -5,23 +5,20 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Kept in sync with the Settings default it is checking for (app/core/config.py).
+# 與它要比對的那個 Settings 預設值保持同步（app/core/config.py）。
 _FRONTEND_BASE_URL_DEV_DEFAULT = "http://localhost:5173"
 
 
 def warn_if_frontend_base_url_is_dev_default() -> None:
-    """Log a warning when a production image is still using the dev FRONTEND_BASE_URL.
+    """正式環境的 image 仍在使用開發用的 FRONTEND_BASE_URL 時，記錄一則警告。
 
-    Password reset links are built from this value (app/api/password_reset.py), and
-    production serves the frontend from the app itself - there is no :5173 there, so
-    every reset email would ship a link pointing at the recipient's own machine. The
-    catch is that it is invisible in dev, where 5173 is exactly right; it only surfaces
-    when a real user forgets their password on a real deployment, and reaches the
-    operator as "the link does nothing".
+    重設密碼的連結是由這個值組出來的（app/api/password_reset.py），而正式環境的前端由
+    應用程式本身提供——那裡沒有 :5173，因此每一封重設信寄出的連結都會指向收件者自己的機器。
+    麻煩之處在於它在開發環境裡完全看不出來，因為 5173 在那裡本來就正確；只有當真實使用者
+    在真實部署上忘記密碼時才會浮現，而且傳到維運者耳裡時只會變成「那個連結按了沒反應」。
 
-    static_dir existing is the marker for "running inside the production image" - the
-    Dockerfile builds the frontend into it, and native dev has no such directory (see
-    app/core/static.py, which skips the mount for the same reason).
+    以 static_dir 是否存在作為「正在正式環境 image 內執行」的判斷依據——Dockerfile 會把前端
+    建置到這個目錄，而原生開發沒有這個目錄（見 app/core/static.py，它基於同樣理由跳過掛載）。
     """
     if not Path(settings.static_dir).is_dir():
         return

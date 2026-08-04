@@ -19,8 +19,8 @@ import { SiteSettingsProvider, useSiteSettings } from "./context/SiteSettingsCon
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { cn } from "./lib/utils";
 
-// Nav links and the header's ghost/icon buttons all settle on the same 32px pill so the row
-// reads as one control cluster instead of three different metaphors.
+// 導覽連結與頁首的 ghost／icon 按鈕統一使用同一顆 32px 的膠囊外型，讓整列看起來像
+// 一組控制項，而不是三種不同的視覺語彙。
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return cn(
     "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground",
@@ -28,7 +28,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   );
 }
 
-// Auth guards used to render null while resolving, which flashed an empty page.
+// 驗證守衛以前在解析期間會渲染 null，導致畫面閃過一片空白。
 function RouteFallback() {
   return (
     <div className="flex min-h-[60svh] items-center justify-center" role="status" aria-live="polite">
@@ -60,7 +60,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// Drives the header's scroll shadow. Safe under jsdom, where scrollY stays 0.
+// 驅動頁首的捲動陰影。在 jsdom 下也安全，因為那裡的 scrollY 永遠是 0。
 function useIsScrolled(threshold = 4) {
   const [scrolled, setScrolled] = useState(false);
 

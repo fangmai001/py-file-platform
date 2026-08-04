@@ -23,12 +23,11 @@ import { useSmtpSettingsAdmin } from "./admin/useSmtpSettingsAdmin";
 import { useUsersAdmin } from "./admin/useUsersAdmin";
 
 function AdminPage() {
-  // Each tab's state lives in a hook called here rather than inside the tab component, for
-  // three reasons: the stat cards below sit outside <Tabs> and need the user and file totals;
-  // tabs depend on each other (the 連結卡片 folder picker reads the folder list, mutations
-  // refresh the audit log, deleting a folder re-lists files); and Radix unmounts the inactive
-  // TabsContent, so state held inside a tab would drop unsaved LDAP/SMTP edits and filter
-  // selections every time the admin switches away and back.
+  // 每個分頁的狀態都放在這裡呼叫的 hook 裡，而不是分頁元件內部，原因有三：下方的統計卡片
+  // 位在 <Tabs> 之外，需要使用者與檔案的總數；分頁之間彼此相依（連結卡片的 folder 選單要讀
+  // folder 列表、資料異動後要刷新操作紀錄、刪除 folder 後要重新列出檔案）；而且 Radix 會把
+  // 未啟用的 TabsContent unmount，狀態若放在分頁內，管理員每次切走再切回來都會弄丟尚未儲存的
+  // LDAP／SMTP 編輯內容與篩選條件。
   const auditLogs = useAuditLogsAdmin();
   const files = useFilesAdmin({ reloadAuditLogs: auditLogs.reload });
   const users = useUsersAdmin({ reloadAuditLogs: auditLogs.reload });
@@ -81,8 +80,8 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="users">
-        {/* line variant + flex-none: nine Chinese labels crammed into the default padded
-            trough get squashed, because the stock trigger is flex-1. */}
+        {/* line 變體加上 flex-none：九個中文標籤硬塞進預設的帶內距凹槽會被擠扁，
+            因為原本的 trigger 是 flex-1。 */}
         <TabsList variant="line" className="w-full justify-start">
           <TabsTrigger value="users" className="h-9 flex-none px-3">
             使用者

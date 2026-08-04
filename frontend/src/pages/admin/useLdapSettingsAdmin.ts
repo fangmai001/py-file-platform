@@ -48,7 +48,7 @@ export function useLdapSettingsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () 
         enabled: ldapDraft.enabled,
         server_uri: ldapDraft.serverUri.trim() || null,
         bind_dn: ldapDraft.bindDn.trim() || null,
-        // Omitted entirely when blank so the currently stored password is kept.
+        // 留白時完全省略這個欄位，好沿用目前存著的密碼。
         ...(ldapDraft.bindPassword.trim() ? { bind_password: ldapDraft.bindPassword.trim() } : {}),
         base_dn: ldapDraft.baseDn.trim() || null,
         user_search_filter: ldapDraft.userSearchFilter.trim() || undefined,

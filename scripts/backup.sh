@@ -42,25 +42,23 @@ TS="$(date +%Y%m%d_%H%M%S)"
 DB_DUMP_PATH="$BACKUP_LOCAL_DIR/db_${TS}.sql.gz"
 UPLOADS_TAR_PATH="$BACKUP_LOCAL_DIR/uploads_${TS}.tar.gz"
 
-# Both archives are written to .partial and only renamed once verified, so a failure never
-# leaves a file under the real name. The shell creates a redirect target *before* the
-# pipeline runs, so writing straight to db_<ts>.sql.gz meant any pg_dump failure left a
-# 0-byte file behind with a perfectly plausible name - which passed the README's "check
-# that backups/ contains db_*.sql.gz" acceptance check. A backup that lies about having
-# worked is worse than no backup, because it is only discovered on the day it is needed.
+# 兩個壓縮檔都先寫成 .partial，通過驗證後才改名，因此失敗絕不會留下一個掛著正式檔名的檔案。
+# shell 會在 pipeline 執行**之前**就先建立重導向的目標檔，所以直接寫進 db_<ts>.sql.gz 的話，
+# 任何一次 pg_dump 失敗都會留下一個 0 byte、檔名卻看起來完全正常的檔案——而它還能通過 README
+# 那句「檢查 backups/ 裡有沒有 db_*.sql.gz」的驗收。一份謊稱自己成功的備份比沒有備份更糟，
+# 因為它只會在真正需要它的那一天才被發現。
 trap 'rm -f "$DB_DUMP_PATH.partial" "$UPLOADS_TAR_PATH.partial"' EXIT
 
-# A gzipped dump of the migrated schema runs to several KB even with no rows in it, so
-# anything near-empty means the dump did not actually happen.
+# 已套用 migration 的 schema，即使一列資料都沒有，gzip 過的 dump 也有好幾 KB，
+# 因此檔案接近空白就代表 dump 根本沒有真正發生。
 MIN_DUMP_BYTES=1024
 
 log INFO "Dumping database ($POSTGRES_DB) to $DB_DUMP_PATH"
-# --clean --if-exists is what makes this dump restorable. The restore target is always a
-# database the app container has already run `alembic upgrade head` against, so a plain
-# dump would hit "already exists" on every CREATE and duplicate keys on every COPY -
-# psql keeps going past those, so the restore looks like it worked while leaving the data
-# untouched. With these flags each object is dropped first (and missing ones are skipped
-# with a notice on an empty database, which is harmless).
+# --clean --if-exists 正是讓這份 dump 能被還原的關鍵。還原目標永遠是 app 容器已經跑過
+# `alembic upgrade head` 的資料庫，所以 plain dump 會在每個 CREATE 撞上 "already exists"、
+# 每個 COPY 撞上 duplicate key——而 psql 遇到這些並不會停下來，結果就是還原看起來成功了，
+# 資料卻原封不動。帶上這兩個參數後，每個物件都會先被 drop（在空資料庫上找不到的物件會跳過
+# 並印一則 notice，無害）。
 docker compose -f "$COMPOSE_FILE" exec -T db \
   pg_dump --clean --if-exists -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$DB_DUMP_PATH.partial" \
   || die "pg_dump failed - check that the db service is up: docker compose -f $COMPOSE_FILE ps"

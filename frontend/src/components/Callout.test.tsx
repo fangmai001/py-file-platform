@@ -4,8 +4,8 @@ import Callout from "./Callout";
 
 describe("Callout", () => {
   it("renders nothing when there is no message", () => {
-    // Callers pass a nullable error string straight in, so an empty render has to be a
-    // no-op rather than an empty bordered box.
+    // 呼叫端會直接把可能為 null 的錯誤字串丟進來，因此空內容時必須什麼都不渲染，
+    // 而不是留下一個空的帶框方塊。
     const { container } = render(<Callout>{null}</Callout>);
     expect(container).toBeEmptyDOMElement();
 

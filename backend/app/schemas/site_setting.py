@@ -20,12 +20,11 @@ class SiteSettingResponse(BaseModel):
     browser_title: str | None
     hero_title: str | None
     hero_subtitle: str | None
-    # Never null in practice: reads go through _get_or_create_settings, which backfills it.
+    # 實務上永遠不會是 null：讀取都會經過 _get_or_create_settings，它會把值補上。
     max_upload_size_mb: int
 
-    # Clients only ever see the URLs; the raw filenames stay server-side. Each upload gets a
-    # fresh uuid filename, so the URL changes too and browsers pick the new asset up without
-    # any extra cache-busting parameter.
+    # 客戶端只會看到 URL，原始檔名一律留在伺服器端。每次上傳都會拿到全新的 uuid 檔名，
+    # 因此 URL 也跟著改變，瀏覽器不需要任何額外的 cache-busting 參數就會抓到新的檔案。
     favicon_filename: str | None = Field(exclude=True)
     hero_image_filename: str | None = Field(exclude=True)
 

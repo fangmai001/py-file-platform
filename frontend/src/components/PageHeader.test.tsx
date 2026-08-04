@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import PageHeader from "./PageHeader";
 
 describe("PageHeader", () => {
-  // Page-level tests locate their page with getByRole("heading"), which only works
-  // because this emits a real <h1> - shadcn's CardTitle renders a <div>.
+  // 頁面層級的測試是用 getByRole("heading") 定位頁面，而這之所以行得通，
+  // 正是因為這裡輸出的是真正的 <h1>——shadcn 的 CardTitle 渲染出來的是 <div>。
   it("emits the title as a level-1 heading", () => {
     render(<PageHeader title="上傳檔案" />);
 

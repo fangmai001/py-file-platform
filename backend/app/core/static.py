@@ -1,12 +1,10 @@
-"""Serving the built frontend from the same origin as the API.
+"""以與 API 相同的 origin 提供建置好的前端。
 
-In production the whole app ships as a single image: the frontend is built during the
-Docker build and copied to ``static_dir``, so FastAPI serves both ``/api/...`` and the
-SPA itself. There is no reverse proxy in front of it any more.
+正式環境下整個應用程式是一個 image：前端在 Docker build 期間建置完並複製到 ``static_dir``，
+因此 ``/api/...`` 與 SPA 本身都由 FastAPI 提供，前面不再有任何反向代理。
 
-Native development is unaffected - ``backend/static`` doesn't exist there, so
-``mount_frontend()`` does nothing and the Vite dev server keeps serving the frontend on
-its own port.
+原生開發完全不受影響——那裡沒有 ``backend/static``，所以 ``mount_frontend()`` 什麼都不做，
+前端仍由 Vite 開發伺服器在自己的 port 上提供。
 """
 
 from pathlib import Path
@@ -16,14 +14,12 @@ from fastapi.responses import FileResponse
 
 
 def mount_frontend(app: FastAPI, static_dir: Path) -> bool:
-    """Serve the built frontend from ``static_dir``, if it has been built into the image.
+    """若前端已被建置進 image，就從 ``static_dir`` 提供它。
 
-    Returns whether the routes were registered, so callers (and tests) can tell the
-    "no frontend bundled" case apart from a successful mount.
+    回傳是否有註冊路由，讓呼叫端（與測試）能分辨「沒有打包前端」與掛載成功這兩種情況。
 
-    Must be called *after* ``include_router()``: the catch-all registered here would
-    otherwise shadow every API route, since Starlette matches routes in registration
-    order.
+    必須在 ``include_router()`` **之後**呼叫：Starlette 依註冊順序匹配路由，
+    否則這裡註冊的 catch-all 會遮蔽掉每一條 API 路由。
     """
     static_dir = static_dir.resolve()
     index_html = static_dir / "index.html"
@@ -32,20 +28,19 @@ def mount_frontend(app: FastAPI, static_dir: Path) -> bool:
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_frontend(full_path: str):
-        # Unregistered API paths must still 404 as JSON rather than be swallowed into
-        # index.html, which would make a typo'd endpoint look like it returned HTML.
+        # 未註冊的 API 路徑仍必須以 JSON 回 404，而不是被 index.html 吞掉——
+        # 否則打錯字的端點看起來會像是回傳了 HTML。
         if full_path == "api" or full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
 
         if full_path:
             candidate = (static_dir / full_path).resolve()
-            # `..` in the URL could otherwise escape the static dir and serve arbitrary
-            # files off the container filesystem.
+            # 否則 URL 裡的 `..` 可能逃出 static 目錄，把容器檔案系統上的任意檔案送出去。
             if candidate.is_relative_to(static_dir) and candidate.is_file():
                 return FileResponse(candidate)
 
-        # react-router-dom does its own routing, so any other path (/admin, /upload, ...)
-        # has to load the SPA shell instead of 404ing on a hard refresh.
+        # react-router-dom 會自己處理路由，因此其餘路徑（/admin、/upload 等）在使用者
+        # 強制重新整理時必須載入 SPA 外殼，而不是回 404。
         return FileResponse(index_html)
 
     return True

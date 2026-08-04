@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { Skeleton } from "./skeleton";
 
 describe("Skeleton", () => {
-  // Loading placeholders stand in for rows of real content; without aria-hidden a
-  // screen reader would read out a table's worth of meaningless boxes.
+  // 載入佔位是用來代替一列列真實內容的；少了 aria-hidden，螢幕閱讀器會把
+  // 整張表格份量的無意義方塊全部唸出來。
   it("stays out of the accessibility tree", () => {
     const { container } = render(<Skeleton className="h-4 w-24" />);
 

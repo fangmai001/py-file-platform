@@ -277,7 +277,7 @@ def test_files_are_grouped_by_folder(client, db_session):
 
     _upload(client, owner, filename="grouped.pdf")
     file_id = client.get("/api/files").json()
-    # grab the just-created file id to attach it to the folder
+    # 取出剛建立的 file id，好把它掛到 folder 底下
     grouped_file_id = next(f["id"] for group in file_id for f in group["files"] if f["filename"] == "grouped.pdf")
     client.patch(
         f"/api/files/{grouped_file_id}", headers=auth_headers(owner), json={"folder_id": folder.id}
@@ -302,7 +302,7 @@ def test_upload_rejects_file_over_size_limit(client, db_session, monkeypatch):
     )
     assert response.status_code == 413
     assert "1 MB" in response.json()["detail"]
-    # the partially written file must not be left behind on disk
+    # 只寫了一半的檔案不能留在磁碟上
     assert list((Path(settings.upload_dir) / str(user.id)).glob("*")) == []
 
 

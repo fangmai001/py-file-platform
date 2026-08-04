@@ -108,8 +108,8 @@ describe("NotificationBell", () => {
     await loginAsUser();
     const firstPage = Array.from({ length: 50 }, (_, i) => makeNotification(i + 1));
     const secondPage = [makeNotification(51)];
-    // Two responses of firstPage: one for the mount fetch, one for the refetch that
-    // NotificationBell triggers when the dialog is opened; the third is "load more".
+    // firstPage 會有兩次回應：一次是掛載時的抓取，一次是 NotificationBell 在對話框
+    // 被開啟時觸發的重新抓取；第三次則是「載入更多」。
     vi.mocked(listNotifications)
       .mockResolvedValueOnce(firstPage)
       .mockResolvedValueOnce(firstPage)

@@ -31,9 +31,9 @@ describe("VisibilityToggle", () => {
   });
 
   it("drops the ghost variant's grey hover in both themes", () => {
-    // tailwind-merge keeps `hover:` and `dark:hover:` in separate groups, and the dark rule
-    // outranks the light one — so a public pill would grey out on hover if either override
-    // went missing, reading as though it had already flipped to private.
+    // tailwind-merge 把 `hover:` 與 `dark:hover:` 歸在不同群組，而深色那條規則的優先度
+    // 高於淺色——因此只要少了任何一邊的覆寫，公開狀態的膠囊在滑鼠移過時就會轉灰，
+    // 看起來像是已經翻成私密了。
     render(<VisibilityToggle isPublic onToggle={() => {}} />);
     const toggle = screen.getByRole("button");
 

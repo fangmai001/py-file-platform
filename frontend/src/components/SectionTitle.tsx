@@ -16,11 +16,11 @@ const sectionTitleVariants = cva("font-heading text-foreground", {
 });
 
 /**
- * Card and section headings. Two things matter here:
- * - it renders a real heading element, so getByRole("heading") keeps working
- *   (shadcn's CardTitle renders a <div>);
- * - it carries data-slot="card-title", so CardHeader's grid logic still lays out
- *   correctly when a CardAction sits alongside it.
+ * 卡片與區塊標題。這裡有兩件事很重要：
+ * - 它渲染的是真正的標題元素，因此 getByRole("heading") 仍然有效
+ *   （shadcn 的 CardTitle 渲染出來的是 <div>）；
+ * - 它帶著 data-slot="card-title"，因此當 CardAction 與它並排時，
+ *   CardHeader 的 grid 邏輯仍能正確排版。
  */
 function SectionTitle({
   as: Comp = "h2",

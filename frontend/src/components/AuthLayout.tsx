@@ -2,9 +2,8 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 
 /**
- * Shared shell for the login / forgot-password / reset-password screens, which each
- * hand-rolled the same centred card. The <h1> is styled explicitly here so it doesn't
- * pick up stray element-level margins.
+ * 登入／忘記密碼／重設密碼三個畫面共用的外殼，它們原本各自手刻了同一張置中卡片。
+ * 這裡的 <h1> 明確指定樣式，免得沾到多餘的元素層級 margin。
  */
 function AuthLayout({
   title,

@@ -6,9 +6,9 @@ const DEFAULT_BROWSER_TITLE = "py-file-platform";
 const DEFAULT_HERO_TITLE = "公開檔案牆";
 const DEFAULT_HERO_SUBTITLE =
   "瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。";
-// Falls back to the icon bundled in frontend/public when no favicon has been uploaded.
+// 尚未上傳 favicon 時，退回使用打包在 frontend/public 裡的圖示。
 const DEFAULT_FAVICON_HREF = "/favicon.svg";
-// Only used until the real, admin-configured limit arrives; mirrors the MAX_UPLOAD_SIZE_MB default.
+// 只在管理員設定的真正上限抵達之前使用；與 MAX_UPLOAD_SIZE_MB 的預設值一致。
 const DEFAULT_MAX_UPLOAD_SIZE_MB = 50;
 
 interface SiteSettingsContextValue {
@@ -44,7 +44,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       setHeroImageUrl(siteAssetUrl(settings.hero_image_url));
       setMaxUploadSizeMb(settings.max_upload_size_mb || DEFAULT_MAX_UPLOAD_SIZE_MB);
     } catch {
-      // keep the fallback defaults if the request fails
+      // 請求失敗時就沿用備援的預設值
     }
   }
 
@@ -56,8 +56,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     document.title = browserTitle;
   }, [browserTitle]);
 
-  // Same imperative approach as the title above: index.html ships a static <link rel="icon">
-  // and we repoint it once the admin-configured favicon has loaded.
+  // 與上面的標題採同樣的命令式做法：index.html 內建一個靜態的 <link rel="icon">，
+  // 等管理員設定的 favicon 載入後，我們再把它指向新的位置。
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (link) {

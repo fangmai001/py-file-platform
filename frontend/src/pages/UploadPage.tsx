@@ -36,8 +36,8 @@ function UploadPage() {
       .catch(() => setFolders([]));
   }, []);
 
-  // Checked here rather than only on submit so an oversized file is rejected the moment it's
-  // picked, instead of after the browser has finished uploading it just to receive a 413.
+  // 在這裡就檢查而不是只在送出時檢查，讓過大的檔案在選取當下就被拒絕，
+  // 而不是等瀏覽器把它整個上傳完，才換來一個 413。
   function handleFileChange(file: File | null) {
     if (file && file.size > maxUploadSizeMb * 1024 * 1024) {
       setSelectedFile(null);
@@ -79,11 +79,10 @@ function UploadPage() {
         <CardContent className="flex flex-col gap-4 text-left">
           <form className="flex max-w-md flex-col gap-4" onSubmit={handleUpload}>
             <div className="flex flex-col gap-2">
-              {/* The file input stays inside its <label> and only sr-only-hidden, so the
-                  label association (and getByLabelText) keeps working while the label
-                  itself becomes the drop target. Keep the label's text content to this
-                  single line, limit included - extra text nodes would change its
-                  accessible name. */}
+              {/* file input 留在它的 <label> 裡面、只用 sr-only 隱藏，這樣 label 的關聯
+                  （以及 getByLabelText）仍然有效，同時 label 本身就成為拖放目標。
+                  label 的文字內容請維持在這一行內、含上限說明——多出來的文字節點
+                  會改變它的 accessible name。 */}
               <Label
                 htmlFor="upload"
                 className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-muted/30 px-6 py-10 text-center font-normal transition-colors hover:border-primary/50 hover:bg-accent/40 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50"

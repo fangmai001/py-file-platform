@@ -26,7 +26,7 @@ export function updateSiteSettings(input: UpdateSiteSettingsInput): Promise<Site
   return patchJSON<SiteSettings>("/site-settings", input);
 }
 
-// The API returns a relative path; callers render it, so hand back a browser-usable URL.
+// API 回傳的是相對路徑；呼叫端會直接拿去渲染，所以這裡要交回一個瀏覽器可用的 URL。
 export function siteAssetUrl(path: string | null): string | null {
   return path ? assetUrl(path) : null;
 }

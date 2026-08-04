@@ -35,8 +35,8 @@ function AboutPage() {
           <SectionTitle>已實作功能</SectionTitle>
         </CardHeader>
         <CardContent>
-          {/* Tailwind's preflight strips list markers and padding, so this list used to
-              render as flush grey lines. Icons suit a feature roster better than bullets. */}
+          {/* Tailwind 的 preflight 會把 list marker 與內距清掉，所以這份清單以前會渲染成
+              一排貼齊的灰色文字。功能列表用圖示也比項目符號更合適。 */}
           <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
             {IMPLEMENTED_FEATURES.map((feature) => (
               <li key={feature} className="flex gap-2.5">

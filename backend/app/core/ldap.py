@@ -10,12 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 def authenticate_ldap(username: str, password: str, config: LdapSetting) -> bool:
-    """Bind-authenticate a username/password pair against the configured LDAP server.
+    """以 bind 的方式，對設定好的 LDAP 伺服器驗證一組 username／password。
 
-    Two binds are needed: first the service account (config.bind_dn/bind_password)
-    searches base_dn for the user's DN, then a second connection binds as that DN with
-    the caller-supplied password - that second bind succeeding is what proves the
-    password is correct. The password is never stored, only used for this one-off bind.
+    需要兩次 bind：先由服務帳號（config.bind_dn／bind_password）在 base_dn 底下搜出使用者的 DN，
+    接著另開一條連線、以該 DN 搭配呼叫端提供的密碼再 bind 一次——第二次 bind 成功，
+    就是密碼正確的證明。密碼從不被儲存，只用於這一次性的 bind。
     """
     if not password:
         return False

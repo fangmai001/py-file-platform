@@ -2,14 +2,12 @@ import { badgeVariants } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 
 /**
- * Public/private switch for a draft row. Wears the same success/neutral colours as the
- * read-only `Badge` in the users and files tables, so one visibility vocabulary reads
- * across every admin table — but stays a real button, since this one is editable.
+ * 草稿列的公開／私密切換開關。採用與使用者、檔案表格中唯讀 `Badge` 相同的 success／中性色，
+ * 讓每一張管理表格共用同一套可見性語彙——但它維持為真正的 button，因為這一個是可編輯的。
  *
- * `hover:` classes sit in a different tailwind-merge group than the badge's base colours,
- * so the ghost variant's grey hover has to be overridden explicitly — in both themes, since
- * `dark:hover:` is its own group again and outranks a bare `hover:`. Without those overrides,
- * hovering "公開" looks like it already flipped to private.
+ * `hover:` class 與 badge 的基礎顏色分屬不同的 tailwind-merge 群組，因此 ghost 變體的灰色
+ * hover 必須明確覆寫掉——而且兩種主題都要，因為 `dark:hover:` 又自成一組，優先度高於單純的
+ * `hover:`。少了這些覆寫，滑鼠移過「公開」時看起來會像是已經翻成私密了。
  */
 function VisibilityToggle({ isPublic, onToggle }: { isPublic: boolean; onToggle: () => void }) {
   return (

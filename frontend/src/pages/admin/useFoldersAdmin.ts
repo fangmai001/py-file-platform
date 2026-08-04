@@ -15,8 +15,8 @@ function toFolderDrafts(items: FolderItem[]): Record<number, FolderDraft> {
 }
 
 /**
- * Whether a row differs from what the server holds. Normalised exactly like the payload in
- * handleSaveFolder, so the 儲存 button never enables for an edit that would send nothing.
+ * 判斷某一列是否與伺服器上的資料不同。正規化方式與 handleSaveFolder 的 payload 完全一致，
+ * 因此「儲存」按鈕絕不會為了一次什麼都不會送出的編輯而啟用。
  */
 export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined): boolean {
   if (!draft) {
@@ -26,8 +26,8 @@ export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined
 }
 
 /**
- * State and actions behind the 卡片 tab. The folder list is also read by the 連結卡片 tab's
- * folder picker, and deleting a folder re-lists files, so this lives at page level.
+ * 卡片分頁背後的狀態與操作。folder 列表同時也被連結卡片分頁的 folder 選單讀取，
+ * 而且刪除 folder 之後要重新列出檔案，所以這個 hook 放在頁面層級。
  */
 export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<void> }) {
   const confirm = useConfirm();

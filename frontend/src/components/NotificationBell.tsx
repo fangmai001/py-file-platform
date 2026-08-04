@@ -25,7 +25,7 @@ function NotificationBell() {
       setNotifications(page);
       setHasMore(page.length === PAGE_SIZE);
     } catch {
-      // Best-effort: a failed notification fetch shouldn't block the rest of the page.
+      // 盡力而為：抓通知失敗不該擋住頁面其餘部分。
     }
   }
 
@@ -52,7 +52,7 @@ function NotificationBell() {
       const updated = await markNotificationRead(notification.id);
       setNotifications((current) => current?.map((n) => (n.id === updated.id ? updated : n)) ?? current);
     } catch {
-      // Best-effort: leave the notification as unread in the UI if the request fails.
+      // 盡力而為：請求失敗時，UI 上就讓這則通知維持未讀。
     }
   }
 
@@ -63,7 +63,7 @@ function NotificationBell() {
       setNotifications((current) => (current ?? []).concat(page));
       setHasMore(page.length === PAGE_SIZE);
     } catch {
-      // Best-effort: leave the existing list as-is if loading the next page fails.
+      // 盡力而為：載入下一頁失敗時，就讓現有清單維持原樣。
     } finally {
       setIsLoadingMore(false);
     }
@@ -75,7 +75,7 @@ function NotificationBell() {
       await markAllNotificationsRead();
       setNotifications((current) => current?.map((n) => ({ ...n, is_read: true })) ?? current);
     } catch {
-      // Best-effort: leave notifications as-is in the UI if the request fails.
+      // 盡力而為：請求失敗時，UI 上就讓通知維持原樣。
     } finally {
       setIsMarkingAllRead(false);
     }
@@ -90,15 +90,15 @@ function NotificationBell() {
       >
         <Bell />
         {unreadCount > 0 && (
-          // ring-2 ring-background punches the badge out of the bell glyph behind it.
+          // ring-2 ring-background 讓這個標記從後方的鈴鐺字型中「挖」出來、與之分離。
           <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-semibold text-destructive-foreground ring-2 ring-background">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        {/* pr-8 keeps 全部標記已讀 clear of DialogContent's absolutely positioned close button,
-            which sits at top-2 right-2 and would otherwise overlap the end of the label. */}
+        {/* pr-8 讓「全部標記已讀」避開 DialogContent 那顆絕對定位的關閉按鈕；
+            它位在 top-2 right-2，否則會蓋到標籤的尾端。 */}
         <DialogHeader className="flex-row items-center justify-between pr-8">
           <DialogTitle>通知</DialogTitle>
           {unreadCount > 0 && (

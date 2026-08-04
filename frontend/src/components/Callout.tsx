@@ -26,8 +26,8 @@ const CALLOUT_ICON = {
 } as const;
 
 /**
- * Inline status message. Replaces the bare <p className="text-sm text-destructive">
- * that used to be repeated across every form and admin tab.
+ * 行內狀態訊息。用來取代過去在每一張表單與管理分頁裡重複出現的
+ * 裸 <p className="text-sm text-destructive">。
  */
 function Callout({
   variant = "destructive",

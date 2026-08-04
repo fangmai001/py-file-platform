@@ -28,8 +28,8 @@ def list_notifications(
     )
 
 
-# Declared before "/{notification_id}" so FastAPI doesn't try to parse "read-all" as
-# that route's int path param first.
+# 宣告在 "/{notification_id}" 之前，免得 FastAPI 先拿 "read-all" 去解析成那條路由的
+# int path param。
 @router.patch("/read-all", response_model=NotificationReadAllResponse)
 def mark_all_notifications_read(
     db: Session = Depends(get_db),
@@ -52,8 +52,8 @@ def update_notification(
     current_user: User = Depends(get_current_user),
 ) -> Notification:
     notification = db.get(Notification, notification_id)
-    # 404 (not 403) for someone else's notification, same reasoning as the login error
-    # message: don't let the response confirm which notification IDs belong to others.
+    # 別人的通知一律回 404（而非 403），理由與登入錯誤訊息相同：
+    # 不要讓回應洩漏哪些 notification ID 屬於其他人。
     if notification is None or notification.recipient_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="通知不存在")
 

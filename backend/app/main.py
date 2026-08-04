@@ -24,17 +24,16 @@ async def lifespan(app: FastAPI):
         warn_if_smtp_env_config_ignored(db)
     finally:
         db.close()
-    # No db needed - purely a check on what the deployer put in .env.
+    # 不需要 db——純粹檢查部署者在 .env 裡填了什麼。
     warn_if_frontend_base_url_is_dev_default()
     yield
 
 
 app = FastAPI(title="py-file-platform", lifespan=lifespan)
 
-# The frontend and backend run as separate origins in dev (Vite on :5173, uvicorn on
-# :8000) and across docker-compose services, so the browser needs CORS headers to call
-# the API at all. Auth is Bearer-token based (no cookies), so a wildcard origin here
-# doesn't expose CSRF risk the way it would for cookie-based sessions.
+# 開發環境（Vite 在 :5173、uvicorn 在 :8000）與跨 docker-compose 服務時，前後端是不同的 origin，
+# 因此瀏覽器需要 CORS header 才呼叫得到 API。驗證走的是 Bearer token（不用 cookie），
+# 所以這裡放行萬用 origin 並不會像 cookie-based session 那樣帶來 CSRF 風險。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,11 +41,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# There is no reverse proxy in production any more (see app/core/static.py), so
-# compressing the JS/CSS bundle and the JSON API responses is this app's job now.
-# compresslevel is lowered from starlette's default of 9 because file downloads go
-# through here too, and paying level-9 CPU to re-compress an already-compressed upload
-# (zip, pdf, images) is pure waste.
+# 正式環境已經沒有反向代理（見 app/core/static.py），所以壓縮 JS／CSS bundle 與 JSON API 回應
+# 現在是這支應用程式的責任。compresslevel 從 starlette 預設的 9 調低，因為檔案下載也會經過這裡，
+# 而花 level-9 的 CPU 去重新壓縮一個本來就已壓縮過的上傳檔（zip、pdf、圖片）純屬浪費。
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)
 
 app.include_router(router)
@@ -54,11 +51,10 @@ app.include_router(router)
 
 @app.get("/health")
 def health():
-    # The version comes from the image build (see the repo-root Dockerfile), so this is
-    # how an offline host confirms which release `up -d` actually started.
+    # 版本來自 image 建置時（見 repo 根目錄的 Dockerfile），因此這就是離線主機用來確認
+    # `up -d` 實際啟動了哪個 release 的方式。
     return {"status": "ok", "version": settings.app_build_version}
 
 
-# Registered last on purpose: the SPA catch-all matches every path, so it has to sit
-# behind the API routes and /health.
+# 刻意放在最後註冊：SPA 的 catch-all 會匹配所有路徑，因此必須排在 API 路由與 /health 之後。
 mount_frontend(app, Path(settings.static_dir))
