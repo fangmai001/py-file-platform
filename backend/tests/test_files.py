@@ -7,12 +7,18 @@ from tests.conftest import auth_headers, make_user
 PDF_BYTES = b"%PDF-1.4\nfake content\n%%EOF"
 
 
-def _upload(client, user, filename="report.pdf", is_public=True):
+def _upload(client, user, filename="report.pdf", is_public=True, **form_fields):
+    """form_fields covers the optional metadata (folder_id, display_name, announced_at) the
+    upload form can carry; passing is_public=None omits it entirely, the way the API sees a
+    client that didn't send the field at all."""
+    data = {k: str(v) for k, v in form_fields.items()}
+    if is_public is not None:
+        data["is_public"] = str(is_public).lower()
     return client.post(
         "/api/files/upload",
         headers=auth_headers(user),
         files={"upload": (filename, PDF_BYTES, "application/pdf")},
-        data={"is_public": str(is_public).lower()},
+        data=data,
     )
 
 
