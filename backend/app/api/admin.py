@@ -11,6 +11,9 @@ from app.schemas.user import AdminPasswordResetResponse, UserCreate, UserRespons
 
 router = APIRouter()
 
+# Shown in place of the username for audit entries whose actor has since been deleted.
+DELETED_ACTOR_USERNAME = "（已刪除的使用者）"
+
 
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
@@ -139,9 +142,12 @@ def list_audit_logs(
     skip = max(skip, 0)
     limit = min(max(limit, 1), 200)
 
+    # outerjoin, not join: audit_logs.actor_id is SET NULL when the account is deleted (see
+    # app/models/audit_log.py), and an inner join would drop exactly those rows - throwing
+    # away the record the SET NULL was there to preserve.
     rows = (
         db.query(AuditLog, User.username)
-        .join(User, AuditLog.actor_id == User.id)
+        .outerjoin(User, AuditLog.actor_id == User.id)
         .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         .offset(skip)
         .limit(limit)
@@ -152,7 +158,7 @@ def list_audit_logs(
         AuditLogResponse(
             id=log.id,
             actor_id=log.actor_id,
-            actor_username=actor_username,
+            actor_username=actor_username or DELETED_ACTOR_USERNAME,
             action=log.action,
             target=log.target,
             detail=log.detail,
