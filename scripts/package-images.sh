@@ -53,10 +53,30 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-APP_VERSION="$(env_get APP_VERSION latest)"
+APP_VERSION="$(env_get APP_VERSION)"
 OUTPUT_DIR="$(resolve_path "$(env_get PACKAGE_OUTPUT_DIR ./release)")"
-# Exported so compose interpolates the same tag we stamp into the tar filename,
-# even when .env has no APP_VERSION line.
+
+# No fallback on purpose. The version lands in the tar filename, the image tag on the
+# offline host and the tag compose resolves - so an unset or shared value means the next
+# release overwrites the previous tar, re-points the tag, and leaves nothing to roll back
+# to. Better to refuse here than to hand over a delivery that can only go forwards.
+if [ -z "$APP_VERSION" ]; then
+  log ERROR "APP_VERSION is not set in $ENV_FILE - set it to the release version (e.g. v0.1.0)"
+  exit 1
+fi
+if [ "$APP_VERSION" = "latest" ]; then
+  log ERROR "APP_VERSION=latest is not allowed - every release would overwrite the previous tar and image tag, leaving no version to roll back to. Set a real version (e.g. v0.1.0)."
+  exit 1
+fi
+# Docker's tag charset, which is also what keeps the tar filename sane - a "/" or a space
+# would silently produce a broken path below.
+if ! printf '%s' "$APP_VERSION" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9._-]*$'; then
+  log ERROR "APP_VERSION='$APP_VERSION' is not a valid image tag - use only letters, digits, '.', '_' and '-' (e.g. v0.1.0)"
+  exit 1
+fi
+
+# Exported so compose interpolates the same tag we stamp into the tar filename and pass
+# as a build arg.
 export APP_VERSION
 
 APP_IMAGE="py-file-platform-app:${APP_VERSION}"

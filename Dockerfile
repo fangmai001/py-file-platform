@@ -22,4 +22,16 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 COPY --from=frontend-build /build/dist ./static
+
+# Stamped last so bumping the version doesn't invalidate the pip/npm layers above.
+#
+# The env var is deliberately *not* called APP_VERSION: docker-compose.prod.yml gives the
+# app `env_file: .env`, and env_file values override an image's ENV - so a same-named
+# variable would make GET /health echo back whatever the deployer typed in .env instead
+# of what was actually built. Under a different name the build stamp can't be shadowed,
+# which is the whole point of being able to verify the running version over HTTP.
+ARG APP_VERSION=dev
+ENV APP_BUILD_VERSION=${APP_VERSION}
+LABEL org.opencontainers.image.version=${APP_VERSION}
+
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

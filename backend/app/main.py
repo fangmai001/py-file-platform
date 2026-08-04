@@ -51,7 +51,9 @@ app.include_router(router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # The version comes from the image build (see the repo-root Dockerfile), so this is
+    # how an offline host confirms which release `up -d` actually started.
+    return {"status": "ok", "version": settings.app_build_version}
 
 
 # Registered last on purpose: the SPA catch-all matches every path, so it has to sit
