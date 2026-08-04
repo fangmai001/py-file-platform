@@ -23,9 +23,8 @@ def _to_response(settings_row: SmtpSetting) -> SmtpSettingResponse:
     )
 
 
-# SMTP config includes infra details and credentials that guests/regular users
-# shouldn't see, so unlike /api/site-settings this endpoint is admin-only for GET too
-# (same reasoning as /api/ldap-settings).
+# SMTP 設定含有訪客與一般使用者不該看到的基礎架構細節與憑證，因此與 /api/site-settings
+# 不同，這個端點連 GET 也僅限管理員（與 /api/ldap-settings 是同樣的理由）。
 @router.get("", response_model=SmtpSettingResponse)
 def read_smtp_settings(db: Session = Depends(get_db), admin: User = Depends(require_admin)) -> SmtpSettingResponse:
     return _to_response(get_smtp_settings(db))
@@ -45,8 +44,8 @@ def update_smtp_settings(
     for field in ("enabled", "host", "port", "username", "from_address", "use_tls"):
         if field in fields_set:
             value = getattr(payload, field)
-            # port/from_address are required non-null columns; an explicit null in the
-            # request is treated as "leave unchanged" rather than a constraint violation.
+            # port 與 from_address 是必填的 non-null 欄位；請求中明確傳入 null 時
+            # 視為「維持原值」，而不是造成 constraint violation。
             if field in ("port", "from_address") and value is None:
                 continue
             if value != getattr(settings_row, field):

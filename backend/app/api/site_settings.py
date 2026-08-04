@@ -18,8 +18,8 @@ router = APIRouter()
 
 _SETTINGS_ROW_ID = 1
 
-# Branding images live in their own directory rather than alongside user uploads, because
-# unlike uploaded documents they are served publicly (a favicon has to load before login).
+# 品牌圖片放在專屬目錄而不是與使用者上傳的檔案混在一起，因為它們和上傳的文件不同，
+# 是公開提供的（favicon 必須在登入前就能載入）。
 _BRANDING_DIR_NAME = "branding"
 
 _FAVICON_MAX_BYTES = 512 * 1024
@@ -35,8 +35,8 @@ _IMAGE_MEDIA_TYPES: dict[str, str] = {
     ".ico": "image/x-icon",
 }
 
-# Same renamed-extension defence as app/api/files.py, with the signatures for the image
-# formats accepted here. SVG is plain text and has no magic bytes, so it gets its own check.
+# 與 app/api/files.py 相同的改副檔名防禦，只是換成這裡接受的圖片格式簽章。
+# SVG 是純文字、沒有 magic bytes，因此另外有自己的檢查。
 _IMAGE_MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".png": (b"\x89PNG\r\n\x1a\n",),
     ".jpg": (b"\xff\xd8\xff",),
@@ -45,8 +45,8 @@ _IMAGE_MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".ico": (b"\x00\x00\x01\x00",),
 }
 
-# Filenames are generated server-side as uuid4().hex + extension; validating against that
-# shape before touching the filesystem keeps "../" and friends out of the asset route.
+# 檔名一律由伺服器端以 uuid4().hex 加副檔名產生；在碰檔案系統之前先驗證是否符合這個形狀，
+# 就能把 "../" 之類的東西擋在 asset 路由之外。
 _ASSET_FILENAME_RE = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,4}$")
 
 
@@ -59,10 +59,9 @@ def _get_or_create_settings(db: Session) -> SiteSetting:
     if settings_row is None:
         settings_row = SiteSetting(id=_SETTINGS_ROW_ID)
         db.add(settings_row)
-    # Seed the upload limit from MAX_UPLOAD_SIZE_MB so .env-configured deployments keep
-    # their existing limit until an admin edits it, same lazy-seed idea as
-    # app/core/smtp_config.py. Backfilling rows created before this column existed here
-    # (rather than in the migration) keeps the env var as the single source of the default.
+    # 以 MAX_UPLOAD_SIZE_MB 填入上傳上限的初始值，讓靠 .env 設定的部署在管理員動手修改之前
+    # 都維持原有的上限，與 app/core/smtp_config.py 是同一套延遲填值的想法。把「這個欄位還不存在時
+    # 建立的資料列」放在這裡回填（而不是在 migration 裡），可以讓環境變數維持為預設值的唯一來源。
     if settings_row.max_upload_size_mb is None:
         settings_row.max_upload_size_mb = settings.max_upload_size_mb
     db.flush()
@@ -150,8 +149,8 @@ def update_site_settings(
                 changes.append(f"{field} updated")
                 setattr(settings_row, field, value)
 
-    # An explicit null clears the override; fall back to the env default so both the
-    # response and every later upload still have a concrete number to work with.
+    # 明確傳入 null 代表清掉覆寫值；此時退回環境變數的預設，讓這次的回應與之後每一次上傳
+    # 都還是有一個具體數字可用。
     if settings_row.max_upload_size_mb is None:
         settings_row.max_upload_size_mb = settings.max_upload_size_mb
 
@@ -165,7 +164,7 @@ def update_site_settings(
 
 @router.get("/assets/{filename}")
 def get_branding_asset(filename: str) -> FileResponse:
-    """Public: the favicon and hero image must load for logged-out visitors too."""
+    """公開路由：favicon 與 hero 圖片對未登入的訪客也必須載得到。"""
     if not _ASSET_FILENAME_RE.match(filename):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="圖片不存在")
 
@@ -178,8 +177,8 @@ def get_branding_asset(filename: str) -> FileResponse:
         media_type=_IMAGE_MEDIA_TYPES.get(disk_path.suffix.lower(), "application/octet-stream"),
         headers={
             "X-Content-Type-Options": "nosniff",
-            # An uploaded SVG is markup served from our own origin, so lock it down: even a
-            # rogue admin's file can't run script or phone home from here.
+            # 上傳的 SVG 是由我方 origin 提供的 markup，所以要鎖死：即使是心懷不軌的管理員
+            # 放上來的檔案，也無法從這裡執行 script 或對外回傳資料。
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
         },
     )

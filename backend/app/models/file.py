@@ -10,9 +10,9 @@ class File(Base):
     __tablename__ = "files"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Deliberately left without ondelete=, unlike every other FK to users.id: deleting an
-    # account must not silently take its uploads (and the bytes on disk) with it, so
-    # app/api/admin.py delete_user refuses with a 409 while any file is still owned here.
+    # 與其他所有指向 users.id 的 FK 不同，這裡刻意不加 ondelete=：刪除帳號不該連帶把它的上傳檔
+    # （以及磁碟上的位元組）一起無聲帶走，因此只要還有檔案掛在這個擁有者底下，
+    # app/api/admin.py 的 delete_user 就會以 409 拒絕。
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

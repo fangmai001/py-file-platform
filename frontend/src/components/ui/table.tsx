@@ -81,8 +81,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        // No blanket whitespace-nowrap here: it used to push the admin tables past
-        // 2000px wide. Cells that genuinely need it (dates, IDs, action clusters) opt in.
+        // 這裡不一律套用 whitespace-nowrap：它以前會把管理後台的表格撐到超過 2000px 寬。
+        // 真正需要的儲存格（日期、ID、操作按鈕群）再自行加上。
         "px-3 py-2.5 align-middle [&:has([role=checkbox])]:pr-0",
         className
       )}

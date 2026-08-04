@@ -2,24 +2,24 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <!-- SiteSettingsContext repoints this at the admin-uploaded favicon once settings load, so
-         no type attribute here - the uploaded image is not necessarily an SVG. -->
+    <!-- 設定載入後，SiteSettingsContext 會把它改指向管理員上傳的 favicon，因此這裡不寫
+         type 屬性——上傳的圖片未必是 SVG。 -->
     <link rel="icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="內部文件共享平台" />
-    <!-- The light --canvas colour (the surface outside the content sheet), not --background.
-         Deliberately not keyed on prefers-color-scheme: a stored theme overrides the system
-         preference, so a media query would tint the mobile toolbar for the wrong theme. The
-         boot script below covers the dark first paint and ThemeContext takes over after that. -->
+    <!-- 淺色的 --canvas 顏色（內容 sheet 之外的表面），而不是 --background。
+         刻意不綁在 prefers-color-scheme 上：已儲存的主題會蓋過系統偏好，因此用 media query
+         反而會把行動裝置工具列染成錯誤主題的顏色。深色的第一次繪製由下方的 boot script 處理，
+         之後就交給 ThemeContext 接手。 -->
     <meta name="theme-color" content="#f4f5f8" />
-    <!-- SiteSettingsContext overwrites this from browser_title, whose default is this same
-         string - changing it here would desync the pre- and post-hydration titles. -->
+    <!-- SiteSettingsContext 會用 browser_title 覆寫它，而後者的預設值就是同一個字串——
+         只改這裡會讓 hydration 前後的標題不同步。 -->
     <title>py-file-platform</title>
-    <!-- Applies the theme class before first paint so dark-mode users don't get a white flash.
-         Must mirror getInitialTheme() in src/context/ThemeContext.tsx exactly - same "theme"
-         key, same "stored value wins, else prefers-color-scheme" precedence - or the theme
-         would flip once React hydrates. -->
+    <!-- 在第一次繪製前套用主題 class，讓深色模式的使用者不會看到一閃而過的白畫面。
+         必須與 src/context/ThemeContext.tsx 的 getInitialTheme() 完全一致——同一個 "theme"
+         key、同樣「已儲存的值優先，否則看 prefers-color-scheme」的優先順序——否則 React
+         hydrate 之後主題就會翻掉。 -->
     <script>
       (function () {
         try {
@@ -33,11 +33,11 @@
           document.documentElement.style.colorScheme = dark ? "dark" : "light";
           if (dark) {
             var meta = document.querySelector('meta[name="theme-color"]');
-            // The dark --canvas; ThemeContext re-reads it from the stylesheet once mounted.
+            // 深色的 --canvas；ThemeContext 掛載後會從 stylesheet 重新讀一次。
             if (meta) meta.content = "#1c1d21";
           }
         } catch (e) {
-          /* localStorage unavailable (private mode); fall back to the light default */
+          /* localStorage 無法使用（無痕模式）；退回淺色的預設值 */
         }
       })();
     </script>

@@ -7,13 +7,13 @@ from app.core.database import Base
 
 
 class Highlight(Base):
-    """A feature highlight card shown on the home page below the hero section."""
+    """首頁 hero 區塊下方顯示的特色卡片。"""
 
     __tablename__ = "highlights"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # kebab-case key resolved to a lucide icon by frontend/src/lib/highlight-icons.ts;
-    # allowed values are validated by HighlightIconKey in app/schemas/highlight.py.
+    # kebab-case 的 key，由 frontend/src/lib/highlight-icons.ts 對應到 lucide 圖示；
+    # 允許的值由 app/schemas/highlight.py 中的 HighlightIconKey 驗證。
     icon: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -273,7 +273,7 @@ function HomePage() {
         </div>
 
         {stats && (
-          // gap-px over bg-border gives hairline dividers between the tiles for free.
+          // 在 bg-border 之上用 gap-px，就能不費力地在磚塊之間做出髮絲般的分隔線。
           <dl className="mt-2 grid w-full max-w-md grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border">
             <div className="flex flex-col items-center gap-1 bg-card px-4 py-4">
               <dt className="text-xs text-muted-foreground">可瀏覽檔案</dt>

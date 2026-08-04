@@ -18,9 +18,9 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-# The four cards that used to be hardcoded in frontend/src/pages/HomePage.tsx, seeded so
-# existing sites look unchanged after this migration. sort_order is spaced by 10 so new
-# cards can be inserted between them without renumbering.
+# 原本寫死在 frontend/src/pages/HomePage.tsx 的那四張卡片，在這裡塞入資料，
+# 讓既有站台在這次 migration 之後看起來毫無變化。sort_order 以 10 為間隔，
+# 之後要在它們之間插入新卡片時就不必重新編號。
 SEED_HIGHLIGHTS = [
     {
         'icon': 'shield-check',
@@ -64,7 +64,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    # created_at is intentionally omitted so the server default applies.
+    # 刻意省略 created_at，好讓 server default 生效。
     op.bulk_insert(highlights, SEED_HIGHLIGHTS)
 
 

@@ -12,21 +12,21 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 /**
- * Points <meta name="theme-color"> at the active theme's --canvas. Read back from the
- * computed style instead of hardcoded here so it cannot drift from index.css; index.html
- * carries literal values for the same two colours, but only to cover the first paint.
+ * 把 <meta name="theme-color"> 指向目前主題的 --canvas。這裡是從 computed style 讀回來，
+ * 而不是寫死，如此才不會與 index.css 脫節；index.html 對同樣這兩個顏色帶了字面值，
+ * 但那只是為了涵蓋第一次繪製。
  */
 function syncThemeColor() {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (!meta) {
     return;
   }
-  // :root sets `background: var(--canvas)`, so this is the canvas colour as the engine
-  // serialises it - rgb() for sRGB colours, oklch() for these tokens in current Chromium.
-  // Either way the browser that produced the string is the one that parses it back.
+  // :root 設定了 `background: var(--canvas)`，所以這就是引擎序列化後的 canvas 顏色——
+  // sRGB 顏色會是 rgb()，而在目前的 Chromium 上這些 token 會是 oklch()。
+  // 不論哪一種，產生這個字串的瀏覽器就是後來把它解析回去的那一個。
   const canvas = getComputedStyle(document.documentElement).backgroundColor;
-  // Without the stylesheet (jsdom) there is no usable colour - keep index.html's value
-  // rather than writing a transparent one.
+  // 沒有 stylesheet 時（jsdom）拿不到可用的顏色——此時保留 index.html 的值，
+  // 而不是寫入一個透明色。
   if (canvas && canvas !== "transparent" && canvas !== "rgba(0, 0, 0, 0)") {
     meta.content = canvas;
   }
@@ -48,10 +48,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
-    // The boot script in index.html sets this inline style, which outranks the
-    // `color-scheme: light dark` in index.css - so toggling the class alone would leave
-    // scrollbars, native <select>s and autofill rendering in the previous theme until
-    // the next full reload.
+    // index.html 的 boot script 會設定這個 inline style，它的優先度高於 index.css 裡的
+    // `color-scheme: light dark`——因此只切換 class 的話，捲軸、原生 <select> 與自動填入
+    // 會一直維持前一個主題的外觀，直到下一次完整重新載入為止。
     document.documentElement.style.colorScheme = theme;
     syncThemeColor();
     localStorage.setItem(STORAGE_KEY, theme);

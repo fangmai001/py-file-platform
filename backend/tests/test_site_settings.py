@@ -106,7 +106,7 @@ def test_admin_uploads_favicon_and_guest_can_fetch_it(client, db_session):
     favicon_url = response.json()["favicon_url"]
     assert favicon_url.startswith("/api/site-settings/assets/")
 
-    # The raw filename stays server-side - clients only ever see the URL.
+    # 原始檔名一律留在伺服器端——客戶端只看得到 URL。
     assert "favicon_filename" not in response.json()
 
     asset = client.get(favicon_url)

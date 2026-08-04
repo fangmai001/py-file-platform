@@ -6,8 +6,8 @@ class SmtpSettingUpdate(BaseModel):
     host: str | None = None
     port: int | None = None
     username: str | None = None
-    # Only updated when explicitly present in the request body (see model_fields_set in
-    # app/api/smtp_settings.py) so omitting it keeps the currently stored password.
+    # 只有在 request body 中明確出現時才會更新（見 app/api/smtp_settings.py 的
+    # model_fields_set），因此省略它就代表沿用目前存著的密碼。
     password: str | None = None
     from_address: str | None = None
     use_tls: bool | None = None
@@ -20,7 +20,7 @@ class SmtpSettingResponse(BaseModel):
     host: str | None
     port: int
     username: str | None
-    # The password itself is never returned - only whether one is currently set.
+    # 密碼本身永遠不會回傳——只回傳目前是否已設定。
     password_set: bool
     from_address: str
     use_tls: bool

@@ -15,8 +15,8 @@ describe("SectionTitle", () => {
     expect(screen.getByRole("heading", { level: 3, name: "版本歷史" })).toBeInTheDocument();
   });
 
-  // CardHeader switches to a two-column grid based on data-slot, so dropping this
-  // attribute would silently break the layout of every card with a CardAction.
+  // CardHeader 是依 data-slot 切換成雙欄 grid 的，因此拿掉這個屬性會靜默地
+  // 破壞每一張帶有 CardAction 的卡片版面。
   it("keeps the card-title slot so CardHeader's grid still applies", () => {
     render(<SectionTitle>站台設定</SectionTitle>);
 

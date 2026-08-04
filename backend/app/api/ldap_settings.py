@@ -22,8 +22,8 @@ def _to_response(settings_row: LdapSetting) -> LdapSettingResponse:
     )
 
 
-# LDAP config includes infra details (server URI, bind DN) that guests/regular users
-# shouldn't see, so unlike /api/site-settings this endpoint is admin-only for GET too.
+# LDAP 設定含有訪客與一般使用者不該看到的基礎架構細節（server URI、bind DN），
+# 因此與 /api/site-settings 不同，這個端點連 GET 也僅限管理員。
 @router.get("", response_model=LdapSettingResponse)
 def read_ldap_settings(db: Session = Depends(get_db), admin: User = Depends(require_admin)) -> LdapSettingResponse:
     return _to_response(get_ldap_settings(db))
@@ -43,8 +43,8 @@ def update_ldap_settings(
     for field in ("enabled", "server_uri", "bind_dn", "base_dn", "user_search_filter"):
         if field in fields_set:
             value = getattr(payload, field)
-            # user_search_filter is a required non-null column; an explicit null in the
-            # request is treated as "leave unchanged" rather than a constraint violation.
+            # user_search_filter 是必填的 non-null 欄位；請求中明確傳入 null 時
+            # 視為「維持原值」，而不是造成 constraint violation。
             if field == "user_search_filter" and value is None:
                 continue
             if value != getattr(settings_row, field):

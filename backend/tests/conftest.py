@@ -17,9 +17,9 @@ _engine = create_engine(
 )
 
 
-# SQLite ignores foreign key constraints unless a connection turns them on explicitly.
-# Postgres (the real target DB) always enforces them, so this keeps FK-violation bugs
-# (e.g. deleting a parent row before its children) reproducible in tests too.
+# SQLite 除非連線明確開啟，否則會忽略 foreign key constraint。Postgres（真正的目標資料庫）
+# 一律強制執行，所以這樣設定能讓 FK 違規的 bug（例如在子資料列之前先刪掉父資料列）
+# 在測試中同樣重現得出來。
 @event.listens_for(_engine, "connect")
 def _enable_sqlite_fk(dbapi_connection, _):
     cursor = dbapi_connection.cursor()

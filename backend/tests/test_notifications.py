@@ -39,7 +39,7 @@ def test_new_version_upload_also_notifies(client, db_session):
     make_user(db_session, username="other")
 
     _upload(client, uploader, is_public=True)
-    _upload(client, uploader, is_public=True)  # same filename -> new version of same file
+    _upload(client, uploader, is_public=True)  # 同一個檔名 -> 同一個檔案的新版本
 
     assert db_session.query(Notification).count() == 2
 
@@ -67,9 +67,8 @@ def test_list_notifications_paginates_with_skip_and_limit(client, db_session):
     alice = make_user(db_session, username="alice")
     file_id = _upload(client, uploader, is_public=True).json()["id"]
 
-    # test_public_upload_notifies_other_active_users_not_uploader already covers the
-    # notification created by that one upload; add more directly so a full 60-row page
-    # doesn't require 60 real uploads.
+    # test_public_upload_notifies_other_active_users_not_uploader 已經涵蓋了那一次上傳
+    # 所產生的通知；這裡直接多塞一些，免得要湊滿 60 列的一頁就得真的上傳 60 次。
     for _ in range(59):
         db_session.add(Notification(recipient_id=alice.id, file_id=file_id, message="another upload"))
     db_session.commit()
@@ -201,7 +200,7 @@ def test_upload_skips_email_for_recipients_who_opted_out(client, db_session):
     mock_smtp_instance.send_message.assert_called_once()
     sent_message = mock_smtp_instance.send_message.call_args[0][0]
     assert sent_message["To"] == "opted-in@example.com"
-    # In-app notification is still written for the opted-out user regardless of email.
+    # 即使使用者選擇不收信，站內通知仍照樣寫入。
     assert db_session.query(Notification).count() == 2
 
 
@@ -214,7 +213,7 @@ def test_upload_skips_email_when_smtp_not_configured(client, db_session):
 
     assert response.status_code == 201
     mock_smtp_cls.assert_not_called()
-    # In-app notification still gets written even though email is skipped.
+    # 就算跳過了 email，站內通知還是會寫入。
     assert db_session.query(Notification).count() == 1
 
 

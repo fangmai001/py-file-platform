@@ -10,8 +10,8 @@ export class ApiError extends Error {
   }
 }
 
-// Assets referenced by <img src> / <link rel="icon"> need the backend's origin spelled out -
-// in dev the frontend is served from :5173 while the API lives on :8000.
+// 被 <img src> 與 <link rel="icon"> 引用的檔案必須把後端的 origin 明確寫出來——
+// 開發時前端由 :5173 提供，而 API 在 :8000。
 export function assetUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
@@ -49,7 +49,7 @@ async function fetchAuthed(path: string, options: RequestInit = {}): Promise<Res
       const body = (await response.json()) as { detail?: string };
       detail = body.detail ?? detail;
     } catch {
-      // response body wasn't JSON (or was empty) - fall back to statusText
+      // response body 不是 JSON（或是空的）——退回使用 statusText
     }
     throw new ApiError(response.status, detail);
   }
@@ -89,8 +89,8 @@ export function postForm<T>(path: string, form: FormData): Promise<T> {
   return request<T>(path, { method: "POST", body: form });
 }
 
-// Downloads go through fetch (not a plain <a href>) so the Authorization header can be
-// attached - private files 401 without it, and a real anchor navigation can't carry headers.
+// 下載走 fetch（而不是單純的 <a href>），才能帶上 Authorization header——私密檔案少了它會回 401，
+// 而真正的 anchor 導覽無法夾帶 header。
 export async function downloadToDisk(path: string, filename: string): Promise<void> {
   const response = await fetchAuthed(path);
   const blob = await response.blob();

@@ -5,12 +5,11 @@ from app.core.database import Base
 
 
 class SmtpSetting(Base):
-    """Single-row table (id is always 1) holding admin-editable SMTP config for
-    outgoing mail (password reset links, upload notifications).
+    """單列的資料表（id 永遠是 1），存放管理員可編輯的寄件用 SMTP 設定
+    （重設密碼連結、上傳通知）。
 
-    Seeded from the SMTP_* env vars the first time it's read (see
-    app/core/smtp_config.py) so existing .env-configured deployments keep working
-    until an admin edits the values via the admin UI.
+    第一次被讀取時以 SMTP_* 環境變數填入初始值（見 app/core/smtp_config.py），
+    讓既有那些靠 .env 設定的部署維持運作，直到管理員透過管理後台 UI 修改這些值為止。
     """
 
     __tablename__ = "smtp_settings"

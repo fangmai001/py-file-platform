@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { cn } from "../lib/utils";
 
 /**
- * The dashed-border placeholder shown when a list has no rows. Previously copy-pasted
- * inline in seven places (and rendered as a bare <p> in NotificationBell).
+ * 列表沒有任何資料時顯示的虛線框佔位區塊。以前在七個地方被行內複製貼上
+ * （在 NotificationBell 裡甚至只是個裸 <p>）。
  */
 function EmptyState({
   icon: Icon,

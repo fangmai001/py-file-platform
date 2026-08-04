@@ -21,14 +21,14 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
     user = db.query(User).filter(User.username == payload.username).first()
 
     if user is not None and user.auth_source == "local":
-        # Same error for "no such user" and "wrong password" so the response can't be
-        # used to enumerate accounts.
+        # 「查無此使用者」與「密碼錯誤」回傳同一種錯誤，這樣就無法靠回應內容
+        # 逐一列舉出有哪些帳號存在。
         if not user.is_active or not verify_password(payload.password, user.password_hash):
             raise _LOGIN_ERROR
     else:
-        # No local account yet, or the account is LDAP-sourced: fall back to an LDAP
-        # bind. A local account that's inactive but exists never reaches this branch
-        # (auth_source == "local" above), so it can't be revived via LDAP.
+        # 還沒有本機帳號，或帳號來源是 LDAP：退回去做一次 LDAP bind。已存在但被停用的
+        # 本機帳號永遠不會走到這個分支（上面的 auth_source == "local" 已攔下），
+        # 因此無法透過 LDAP 把它復活。
         if user is not None and not user.is_active:
             raise _LOGIN_ERROR
         ldap_config = get_ldap_settings(db)
@@ -36,9 +36,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
             raise _LOGIN_ERROR
 
         if user is None:
-            # First successful LDAP login: provision a local User row so existing
-            # File.owner_id / admin-management logic can key off the same User.id from
-            # here on, without storing the password itself.
+            # 第一次 LDAP 登入成功：建立一列本機 User，讓既有的 File.owner_id 與
+            # 管理員相關邏輯從此都能沿用同一個 User.id，而且完全不需要存下密碼本身。
             user = User(username=payload.username, password_hash=None, auth_source="ldap")
             db.add(user)
             db.commit()
@@ -94,9 +93,9 @@ def change_current_user_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="目前密碼錯誤")
 
     current_user.password_hash = hash_password(payload.new_password)
-    # Distinguished from the token-based "forgot password" flow
-    # (app/api/password_reset.py's "user.self_password_reset") since this one requires
-    # knowing the current password rather than an emailed token.
+    # 刻意與走 token 的「忘記密碼」流程（app/api/password_reset.py 的
+    # "user.self_password_reset"）區分開來，因為這條路徑要求的是知道目前密碼，
+    # 而不是一封信裡的 token。
     write_audit_log(db, actor_id=current_user.id, action="user.self_password_change", target=current_user.username)
     db.commit()
 

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Packs the two production images into separate tars for offline delivery, plus a
-# sha256 manifest. They stay separate on purpose: the app image changes every
-# release while postgres is pinned, so day-to-day updates only have to carry the
-# app tar (~70 MB) instead of both (~180 MB). The two images share no layers -
-# python:3.12-slim vs alpine - so merging them would save nothing anyway.
+# 把兩個正式環境 image 分別打包成獨立的 tar 供離線交付，另附一份 sha256 manifest。
+# 刻意維持分開：app image 每次發版都會變，而 postgres 是釘死版本的，因此日常更新只需要
+# 傳 app 的 tar（約 70 MB），而不是兩個都傳（約 180 MB）。這兩個 image 沒有共用任何 layer
+# ——python:3.12-slim 對上 alpine——所以合併起來本來也省不到空間。
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
@@ -34,38 +33,35 @@ require_env_file
 APP_VERSION="$(env_get APP_VERSION)"
 OUTPUT_DIR="$(resolve_path "$(env_get PACKAGE_OUTPUT_DIR ./release)")"
 
-# No fallback on purpose. The version lands in the tar filename, the image tag on the
-# offline host and the tag compose resolves - so an unset or shared value means the next
-# release overwrites the previous tar, re-points the tag, and leaves nothing to roll back
-# to. Better to refuse here than to hand over a delivery that can only go forwards.
+# 刻意不設 fallback。這個版號會出現在 tar 檔名、離線主機上的 image tag，以及 compose 解析出的
+# tag——因此一旦沒設定或多個版本共用同一個值，下一次發版就會覆蓋前一份 tar、把 tag 指向別處，
+# 讓人無版可回滾。與其交付一份只能往前、不能回頭的東西，不如在這裡就拒絕。
 if [ -z "$APP_VERSION" ]; then
   die "APP_VERSION is not set in $ENV_FILE - set it to the release version (e.g. v0.1.0)"
 fi
 if [ "$APP_VERSION" = "latest" ]; then
   die "APP_VERSION=latest is not allowed - every release would overwrite the previous tar and image tag, leaving no version to roll back to. Set a real version (e.g. v0.1.0)."
 fi
-# Docker's tag charset, which is also what keeps the tar filename sane - a "/" or a space
-# would silently produce a broken path below.
+# Docker 的 tag 允許字元集，同時也是讓 tar 檔名維持正常的關鍵——"/" 或空白會在下方
+# 靜默產生一條壞掉的路徑。
 if ! printf '%s' "$APP_VERSION" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9._-]*$'; then
   die "APP_VERSION='$APP_VERSION' is not a valid image tag - use only letters, digits, '.', '_' and '-' (e.g. v0.1.0)"
 fi
 
-# Exported so compose interpolates the same tag we stamp into the tar filename and pass
-# as a build arg.
+# 匯出成環境變數，好讓 compose 內插出來的 tag，與我們烙進 tar 檔名、以及當成 build arg
+# 傳進去的是同一個。
 export APP_VERSION
 
 APP_IMAGE="py-file-platform-app:${APP_VERSION}"
-# The db image is read back out of the compose file rather than written down a
-# second time here, so docker-compose.prod.yml stays the single source of truth
-# for which postgres version this deployment pins.
+# db image 是從 compose 檔讀回來的，而不是在這裡再寫一次，這樣 docker-compose.prod.yml
+# 就仍是「這個部署釘在哪個 postgres 版本」的唯一來源。
 DB_IMAGE="$(docker compose -f "$COMPOSE_FILE" config --images | grep -vFx "$APP_IMAGE" | head -n1)"
 if [ -z "$DB_IMAGE" ]; then
   die "Could not resolve the db image from $COMPOSE_FILE"
 fi
 
-# Both tars share the py-file-platform- prefix so a delivery sorts together in a
-# listing; the db one keeps the upstream image name so its provenance (and which
-# version to check CVEs against) survives the trip.
+# 兩份 tar 共用 py-file-platform- 前綴，好讓同一次交付在檔案列表中排在一起；db 那份保留
+# 上游的 image 名稱，讓它的來源（以及該對照哪個版本查 CVE）在傳輸過程中不會遺失。
 APP_TAR="$OUTPUT_DIR/py-file-platform-app-${APP_VERSION}.tar"
 DB_TAR="$OUTPUT_DIR/py-file-platform-db-$(echo "$DB_IMAGE" | tr ':/' '--').tar"
 
@@ -84,9 +80,8 @@ else
   docker save "$DB_IMAGE" -o "$DB_TAR"
 fi
 
-# The manifest covers only this delivery's tars, not everything left in the output
-# directory from earlier releases, so `sha256sum -c` on the offline host checks
-# exactly the set that was handed over.
+# manifest 只涵蓋這一次交付的 tar，而不是輸出目錄裡先前版本殘留的所有檔案，
+# 這樣離線主機上的 `sha256sum -c` 檢查到的就正好是交出去的那一組。
 MANIFEST_FILES=("$(basename "$APP_TAR")")
 if [ -f "$DB_TAR" ]; then
   MANIFEST_FILES+=("$(basename "$DB_TAR")")

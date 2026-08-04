@@ -12,10 +12,10 @@ _SETTINGS_ROW_ID = 1
 
 
 def get_smtp_settings(db: Session) -> SmtpSetting:
-    """Fetch the single-row SMTP config, seeding it from SMTP_* env vars on first use.
+    """取出單列的 SMTP 設定，第一次使用時以 SMTP_* 環境變數填入初始值。
 
-    This keeps existing .env-configured deployments working unchanged until an admin
-    edits the values via the admin UI (see app/api/smtp_settings.py).
+    這讓既有那些靠 .env 設定的部署維持原樣運作，直到管理員透過管理後台 UI
+    修改這些值為止（見 app/api/smtp_settings.py）。
     """
     settings_row = db.get(SmtpSetting, _SETTINGS_ROW_ID)
     if settings_row is None:
@@ -35,11 +35,11 @@ def get_smtp_settings(db: Session) -> SmtpSetting:
 
 
 def warn_if_smtp_env_config_ignored(db: Session) -> None:
-    """Log a warning if SMTP_HOST is set but silently ignored because the
-    smtp_settings DB row already exists and is authoritative (see get_smtp_settings).
+    """SMTP_HOST 雖然有設，卻因為 smtp_settings 資料列已存在且具最終權威而被靜默忽略時
+    （見 get_smtp_settings），記錄一則警告。
 
-    No-op if the row doesn't exist yet - that's the expected first-boot path where
-    get_smtp_settings will seed it from SMTP_* env vars on next read.
+    該資料列尚未存在時什麼都不做——那是預期中的首次啟動路徑，
+    get_smtp_settings 會在下一次讀取時以 SMTP_* 環境變數把它填好。
     """
     if db.get(SmtpSetting, _SETTINGS_ROW_ID) is None:
         return
@@ -54,8 +54,8 @@ def warn_if_smtp_env_config_ignored(db: Session) -> None:
 
 @dataclass(frozen=True)
 class SmtpConfig:
-    """Plain snapshot of SmtpSetting's fields, safe to hand to a BackgroundTask -
-    unlike the ORM row, it doesn't need a live session to read once the request ends."""
+    """SmtpSetting 各欄位的純資料快照，可以安全地交給 BackgroundTask——
+    與 ORM 資料列不同，請求結束後讀取它並不需要一個仍開著的 session。"""
 
     enabled: bool
     host: str | None

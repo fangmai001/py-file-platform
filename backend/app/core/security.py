@@ -9,8 +9,8 @@ from app.core.config import settings
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Excludes visually ambiguous characters (0/O, 1/l/I) since this is meant to be
-# read aloud or retyped by an admin handing it off to a user.
+# 排除視覺上容易混淆的字元（0／O、1／l／I），因為這組密碼是要由管理員唸給使用者聽，
+# 或是手動重新輸入的。
 _TEMP_PASSWORD_ALPHABET = "".join(c for c in string.ascii_letters + string.digits if c not in "0O1lI")
 _TEMP_PASSWORD_LENGTH = 12
 

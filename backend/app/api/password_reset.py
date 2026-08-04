@@ -17,9 +17,8 @@ from app.schemas.password_reset import PasswordResetConfirm, PasswordResetMessag
 
 router = APIRouter()
 
-# Same generic message regardless of whether the account/email was found, to avoid
-# leaking which accounts or emails exist (matches the anti-enumeration pattern in
-# app/api/auth.py's login endpoint).
+# 不論帳號／email 是否存在都回同一則籠統訊息，避免洩漏有哪些帳號或信箱存在
+# （與 app/api/auth.py 登入端點的防列舉做法一致）。
 _GENERIC_MESSAGE = "若帳號存在，重設密碼信件已寄出，請至信箱查收。"
 
 
@@ -38,10 +37,9 @@ def request_password_reset(
     if identifier:
         user = db.query(User).filter(or_(User.username == identifier, User.email == identifier)).first()
 
-    # Self-service reset only applies to local accounts with an email on file; LDAP
-    # accounts don't store a password here at all (see #21), and accounts without an
-    # email have no delivery address - both cases fall through silently to the same
-    # generic response below.
+    # 自助重設只適用於有登記 email 的本機帳號；LDAP 帳號在這裡根本不存密碼（見 #21），
+    # 沒有 email 的帳號則沒有寄送地址——這兩種情況都會靜默地落到下方同一則
+    # 籠統回應。
     if user is not None and user.is_active and user.email:
         raw_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_token_expire_minutes)
@@ -83,9 +81,8 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
     user.password_hash = hash_password(payload.new_password)
     reset_token.used_at = now
 
-    # Explicitly distinguished from an admin resetting someone else's password
-    # (logged as "user.update" with a "password reset" detail in app/api/admin.py) -
-    # here actor_id is the user themself.
+    # 刻意與管理員重設他人密碼的情況區分開來（那種在 app/api/admin.py 記為 "user.update"
+    # 並附帶 "password reset" 說明）——這裡的 actor_id 就是使用者本人。
     write_audit_log(db, actor_id=user.id, action="user.self_password_reset", target=user.username)
 
     db.commit()

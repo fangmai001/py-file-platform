@@ -189,8 +189,8 @@ describe("unknown routes", () => {
     vi.clearAllMocks();
   });
 
-  // Without the catch-all route these URLs rendered header and footer around an empty
-  // <main>, which reads as a broken page rather than a missing one.
+  // 少了 catch-all 路由時，這些網址會渲染出頁首、頁尾夾著一個空的 <main>，
+  // 看起來像是頁面壞掉，而不是頁面不存在。
   it("renders the not-found page for an unknown URL", async () => {
     render(
       <MemoryRouter initialEntries={["/no-such-page"]}>

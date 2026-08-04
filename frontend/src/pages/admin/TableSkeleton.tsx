@@ -1,6 +1,6 @@
 import { Skeleton } from "../../components/ui/skeleton";
 
-/** Placeholder rows shown while a tab's table is still loading. */
+/** 分頁的表格仍在載入時顯示的佔位列。 */
 function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-2">

@@ -3,8 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-# Allowed icon keys. Keep this list in sync with HIGHLIGHT_ICON_OPTIONS in
-# frontend/src/lib/highlight-icons.ts (same keys, same order).
+# 允許的圖示 key。這份清單必須與 frontend/src/lib/highlight-icons.ts 中的
+# HIGHLIGHT_ICON_OPTIONS 保持同步（相同的 key、相同的順序）。
 HighlightIconKey = Literal[
     "shield-check",
     "history",

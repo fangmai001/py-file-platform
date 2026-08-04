@@ -5,7 +5,7 @@ import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from ".
 import type { LinkCardItem } from "../../api/types";
 import { useConfirm } from "../../context/ConfirmDialogContext";
 
-/** Sentinel for "no folder" - a Select item cannot carry an empty string as its value. */
+/** 代表「不屬於任何 folder」的哨符值——Select item 的 value 不能是空字串。 */
 export const NO_FOLDER = "none";
 
 export interface LinkCardDraft {
@@ -32,8 +32,8 @@ function toLinkCardDrafts(items: LinkCardItem[]): Record<number, LinkCardDraft> 
 }
 
 /**
- * Whether a row differs from what the server holds. Normalised exactly like the payload in
- * handleSaveLinkCard, so the 儲存 button never enables for an edit that would send nothing.
+ * 判斷某一列是否與伺服器上的資料不同。正規化方式與 handleSaveLinkCard 的 payload 完全一致，
+ * 因此「儲存」按鈕絕不會為了一次什麼都不會送出的編輯而啟用。
  */
 export function isLinkCardDirty(card: LinkCardItem, draft: LinkCardDraft | undefined): boolean {
   if (!draft) {

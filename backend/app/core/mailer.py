@@ -8,13 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 def send_email(smtp: SmtpConfig, to_address: str, subject: str, body: str) -> None:
-    """Best-effort SMTP send using the admin-configured SMTP settings (see
-    app/core/smtp_config.py): never raises, so a background task failure can't surface
-    as a crash, and one recipient's bad address/mailbox can't block the rest.
+    """以管理員設定的 SMTP 設定（見 app/core/smtp_config.py）盡力寄出：永不拋出例外，
+    因此背景工作失敗不會表現成一次 crash，某位收件者的錯誤地址或信箱也擋不住其他人。
 
-    Not configuring/enabling SMTP is a supported dev/test mode, not an error - it lets
-    password reset and upload notifications be exercised locally without a real mail
-    server; the message is logged instead of sent.
+    不設定／不啟用 SMTP 是受支援的開發與測試模式，不是錯誤——它讓重設密碼與上傳通知
+    在沒有真正郵件伺服器的情況下也能在本機跑過一遍；訊息會被記錄下來而不是寄出。
     """
     if not smtp.enabled or not smtp.host or not to_address:
         logger.info("SMTP not configured/enabled; would send email to %s: %s\n%s", to_address, subject, body)

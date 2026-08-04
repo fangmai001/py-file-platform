@@ -6,8 +6,8 @@ import type { FileItem, FolderGroup } from "../../api/types";
 import { useConfirm } from "../../context/ConfirmDialogContext";
 
 /**
- * State and actions behind the 檔案 tab. Lives at page level because AdminPage's stat cards
- * show the file total, and deleting a folder has to re-list files - see AdminPage.tsx.
+ * 檔案分頁背後的狀態與操作。放在頁面層級，是因為 AdminPage 的統計卡片要顯示檔案總數，
+ * 而且刪除 folder 之後必須重新列出檔案——見 AdminPage.tsx。
  */
 export function useFilesAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const confirm = useConfirm();

@@ -83,7 +83,7 @@ def test_smtp_warn_fires_when_row_exists_and_env_host_set(db_session, caplog, mo
 
 
 def test_frontend_base_url_warn_noop_in_native_dev(caplog, monkeypatch, tmp_path):
-    # No static_dir means nothing built an image here, so 5173 is genuinely correct.
+    # 沒有 static_dir 就代表這裡從沒建置過 image，所以 5173 確實是正確的。
     monkeypatch.setattr(settings, "static_dir", str(tmp_path / "does-not-exist"))
     monkeypatch.setattr(settings, "frontend_base_url", "http://localhost:5173")
 

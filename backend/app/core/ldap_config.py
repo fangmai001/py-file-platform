@@ -11,10 +11,10 @@ _SETTINGS_ROW_ID = 1
 
 
 def get_ldap_settings(db: Session) -> LdapSetting:
-    """Fetch the single-row LDAP config, seeding it from LDAP_* env vars on first use.
+    """取出單列的 LDAP 設定，第一次使用時以 LDAP_* 環境變數填入初始值。
 
-    This keeps existing .env-configured deployments working unchanged until an admin
-    edits the values via the admin UI (see app/api/ldap_settings.py).
+    這讓既有那些靠 .env 設定的部署維持原樣運作，直到管理員透過管理後台 UI
+    修改這些值為止（見 app/api/ldap_settings.py）。
     """
     settings_row = db.get(LdapSetting, _SETTINGS_ROW_ID)
     if settings_row is None:
@@ -33,11 +33,11 @@ def get_ldap_settings(db: Session) -> LdapSetting:
 
 
 def warn_if_ldap_env_config_ignored(db: Session) -> None:
-    """Log a warning if LDAP_* env vars are set but silently ignored because the
-    ldap_settings DB row already exists and is authoritative (see get_ldap_settings).
+    """LDAP_* 環境變數雖然有設，卻因為 ldap_settings 資料列已存在且具最終權威而被靜默忽略時
+    （見 get_ldap_settings），記錄一則警告。
 
-    No-op if the row doesn't exist yet - that's the expected first-boot path where
-    get_ldap_settings will seed it from these same env vars on next read.
+    該資料列尚未存在時什麼都不做——那是預期中的首次啟動路徑，
+    get_ldap_settings 會在下一次讀取時以這些同樣的環境變數把它填好。
     """
     if db.get(LdapSetting, _SETTINGS_ROW_ID) is None:
         return

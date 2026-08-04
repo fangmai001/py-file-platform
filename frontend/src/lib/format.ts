@@ -1,4 +1,4 @@
-/** Human-readable byte count, e.g. 1536 -> "1.5 KB". Extracted from HomePage. */
+/** 人類可讀的位元組數，例如 1536 -> "1.5 KB"。從 HomePage 抽出來的。 */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`;
@@ -13,7 +13,7 @@ export function formatSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-/** Absolute local timestamp, used for tooltips and table cells. */
+/** 絕對的本地時間戳記，用於 tooltip 與表格儲存格。 */
 export function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("zh-TW");
 }
@@ -23,8 +23,8 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * Relative timestamp for recent events, falling back to the absolute form beyond a
- * week — at that distance "8 天前" is less useful than the actual date.
+ * 近期事件用的相對時間；超過一週就退回絕對格式——隔那麼久之後，
+ * 「8 天前」反而不如實際日期來得有用。
  */
 export function formatRelativeTime(value: string): string {
   const then = new Date(value).getTime();

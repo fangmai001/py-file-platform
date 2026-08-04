@@ -5,7 +5,7 @@ export interface SmtpSettings {
   host: string | null;
   port: number;
   username: string | null;
-  // The password itself is never returned by the API, only whether one is set.
+  // API 永遠不會回傳密碼本身，只會回傳是否已設定。
   password_set: boolean;
   from_address: string;
   use_tls: boolean;
@@ -16,7 +16,7 @@ export interface UpdateSmtpSettingsInput {
   host?: string | null;
   port?: number;
   username?: string | null;
-  // Omit entirely to keep the currently stored password unchanged.
+  // 完全省略這個欄位，就代表沿用目前存著的密碼、不做更動。
   password?: string;
   from_address?: string;
   use_tls?: boolean;

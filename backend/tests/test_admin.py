@@ -97,7 +97,7 @@ def test_admin_can_delete_user_who_has_notifications_and_tokens(client, db_sessi
     uploader = make_user(db_session, username="alice")
     bob = make_user(db_session, username="bob")
 
-    _upload(client, uploader, is_public=True)  # notifies every other active user, incl. bob
+    _upload(client, uploader, is_public=True)  # 會通知其他每一位啟用中的使用者，包含 bob
     assert db_session.query(Notification).filter(Notification.recipient_id == bob.id).count() == 1
 
     db_session.add(
@@ -113,8 +113,7 @@ def test_admin_can_delete_user_who_has_notifications_and_tokens(client, db_sessi
     assert db_session.query(Notification).filter(Notification.recipient_id == bob.id).count() == 0
     assert db_session.query(PasswordResetToken).filter(PasswordResetToken.user_id == bob.id).count() == 0
 
-    # The audit entry survives with a NULL actor - deleting the account must not erase the
-    # record of what it did.
+    # 稽核紀錄會以 NULL 的操作者留存下來——刪除帳號不該抹掉它做過什麼的紀錄。
     orphaned = db_session.query(AuditLog).filter(AuditLog.action == "user.self_update").one()
     assert orphaned.actor_id is None
     assert orphaned.target == "bob"
@@ -231,7 +230,7 @@ def test_admin_can_list_audit_logs(client, db_session):
     assert response.status_code == 200
     logs = response.json()
     assert len(logs) == 2
-    # newest first
+    # 最新的排在最前面
     assert logs[0]["action"] == "user.update"
     assert logs[1]["action"] == "user.create"
     assert logs[0]["actor_username"] == "root"

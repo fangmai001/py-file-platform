@@ -10,8 +10,8 @@ import {
 } from "../../api/site-settings";
 import { useSiteSettings } from "../../context/SiteSettingsContext";
 
-// Mirrors MAX_UPLOAD_SIZE_MB_CEILING in backend/app/core/upload_limit.py - the two move
-// together. No reverse proxy caps the request body any more, so those are the only two.
+// 對應 backend/app/core/upload_limit.py 中的 MAX_UPLOAD_SIZE_MB_CEILING——兩者必須一起修改。
+// 現在已經沒有反向代理會限制 request body，所以這兩處就是唯一的上限來源。
 export const MAX_UPLOAD_SIZE_MB_CEILING = 512;
 
 export type BrandingImageKind = "favicon" | "heroImage";
@@ -54,8 +54,8 @@ export function useSiteSettingsAdmin() {
   async function handleSaveSiteSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    // Checked here as well as server-side: the backend rejects out-of-range values with a
-    // 422 whose detail is a validation-error list, which wouldn't render as a readable message.
+    // 前端與伺服器端都要檢查：後端會以 422 拒絕超出範圍的值，而它的 detail 是一份
+    // validation error 清單，直接渲染出來並不是一句看得懂的訊息。
     const maxUploadSizeMb = Number(siteSettingsDraft.maxUploadSizeMb);
     if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > MAX_UPLOAD_SIZE_MB_CEILING) {
       toast.error(`上傳大小上限須為 1 到 ${MAX_UPLOAD_SIZE_MB_CEILING} 之間的整數（MB）`);
@@ -81,11 +81,11 @@ export function useSiteSettingsAdmin() {
     }
   }
 
-  // Branding images upload as soon as a file is picked rather than waiting for the text
-  // form's submit - there is no draft state to reconcile, just a file that replaces the old one.
+  // 品牌圖片是一選好檔案就立刻上傳，而不是等文字表單送出——這裡沒有草稿狀態要協調，
+  // 只有一個直接取代舊圖的檔案。
   async function handleBrandingImageChange(kind: BrandingImageKind, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    // Reset the input so re-picking the same file after a failed upload still fires onChange.
+    // 重設 input，這樣上傳失敗後重新挑選同一個檔案時仍會觸發 onChange。
     event.target.value = "";
     if (!file) {
       return;

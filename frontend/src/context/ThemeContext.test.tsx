@@ -15,8 +15,8 @@ describe("ThemeProvider", () => {
     document.documentElement.style.colorScheme = "";
   });
 
-  // The boot script in index.html sets an inline color-scheme, which outranks the stylesheet -
-  // so leaving it behind on toggle keeps native controls in the previous theme until a reload.
+  // index.html 的 boot script 會設定 inline 的 color-scheme，優先度高於 stylesheet——
+  // 因此切換時若沒一併更新，原生控制項會維持前一個主題，直到重新載入為止。
   it("keeps the dark class, the inline color-scheme and the stored value in step", async () => {
     const user = userEvent.setup();
     render(

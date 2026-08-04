@@ -5,8 +5,8 @@ import PageHeader from "../components/PageHeader";
 import { buttonVariants } from "../components/ui/button";
 
 /**
- * Catch-all route. Without it an unknown URL rendered the header and footer around an
- * empty <main>, which reads as a broken page rather than a missing one.
+ * Catch-all 路由。少了它，未知的網址會渲染出頁首、頁尾夾著一個空的 <main>，
+ * 看起來像是頁面壞掉，而不是頁面不存在。
  */
 function NotFoundPage() {
   return (

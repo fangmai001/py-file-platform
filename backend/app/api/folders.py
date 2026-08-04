@@ -76,8 +76,8 @@ def delete_folder(
     if folder is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="卡片不存在")
 
-    # Files that belonged to this card fall back to "未分類" rather than being blocked or
-    # cascade-deleted - the card is just display metadata, not the files' owner.
+    # 原本歸在這張卡片底下的檔案會退回「未分類」，而不是擋下刪除或被連帶刪掉——
+    # 卡片只是顯示用的 metadata，並不是檔案的擁有者。
     db.query(File).filter(File.folder_id == folder_id).update({File.folder_id: None})
     write_audit_log(db, actor_id=admin.id, action="folder.delete", target=folder.name)
     db.delete(folder)

@@ -16,10 +16,10 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-xs hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
-        // Solid, for the confirm-dialog button where the action really is consequential.
+        // 實心樣式，用在確認對話框的按鈕上——在那裡該操作真的具有後果。
         destructive:
           "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/30",
-        // Tinted, for per-row delete buttons — a red hint without turning a table red.
+        // 淡色樣式，用在每一列的刪除按鈕——給出紅色提示，但不會讓整張表格變紅。
         "destructive-outline":
           "border-border bg-background text-destructive shadow-xs hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive focus-visible:ring-destructive/30 dark:bg-input/30",
         link: "text-primary underline-offset-4 hover:underline",
