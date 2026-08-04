@@ -327,17 +327,61 @@ release/
   MANIFEST.sha256
 ```
 
-把這三個檔案連同 `docker-compose.prod.yml` 與 `.env` 帶到離線主機，然後：
+#### 離線主機上的目錄結構
+
+離線主機不會（也不該）build，因此不需要複製原始碼，但**需要 `scripts/`**：`scripts/backup.sh` 是以
+「自己所在目錄的上一層」推導部署根目錄，再從那裡讀 `.env` 與 `docker-compose.prod.yml`。把交付內容排成
+與 repo 相同的相對結構：
+
+```
+/opt/py-file-platform/
+  docker-compose.prod.yml
+  .env
+  scripts/backup.sh
+  uploads/                                        # bind mount 目標，先建好
+  release/
+    py-file-platform-app-v0.1.0.tar
+    py-file-platform-db-postgres-16-alpine.tar
+    MANIFEST.sha256
+```
+
+`release/` 建議直接留在部署主機上並保留最近幾版的 app tar——回滾時要 `docker load` 的就是它，見
+「4. 版本升級與回滾」。
+
+#### 首次安裝：先把 `.env` 改對，再 `up -d`
+
+`.env.example` 的預設值是開發用的。全新的離線主機在第一次 `up -d` **之前**必須改掉下列項目，其中前兩項
+事後補救的代價特別高：
+
+| 變數 | 為什麼要在第一次 `up -d` 之前改 |
+| --- | --- |
+| `POSTGRES_PASSWORD`（連同 `POSTGRES_USER`／`POSTGRES_DB`） | postgres image 只在初始化 `db_data` volume 時套用這組帳密，之後改 `.env` 完全不生效，要改就得刪掉 volume 從頭來過 |
+| `JWT_SECRET_KEY` | 用 `openssl rand -hex 32` 產生；留著預設值等於任何知道這份 repo 的人都能自行簽出有效 token |
+| `APP_VERSION` | 必填且不可為 `latest`，說明見本節上方 |
+| `FRONTEND_BASE_URL` | 密碼重設信裡連結的來源（`backend/app/api/password_reset.py`），預設的 `http://localhost:5173` 在離線主機是死連結；填使用者實際連進來的網址，例如 `http://files.example.internal` |
+| `INITIAL_ADMIN_USERNAME`／`INITIAL_ADMIN_PASSWORD` | 全新資料庫裡一個 admin 都沒有，而建立帳號的 API 本身就要 admin 身分。僅在系統尚無 admin 時生效（`backend/app/core/seed.py`），第一個管理員建好後即可從 `.env` 移除 |
+
+反過來說，這兩項在正式環境**不需要**動，改了反而容易出錯：`DATABASE_URL` 會被
+`docker-compose.prod.yml` 覆寫成指向 `db` service；`VITE_API_BASE_URL` 只服務前端開發，正式建置在
+image 內完成、根本不讀這個檔案。
+
+#### 載入與啟動
 
 ```bash
-sha256sum -c MANIFEST.sha256                         # 先驗完整性，再載入
-docker load -i py-file-platform-app-v0.1.0.tar
-docker load -i py-file-platform-db-postgres-16-alpine.tar
+(cd release && sha256sum -c MANIFEST.sha256)         # 先驗完整性，再載入
+docker load -i release/py-file-platform-app-v0.1.0.tar
+docker load -i release/py-file-platform-db-postgres-16-alpine.tar
+docker compose -f docker-compose.prod.yml config     # 確認解析出 py-file-platform-app:v0.1.0
 docker compose -f docker-compose.prod.yml up -d      # 注意：不加 --build
 curl -s http://localhost/health                      # {"status":"ok","version":"v0.1.0"}
 ```
 
+最後用 `INITIAL_ADMIN_USERNAME`／`INITIAL_ADMIN_PASSWORD` 登入 `/login`，確認管理員帳號確實被建立，
+再到 `/admin` 依現場情況設定站台品牌、SMTP 與 LDAP。
+
 離線主機上務必省略 `--build`，否則 compose 會嘗試重新建置（需要連網抓 base image 與 npm 套件）而失敗。
+`config` 那一步是刻意放在 `up -d` 之前的：`APP_VERSION` 沒設好時它會立刻報錯，而不是等到啟動階段才發現
+image tag 對不上載入的 image。
 
 `.env` 的 `APP_VERSION` 同時決定四件事：`docker-compose.prod.yml` 裡 `app` 解析出的 image tag、
 `package-images.sh` 產出的 tar 檔名、離線主機 `up -d` 時要啟動哪一版，以及建置時烙進 image、由
@@ -412,9 +456,10 @@ image 有問題。
 schema。正確順序是先還原資料庫，再換 image：
 
 ```bash
+docker compose -f docker-compose.prod.yml stop app   # 還原期間不要有連線在寫入
 gunzip -c backups/db_<時間戳>.sql.gz | \
   docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
-docker load -i py-file-platform-app-<舊版本>.tar
+docker load -i release/py-file-platform-app-<舊版本>.tar
 # 編輯 .env 的 APP_VERSION 為舊版本
 docker compose -f docker-compose.prod.yml up -d
 curl -s http://localhost/health                      # 確認確實退回舊版本
@@ -422,6 +467,9 @@ curl -s http://localhost/health                      # 確認確實退回舊版�
 
 因此 `release/` 底下建議保留最近幾版的 `py-file-platform-app-*.tar`（每版約 70 MB），否則要回滾時
 會沒有可載入的舊 image。`postgres` 那份不隨版本變動，留一份即可。
+
+還原指令的細節（為什麼要先 `stop app`、舊備份檔要怎麼處理、`uploads/` 要不要一起還原）見下方
+「5. 從備份還原」，那裡是唯一一份完整說明，這裡只列回滾當下的順序。
 
 #### 確認目前執行的版本
 
@@ -446,11 +494,84 @@ docker inspect --format '{{index .Config.Labels "org.opencontainers.image.versio
 container 會直接拒絕啟動。必須走 `pg_dump` 匯出 → 改 tag → 清空 `db_data` volume → restore 的流程。
 patch 版（例如 `16.8` → `16.9`）則可以直接換 tag、重新 `package-images.sh` 出 db tar，app 完全不用重建。
 
+### 5. 從備份還原
+
+`scripts/backup.sh` 產出兩個檔案，資料庫與上傳檔案要**分別**還原，缺一不可：`db_<時間戳>.sql.gz`
+（`pg_dump` 的純 SQL）與 `uploads_<時間戳>.tar.gz`（`uploads/` 目錄）。資料庫裡存的只有 metadata 與
+`FileVersion.stored_path`，檔案本體在 `uploads/`——只還原其中一邊，會得到一份指向不存在檔案的清單。
+
+#### 還原資料庫
+
+```bash
+docker compose -f docker-compose.prod.yml stop app    # 還原期間不要有連線在讀寫
+gunzip -c backups/db_<時間戳>.sql.gz | \
+  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+docker compose -f docker-compose.prod.yml up -d
+```
+
+先 `stop app` 有兩個理由：dump 開頭會 `DROP` 掉既有物件，app 若正好有查詢在跑，`DROP` 會卡在 lock 上；
+而且還原途中的資料庫處於半空狀態，這時候讓使用者連進來只會看到殘缺的畫面。還原目標若是一個全新的空
+資料庫，`psql` 會印出一連串 `... does not exist, skipping`，那是正常的。
+
+`pg_dump` 帶的 `--clean --if-exists` 正是讓這一行指令有效的關鍵：還原目標永遠是已經被
+`alembic upgrade head` 建好 schema 的資料庫，少了這兩個參數，每個 `CREATE TABLE` 都會撞上
+`already exists`、每筆資料都會撞上 duplicate key，而 `psql` 預設不會因此中止——指令看起來跑完了，資料庫
+其實原封不動。**這個參數是後來才補上的**，所以更早之前產生的 `db_*.sql.gz` 沒有這層保護，還原前必須先
+手動清空資料庫：
+
+```bash
+docker compose -f docker-compose.prod.yml stop app
+docker compose -f docker-compose.prod.yml exec -T db \
+  psql -U platform -d postgres -c 'DROP DATABASE platform;' -c 'CREATE DATABASE platform OWNER platform;'
+gunzip -c backups/db_<舊時間戳>.sql.gz | \
+  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+docker compose -f docker-compose.prod.yml up -d
+```
+
+#### 還原 uploads
+
+`backup.sh` 打包時是以 `uploads` 這個目錄名作為 tar 內的最上層項目，因此要在**部署根目錄**解開，
+並且要用 `sudo`：
+
+```bash
+docker compose -f docker-compose.prod.yml stop app
+sudo tar -xzf backups/uploads_<時間戳>.tar.gz -C /opt/py-file-platform
+docker compose -f docker-compose.prod.yml up -d
+```
+
+`sudo` 不能省略。app container 內的行程以 root 執行，經由 bind mount 寫出來的檔案在 host 上也就屬於
+root，一般部署帳號解開時會得到 `Cannot open: Permission denied`——而 `tar` 遇到這種錯誤仍會把其餘檔案
+解完並以非零狀態結束，很容易被誤判成「解開了」。備份方向不受影響：那些檔案是 0644，非 root 的 cron
+帳號讀得到，`backup.sh` 不需要 `sudo`。
+
+解開只會覆蓋同名檔案，不會刪掉備份之後才上傳的東西。若要得到與備份時完全一致的狀態，請先把現有的
+`uploads/` 更名保留再解開，不要直接刪除。
+
+還原完成後務必實際下載一個檔案驗證。資料庫與 `uploads/` 分兩步還原，只要其中一步默默失敗，檔案清單
+看起來是對的，點下載卻會拿到 404「檔案內容不存在」。
+
+#### 在新主機上從備份重建
+
+離線主機整台掛掉時，走這個順序：
+
+```bash
+# 1. 依「2. 離線環境交付」擺好目錄結構、載入兩個 tar
+# 2. 準備 .env：POSTGRES_USER / POSTGRES_DB 必須與備份來源那台相同（dump 內含 owner 相關語句）
+# 3. 先讓 app 起一次，由 alembic 建好 schema
+docker compose -f docker-compose.prod.yml up -d
+curl -s http://localhost/health
+# 4. 依上面兩節還原資料庫與 uploads（uploads 那步記得 sudo）
+# 5. 驗收：登入原有帳號、確認首頁檔案牆的檔案可以正常下載
+```
+
+第 3 步不能省略。資料庫還原本身雖然會帶進完整 schema，但先跑一次 `up -d` 才能確認 image、`.env` 與
+volume 都是好的——在還原資料之前先發現設定有問題，遠比還原到一半才發現容易處理。
+
 ## 🚀 部署 (Deployment)
 
 *   **部署方式**：以 Docker 容器化部署，正式環境只有兩個 image——`app`（FastAPI 後端，內含建置好的 React 前端靜態檔）與 PostgreSQL（資料庫），以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
 *   **存取範圍**：僅限內部網路存取，不對外公開。
-*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」。備份檔只保留在部署主機本機，傳送至外部 NAS／其他主機的異地備份不在本專案規劃範圍內。
+*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」，還原（含在新主機上重建）則見同章節的「從備份還原」。備份檔只保留在部署主機本機，傳送至外部 NAS／其他主機的異地備份不在本專案規劃範圍內。
 
 ## 📄 授權條款 (License)
 

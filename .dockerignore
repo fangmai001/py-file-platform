@@ -11,7 +11,8 @@ backend/venv
 **/*.pyc
 .pytest_cache
 
-frontend/node_modules
+# Tooling run from the repo root drops a node_modules here too, not just in frontend/.
+**/node_modules
 frontend/dist
 
 # Runtime data and secrets: uploads are bind-mounted at run time, and .env is read
@@ -19,6 +20,12 @@ frontend/dist
 uploads
 backups
 .env
+
+# Offline delivery artifacts (scripts/package-images.sh output). Each release tar runs
+# to tens of MB and they accumulate - without this, every build after the first
+# packaging run ships the whole release history to the daemon as build context.
+release
+*.tar
 
 docs
 *.md

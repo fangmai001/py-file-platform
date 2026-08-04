@@ -139,6 +139,11 @@ docker compose up --build
 image 沒有共用 layer，合併省不到空間，分開則讓釘死版本的 postgres 不必隨每次改版重新傳輸。該 script
 沿用 `scripts/backup.sh` 的慣例，特別是以 regex 讀取 `.env` 而非 `source`。
 
+`scripts/backup.sh` 的 `pg_dump` 帶 `--clean --if-exists`，不要拿掉：還原目標永遠是已經被
+`alembic upgrade head` 建好 schema 的資料庫，沒有這兩個參數的 plain dump 灌回去只會一路噴
+`already exists` 與 duplicate key，而 `psql` 預設不會中止，結果是「看起來還原了、其實沒有」。還原流程
+（含 `uploads/` 與在新主機重建）寫在 README 的「5. 從備份還原」。
+
 `APP_VERSION` 是必填且不接受 `latest`（issue #110）：它同時是 image tag、tar 檔名與 `/health` 回報的
 版本，共用一個 tag 會讓新版覆蓋舊版的 tar 與 image，離線主機因此無法回滾。未設定或設成 `latest` 時，
 `package-images.sh` 會在建置前就以 `log ERROR` 中止，compose 也會因 `${APP_VERSION:?...}` 直接報錯——
