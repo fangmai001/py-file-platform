@@ -129,7 +129,7 @@ INITIAL_ADMIN_PASSWORD=change-me-to-a-real-password
 
 | 變數                                    | 說明                                                          |
 | --------------------------------------- | ------------------------------------------------------------- |
-| `FRONTEND_BASE_URL`                     | 產生密碼重設信連結時使用的前端網址                            |
+| `FRONTEND_BASE_URL`                     | 產生密碼重設信連結時使用的前端網址。**正式環境務必改掉**：預設的 `http://localhost:5173` 是 Vite 開發伺服器的位址，正式環境根本沒有這個 port，留著它等於每一封重設密碼信都寄出一個沒人打得開的死連結。填使用者實際連進來的網址（例如 `http://files.example.internal`），詳見「發布模式執行方式」的首次安裝檢查表 |
 | `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES`   | 重設密碼 token 有效時間（分鐘），預設 `30`                    |
 | `VITE_API_BASE_URL`                     | 僅供前端開發使用的後端網址；正式建置在 `Dockerfile` 內進行且不讀這個檔案，因此不需要設定 |
 
