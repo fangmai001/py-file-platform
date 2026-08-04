@@ -56,7 +56,11 @@ def _assert_can_view(file_row: File, current_user: User | None) -> None:
 def upload_file(
     background_tasks: BackgroundTasks,
     upload: UploadFile = UploadFileParam(...),
-    is_public: bool = Form(True),
+    # None means "not sent", not "false" - a multipart form can't tell an omitted field from
+    # a cleared one, so every field here is applied only when present. The new-file branch
+    # below falls back to the old default of public; to actually clear a field, use
+    # PATCH /api/files/{id}, which distinguishes the two via model_fields_set.
+    is_public: bool | None = Form(None),
     folder_id: int | None = Form(None),
     display_name: str | None = Form(None),
     announced_at: date | None = Form(None),
@@ -120,6 +124,18 @@ def upload_file(
         )
         db.add(FileVersion(file_id=existing_file.id, version_no=latest_version_no + 1, stored_path=stored_path))
         existing_file.size = size
+        # The same form fields the new-file branch honours, applied here too. Dropping them
+        # silently made the outcome depend on whether this filename had been uploaded before -
+        # something the uploader can't see. Worse, re-uploading a public file as private left
+        # it public and then re-broadcast it to everyone via notify_file_uploaded below.
+        if is_public is not None:
+            existing_file.is_public = is_public
+        if folder_id is not None:
+            existing_file.folder_id = folder_id
+        if display_name is not None:
+            existing_file.display_name = display_name
+        if announced_at is not None:
+            existing_file.announced_at = announced_at
         db.commit()
         db.refresh(existing_file)
         notify_file_uploaded(db, background_tasks, existing_file, current_user)
@@ -132,7 +148,7 @@ def upload_file(
         folder_id=folder_id,
         announced_at=announced_at,
         size=size,
-        is_public=is_public,
+        is_public=True if is_public is None else is_public,
     )
     db.add(file_row)
     db.flush()
