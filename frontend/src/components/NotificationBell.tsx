@@ -97,7 +97,9 @@ function NotificationBell() {
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="flex-row items-center justify-between">
+        {/* pr-8 keeps 全部標記已讀 clear of DialogContent's absolutely positioned close button,
+            which sits at top-2 right-2 and would otherwise overlap the end of the label. */}
+        <DialogHeader className="flex-row items-center justify-between pr-8">
           <DialogTitle>通知</DialogTitle>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" disabled={isMarkingAllRead} onClick={handleMarkAllRead}>
