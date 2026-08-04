@@ -23,6 +23,8 @@
 | ![管理後台 Email SMTP 設定](docs/screenshots/admin-smtp-settings.png) | ![個人資料頁](docs/screenshots/profile.png) |
 | **管理後台－首頁特色**                                 | **通知中心**                                             |
 | ![管理後台首頁特色](docs/screenshots/admin-highlights.png) | ![通知中心](docs/screenshots/notifications.png)       |
+| **首頁（深色模式）**                                   | **管理後台－使用者（深色模式）**                         |
+| ![首頁深色模式](docs/screenshots/home-dark.png)        | ![管理後台使用者列表深色模式](docs/screenshots/admin-users-dark.png) |
 
 ## 🌟 專案特點
 

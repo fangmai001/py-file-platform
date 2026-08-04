@@ -21,7 +21,9 @@ function syncThemeColor() {
   if (!meta) {
     return;
   }
-  // :root sets `background: var(--canvas)`, so this is the canvas colour resolved to rgb().
+  // :root sets `background: var(--canvas)`, so this is the canvas colour as the engine
+  // serialises it - rgb() for sRGB colours, oklch() for these tokens in current Chromium.
+  // Either way the browser that produced the string is the one that parses it back.
   const canvas = getComputedStyle(document.documentElement).backgroundColor;
   // Without the stylesheet (jsdom) there is no usable colour - keep index.html's value
   // rather than writing a transparent one.
