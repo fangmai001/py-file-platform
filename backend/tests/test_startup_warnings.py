@@ -3,6 +3,7 @@ import logging
 from app.core.config import settings
 from app.core.ldap_config import warn_if_ldap_env_config_ignored
 from app.core.smtp_config import warn_if_smtp_env_config_ignored
+from app.core.startup_checks import warn_if_frontend_base_url_is_dev_default
 from tests.conftest import configure_ldap, configure_smtp
 
 
@@ -79,3 +80,35 @@ def test_smtp_warn_fires_when_row_exists_and_env_host_set(db_session, caplog, mo
 
     assert len(caplog.records) == 1
     assert "Email SMTP 設定" in caplog.records[0].message
+
+
+def test_frontend_base_url_warn_noop_in_native_dev(caplog, monkeypatch, tmp_path):
+    # No static_dir means nothing built an image here, so 5173 is genuinely correct.
+    monkeypatch.setattr(settings, "static_dir", str(tmp_path / "does-not-exist"))
+    monkeypatch.setattr(settings, "frontend_base_url", "http://localhost:5173")
+
+    with caplog.at_level(logging.WARNING):
+        warn_if_frontend_base_url_is_dev_default()
+
+    assert caplog.records == []
+
+
+def test_frontend_base_url_warn_fires_in_production_image_with_dev_default(caplog, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "static_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "frontend_base_url", "http://localhost:5173")
+
+    with caplog.at_level(logging.WARNING):
+        warn_if_frontend_base_url_is_dev_default()
+
+    assert len(caplog.records) == 1
+    assert "FRONTEND_BASE_URL" in caplog.records[0].message
+
+
+def test_frontend_base_url_warn_noop_when_configured(caplog, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "static_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "frontend_base_url", "http://files.example.internal")
+
+    with caplog.at_level(logging.WARNING):
+        warn_if_frontend_base_url_is_dev_default()
+
+    assert caplog.records == []

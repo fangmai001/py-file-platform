@@ -11,6 +11,7 @@ from app.core.database import SessionLocal
 from app.core.ldap_config import warn_if_ldap_env_config_ignored
 from app.core.seed import seed_initial_admin
 from app.core.smtp_config import warn_if_smtp_env_config_ignored
+from app.core.startup_checks import warn_if_frontend_base_url_is_dev_default
 from app.core.static import mount_frontend
 
 
@@ -23,6 +24,8 @@ async def lifespan(app: FastAPI):
         warn_if_smtp_env_config_ignored(db)
     finally:
         db.close()
+    # No db needed - purely a check on what the deployer put in .env.
+    warn_if_frontend_base_url_is_dev_default()
     yield
 
 
