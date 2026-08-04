@@ -331,15 +331,19 @@ release/
 
 #### 離線主機上的目錄結構
 
-離線主機不會（也不該）build，因此不需要複製原始碼，但**需要 `scripts/`**：`scripts/backup.sh` 是以
-「自己所在目錄的上一層」推導部署根目錄，再從那裡讀 `.env` 與 `docker-compose.prod.yml`。把交付內容排成
-與 repo 相同的相對結構：
+離線主機不會（也不該）build，因此不需要複製原始碼，但**需要整個 `scripts/` 目錄**：`backup.sh` 與
+`restore.sh` 都是以「自己所在目錄的上一層」推導部署根目錄，再從那裡讀 `.env` 與
+`docker-compose.prod.yml`，而且兩者都會 `source` 同目錄下的 `lib.sh`——少了它任何一支都無法執行。
+把交付內容排成與 repo 相同的相對結構：
 
 ```
 /opt/py-file-platform/
   docker-compose.prod.yml
   .env
-  scripts/backup.sh
+  scripts/
+    lib.sh                                        # 共用函式，backup.sh／restore.sh 都會 source
+    backup.sh
+    restore.sh
   uploads/                                        # bind mount 目標，先建好
   release/
     py-file-platform-app-v0.1.0.tar
@@ -416,7 +420,12 @@ BACKUP_RETENTION_DAYS=30
 
 ```bash
 ./scripts/backup.sh
+echo $?        # 0 才算成功
 ```
+
+**判斷成功與否請看結束碼與 log 最後一行的 `Backup complete`，不要只看 `backups/` 裡有沒有檔案。**
+script 會先把資料庫 dump 與 uploads 打包寫成 `.partial`，通過 `gzip -t` 與大小檢查之後才改成正式檔名，
+所以失敗時不會留下任何看起來正常的檔案；但反過來說，「檔案存在」本身也不再是（也從來不該是）驗收依據。
 
 再加進部署主機（跑 `docker-compose.prod.yml` 的那台機器）的 crontab，例如每天凌晨 2 點執行一次：
 
@@ -427,6 +436,9 @@ BACKUP_RETENTION_DAYS=30
 `/opt/py-file-platform` 需換成實際部署路徑；cron 預設的 `PATH` 可能抓不到 `docker`，必要時在
 crontab 開頭加上 `PATH=...` 或改用 `docker` 執行檔的絕對路徑。`backup.log` 會持續成長，之後若需要
 輪替（logrotate）是另外的維運工作，這裡不處理。
+
+log 裡若出現 `[ERROR]`，代表這次備份沒有產出任何檔案，需要處理；`BACKUP_ENABLED is not true` 則是
+刻意跳過。這兩者現在分得出來——找不到 `.env` 會以 `[ERROR]` 中止，而不是被誤讀成「有人把備份關掉了」。
 
 ### 4. 版本升級與回滾
 
@@ -440,7 +452,7 @@ container，兩者都在 container 之外。
 但 migration 執行了就直接改下去，沒有自動的還原點，所以**升級的第一步是先手動備份**：
 
 ```bash
-./scripts/backup.sh                                  # 確認 backups/ 產出 db_*.sql.gz
+./scripts/backup.sh && echo "備份成功"              # 以結束碼為準，不是看 backups/ 有沒有檔案
 docker load -i py-file-platform-app-<新版本>.tar
 # 編輯 .env 的 APP_VERSION 為新版本
 docker compose -f docker-compose.prod.yml up -d
@@ -458,9 +470,7 @@ image 有問題。
 schema。正確順序是先還原資料庫，再換 image：
 
 ```bash
-docker compose -f docker-compose.prod.yml stop app   # 還原期間不要有連線在寫入
-gunzip -c backups/db_<時間戳>.sql.gz | \
-  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+./scripts/restore.sh --db backups/db_<時間戳>.sql.gz   # 會自動 stop app → 還原 → up -d
 docker load -i release/py-file-platform-app-<舊版本>.tar
 # 編輯 .env 的 APP_VERSION 為舊版本
 docker compose -f docker-compose.prod.yml up -d
@@ -502,18 +512,39 @@ patch 版（例如 `16.8` → `16.9`）則可以直接換 tag、重新 `package-
 （`pg_dump` 的純 SQL）與 `uploads_<時間戳>.tar.gz`（`uploads/` 目錄）。資料庫裡存的只有 metadata 與
 `FileVersion.stored_path`，檔案本體在 `uploads/`——只還原其中一邊，會得到一份指向不存在檔案的清單。
 
+`scripts/restore.sh` 是 `backup.sh` 的對稱工具，預設兩者一起還原，並自動處理停 app、還原、重新啟動
+的順序：
+
+```bash
+sudo ./scripts/restore.sh --timestamp 20260804_020000
+```
+
+`--timestamp` 是備份檔名裡的時間戳，兩個檔案共用同一個。不帶任何參數執行會列出 `BACKUP_LOCAL_DIR`
+底下可用的備份。只想還原其中一邊時用 `--db <路徑>` 或 `--uploads <路徑>`；`--yes` 可跳過確認提示
+（給無人值守的情境用）。牽涉到 `uploads` 時必須整支以 `sudo` 執行，原因見下方「還原 uploads」——
+script 會在動任何東西之前就檢查並擋下，而不是讓 `tar` 解到一半才失敗。
+
+下面兩節說明 `restore.sh` 實際做了什麼，以及需要手動處理時該下什麼指令。指令中的 `platform` 請換成
+`.env` 裡的 `POSTGRES_USER`／`POSTGRES_DB`（`restore.sh` 是直接從 `.env` 讀的，手動下指令時容易忘記
+這兩者可能已經被改過）。
+
 #### 還原資料庫
 
 ```bash
 docker compose -f docker-compose.prod.yml stop app    # 還原期間不要有連線在讀寫
 gunzip -c backups/db_<時間戳>.sql.gz | \
-  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+  docker compose -f docker-compose.prod.yml exec -T db \
+    psql -v ON_ERROR_STOP=1 -U platform -d platform
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+**`-v ON_ERROR_STOP=1` 不是可選的。** `psql` 預設會把每個錯誤印出來然後繼續往下跑，最後以 exit 0
+結束——少了這個參數，一個每句都失敗的還原和一個真正成功的還原，在終端機上看起來完全一樣。
+
 先 `stop app` 有兩個理由：dump 開頭會 `DROP` 掉既有物件，app 若正好有查詢在跑，`DROP` 會卡在 lock 上；
 而且還原途中的資料庫處於半空狀態，這時候讓使用者連進來只會看到殘缺的畫面。還原目標若是一個全新的空
-資料庫，`psql` 會印出一連串 `... does not exist, skipping`，那是正常的。
+資料庫，`psql` 會印出一連串 `... does not exist, skipping`，那是正常的（`ON_ERROR_STOP` 不會被這些
+notice 觸發）。
 
 `pg_dump` 帶的 `--clean --if-exists` 正是讓這一行指令有效的關鍵：還原目標永遠是已經被
 `alembic upgrade head` 建好 schema 的資料庫，少了這兩個參數，每個 `CREATE TABLE` 都會撞上
@@ -524,9 +555,11 @@ docker compose -f docker-compose.prod.yml up -d
 ```bash
 docker compose -f docker-compose.prod.yml stop app
 docker compose -f docker-compose.prod.yml exec -T db \
-  psql -U platform -d postgres -c 'DROP DATABASE platform;' -c 'CREATE DATABASE platform OWNER platform;'
+  psql -v ON_ERROR_STOP=1 -U platform -d postgres \
+    -c 'DROP DATABASE platform;' -c 'CREATE DATABASE platform OWNER platform;'
 gunzip -c backups/db_<舊時間戳>.sql.gz | \
-  docker compose -f docker-compose.prod.yml exec -T db psql -U platform -d platform
+  docker compose -f docker-compose.prod.yml exec -T db \
+    psql -v ON_ERROR_STOP=1 -U platform -d platform
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -543,7 +576,8 @@ docker compose -f docker-compose.prod.yml up -d
 
 `sudo` 不能省略。app container 內的行程以 root 執行，經由 bind mount 寫出來的檔案在 host 上也就屬於
 root，一般部署帳號解開時會得到 `Cannot open: Permission denied`——而 `tar` 遇到這種錯誤仍會把其餘檔案
-解完並以非零狀態結束，很容易被誤判成「解開了」。備份方向不受影響：那些檔案是 0644，非 root 的 cron
+解完並以非零狀態結束，很容易被誤判成「解開了」。`restore.sh` 因此在還原 `uploads` 之前就先檢查
+`id -u`，非 root 直接中止，連 app 都不會停。備份方向不受影響：那些檔案是 0644，非 root 的 cron
 帳號讀得到，`backup.sh` 不需要 `sudo`。
 
 解開只會覆蓋同名檔案，不會刪掉備份之後才上傳的東西。若要得到與備份時完全一致的狀態，請先把現有的
@@ -562,7 +596,8 @@ root，一般部署帳號解開時會得到 `Cannot open: Permission denied`—�
 # 3. 先讓 app 起一次，由 alembic 建好 schema
 docker compose -f docker-compose.prod.yml up -d
 curl -s http://localhost/health
-# 4. 依上面兩節還原資料庫與 uploads（uploads 那步記得 sudo）
+# 4. 還原資料庫與 uploads
+sudo ./scripts/restore.sh --timestamp <時間戳>
 # 5. 驗收：登入原有帳號、確認首頁檔案牆的檔案可以正常下載
 ```
 
@@ -573,7 +608,7 @@ volume 都是好的——在還原資料之前先發現設定有問題，遠比�
 
 *   **部署方式**：以 Docker 容器化部署，正式環境只有兩個 image——`app`（FastAPI 後端，內含建置好的 React 前端靜態檔）與 PostgreSQL（資料庫），以 docker-compose 統一管理；本機檔案系統的上傳目錄需掛載為 volume，避免容器重建時資料遺失。
 *   **存取範圍**：僅限內部網路存取，不對外公開。
-*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」，還原（含在新主機上重建）則見同章節的「從備份還原」。備份檔只保留在部署主機本機，傳送至外部 NAS／其他主機的異地備份不在本專案規劃範圍內。
+*   **資料備份**：由 `scripts/backup.sh` 每日自動執行本機備份（`pg_dump` 匯出資料庫、`tar` 打包上傳目錄），保留最近 30 天並自動清除逾期備份，設定方式見「發布模式執行方式」章節的「設定每日備份」；還原則由對稱的 `scripts/restore.sh` 負責（含在新主機上重建），見同章節的「從備份還原」。備份檔只保留在部署主機本機，傳送至外部 NAS／其他主機的異地備份不在本專案規劃範圍內。
 
 ## 📄 授權條款 (License)
 
