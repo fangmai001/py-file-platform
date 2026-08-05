@@ -8,8 +8,15 @@ import { Label } from "../../components/ui/label";
 import type { useSmtpSettingsAdmin } from "./useSmtpSettingsAdmin";
 
 function SmtpSettingsTab(props: ReturnType<typeof useSmtpSettingsAdmin>) {
-  const { smtpSettings, smtpSettingsError, smtpDraft, setSmtpDraft, isSavingSmtpSettings, handleSaveSmtpSettings } =
-    props;
+  const {
+    smtpSettings,
+    smtpSettingsError,
+    smtpDraft,
+    setSmtpDraft,
+    isSavingSmtpSettings,
+    isSmtpDirty,
+    handleSaveSmtpSettings,
+  } = props;
 
   return (
     <Card>
@@ -90,7 +97,7 @@ function SmtpSettingsTab(props: ReturnType<typeof useSmtpSettingsAdmin>) {
             />
             <Label htmlFor="smtp-use-tls">使用 TLS</Label>
           </div>
-          <Button type="submit" className="self-start" disabled={isSavingSmtpSettings}>
+          <Button type="submit" className="self-start" disabled={isSavingSmtpSettings || !isSmtpDirty}>
             {isSavingSmtpSettings ? "儲存中…" : "儲存"}
           </Button>
         </form>

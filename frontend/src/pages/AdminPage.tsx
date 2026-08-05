@@ -31,10 +31,15 @@ function AdminPage() {
   const auditLogs = useAuditLogsAdmin();
   const files = useFilesAdmin({ reloadAuditLogs: auditLogs.reload });
   const users = useUsersAdmin({ reloadAuditLogs: auditLogs.reload });
-  const folders = useFoldersAdmin({ reloadFiles: files.reload });
-  const linkCards = useLinkCardsAdmin();
-  const highlights = useHighlightsAdmin();
-  const siteSettings = useSiteSettingsAdmin();
+  const linkCards = useLinkCardsAdmin({ reloadAuditLogs: auditLogs.reload });
+  // 必須排在 linkCards 之後：刪掉資料夾會讓檔案與連結卡片兩邊的引用同時失效。
+  const folders = useFoldersAdmin({
+    reloadFiles: files.reload,
+    reloadLinkCards: linkCards.reload,
+    reloadAuditLogs: auditLogs.reload,
+  });
+  const highlights = useHighlightsAdmin({ reloadAuditLogs: auditLogs.reload });
+  const siteSettings = useSiteSettingsAdmin({ reloadAuditLogs: auditLogs.reload });
   const ldapSettings = useLdapSettingsAdmin({ reloadAuditLogs: auditLogs.reload });
   const smtpSettings = useSmtpSettingsAdmin({ reloadAuditLogs: auditLogs.reload });
 

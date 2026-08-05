@@ -49,7 +49,7 @@ export function isLinkCardDirty(card: LinkCardItem, draft: LinkCardDraft | undef
 }
 
 /** State and actions behind the 連結卡片 tab. */
-export function useLinkCardsAdmin() {
+export function useLinkCardsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const confirm = useConfirm();
 
   const [linkCards, setLinkCards] = useState<LinkCardItem[] | null>(null);
@@ -92,6 +92,7 @@ export function useLinkCardsAdmin() {
       setNewLinkCardUrl("");
       setNewLinkCardFolderId(NO_FOLDER);
       await loadLinkCards();
+      await reloadAuditLogs();
       toast.success(`已建立連結卡片「${newLinkCardTitle}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "建立連結卡片失敗";
@@ -116,6 +117,7 @@ export function useLinkCardsAdmin() {
         is_public: draft.isPublic,
       });
       await loadLinkCards();
+      await reloadAuditLogs();
       toast.success(`已更新連結卡片「${draft.title}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新連結卡片失敗";
@@ -137,6 +139,7 @@ export function useLinkCardsAdmin() {
     try {
       await deleteLinkCard(linkCard.id);
       await loadLinkCards();
+      await reloadAuditLogs();
       toast.success(`已刪除連結卡片「${linkCard.title}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "刪除連結卡片失敗";
@@ -146,6 +149,7 @@ export function useLinkCardsAdmin() {
   }
 
   return {
+    reload: loadLinkCards,
     linkCards,
     linkCardsError,
     linkCardDrafts,

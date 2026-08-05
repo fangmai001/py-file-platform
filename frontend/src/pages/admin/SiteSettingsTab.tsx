@@ -1,3 +1,4 @@
+import Callout from "../../components/Callout";
 import SectionTitle from "../../components/SectionTitle";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -10,7 +11,9 @@ function SiteSettingsTab(props: ReturnType<typeof useSiteSettingsAdmin>) {
   const {
     siteSettingsDraft,
     setSiteSettingsDraft,
+    siteSettingsError,
     isSavingSiteSettings,
+    isSiteSettingsDirty,
     brandingImageBusy,
     handleSaveSiteSettings,
     handleBrandingImageChange,
@@ -22,6 +25,7 @@ function SiteSettingsTab(props: ReturnType<typeof useSiteSettingsAdmin>) {
     <Card>
       <CardContent className="flex flex-col gap-4 text-left">
         <SectionTitle>站台設定</SectionTitle>
+        <Callout>{siteSettingsError}</Callout>
         <p className="text-sm text-muted-foreground">
           自訂導覽列／瀏覽器分頁顯示的站台名稱，以及首頁歡迎卡片的主標題與副標說明文字。欄位留空時使用預設文案。
         </p>
@@ -77,7 +81,7 @@ function SiteSettingsTab(props: ReturnType<typeof useSiteSettingsAdmin>) {
               可設定 1 到 {MAX_UPLOAD_SIZE_MB_CEILING} MB。此上限即時生效，會套用在上傳頁的提示與後端檢查。
             </p>
           </div>
-          <Button type="submit" className="self-start" disabled={isSavingSiteSettings}>
+          <Button type="submit" className="self-start" disabled={isSavingSiteSettings || !isSiteSettingsDirty}>
             {isSavingSiteSettings ? "儲存中…" : "儲存"}
           </Button>
         </form>
