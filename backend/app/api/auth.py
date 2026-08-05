@@ -42,6 +42,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
             db.add(user)
             db.commit()
             db.refresh(user)
+            # 這是唯一一條會憑空生出帳號的路徑（admin.py 的建立使用者與 core/seed.py 的
+            # bootstrap admin 都有記），少了它，稽核紀錄看不出某個帳號是何時、如何出現的。
+            # 必須等 commit + refresh 之後才寫：AuditLog.actor_id 有指向 users.id 的 FK，
+            # 而這裡的 actor 就是剛被建立出來的這個人自己。
+            write_audit_log(
+                db,
+                actor_id=user.id,
+                action="user.create",
+                target=user.username,
+                detail="auth_source=ldap（LDAP 首次登入自動建立）",
+            )
+            db.commit()
 
     access_token = create_access_token(subject=user.username)
     return TokenResponse(access_token=access_token)

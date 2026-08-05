@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_current_user_optional, require_admin
 from app.core.audit import write_audit_log
 from app.core.database import get_db
 from app.models import File, Folder, User
@@ -11,7 +11,15 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[FolderResponse])
-def list_folders(db: Session = Depends(get_db)) -> list[Folder]:
+def list_folders(
+    _current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> list[Folder]:
+    # 掛上 get_current_user_optional 是為了讓四個「GET 公開、寫入僅限管理員」的列表端點
+    # 形狀一致（link_cards.py、highlights.py、files.py 都是這個依賴），但這裡刻意**不**依身分
+    # 過濾：Folder 沒有 is_public 欄位，資料夾名稱一律視為公開資訊，訪客要能看到分組才有辦法
+    # 瀏覽公開檔案牆。這是刻意的例外，不是漏掉的過濾——若哪天資料夾名稱本身也算敏感，
+    # 該做的是替 Folder 加上 is_public 並與另外兩個 router 對齊，而不是在這裡偷偷加條件。
     return db.query(Folder).order_by(Folder.name.asc()).all()
 
 
