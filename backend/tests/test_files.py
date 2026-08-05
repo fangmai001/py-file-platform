@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.core.config import settings
-from app.models import Folder
+from app.models import AuditLog, Folder
 from tests.conftest import auth_headers, make_user
 
 PDF_BYTES = b"%PDF-1.4\nfake content\n%%EOF"
@@ -199,6 +199,41 @@ def test_admin_can_toggle_others_visibility(client, db_session):
     )
     assert response.status_code == 200
     assert response.json()["is_public"] is False
+
+    # 把別人的檔案改變可見度是高權限操作，必須留下痕跡——尤其是私密改公開，那比刪掉檔案
+    # 更難察覺。detail 要看得出前後值，否則事後無從判斷這次變更的方向。
+    log = db_session.query(AuditLog).filter(AuditLog.action == "file.update").one()
+    assert log.actor_id == admin.id
+    assert log.target == "report.pdf"
+    assert "is_public: True -> False" in log.detail
+
+
+def test_admin_making_a_private_file_public_is_audited(client, db_session):
+    owner = make_user(db_session, username="owner")
+    admin = make_user(db_session, username="root", role="admin")
+    file_id = _upload(client, owner, is_public=False).json()["id"]
+
+    response = client.patch(
+        f"/api/files/{file_id}", headers=auth_headers(admin), json={"is_public": True}
+    )
+    assert response.status_code == 200
+
+    log = db_session.query(AuditLog).filter(AuditLog.action == "file.update").one()
+    assert "is_public: False -> True" in log.detail
+    assert f"owner_id={owner.id}" in log.detail
+
+
+def test_owner_editing_own_file_is_not_audited(client, db_session):
+    owner = make_user(db_session, username="owner")
+    file_id = _upload(client, owner, is_public=True).json()["id"]
+
+    response = client.patch(
+        f"/api/files/{file_id}", headers=auth_headers(owner), json={"is_public": False}
+    )
+    assert response.status_code == 200
+
+    # 與 delete_file 同一個慣例：擁有者處理自己的檔案是日常行為，記下來只會淹沒稽核紀錄。
+    assert db_session.query(AuditLog).filter(AuditLog.action == "file.update").count() == 0
 
 
 def test_upload_with_folder_display_name_and_announced_at(client, db_session):

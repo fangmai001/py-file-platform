@@ -37,10 +37,12 @@ def request_password_reset(
     if identifier:
         user = db.query(User).filter(or_(User.username == identifier, User.email == identifier)).first()
 
-    # 自助重設只適用於有登記 email 的本機帳號；LDAP 帳號在這裡根本不存密碼（見 #21），
-    # 沒有 email 的帳號則沒有寄送地址——這兩種情況都會靜默地落到下方同一則
-    # 籠統回應。
-    if user is not None and user.is_active and user.email:
+    # 自助重設只適用於有登記 email 的本機帳號。auth_source 這一項不能省：LDAP 帳號的密碼由
+    # LDAP 伺服器管理，本地的 password_hash 從頭到尾不會被 login 讀取（見 app/api/auth.py），
+    # 所以替它寄出重設信，只會讓使用者一路「重設成功」卻永遠登不進去。管理員替 LDAP 帳號設定
+    # email 是允許的（上傳通知需要），因此「有 email」並不足以判斷這是本機帳號。
+    # 以上每一種情況都會靜默地落到下方同一則籠統回應，不讓呼叫端據此列舉帳號。
+    if user is not None and user.is_active and user.email and user.auth_source == "local":
         raw_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_token_expire_minutes)
         db.add(PasswordResetToken(user_id=user.id, token_hash=_hash_token(raw_token), expires_at=expires_at))
@@ -78,11 +80,20 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
     if user is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="重設連結無效或已過期")
 
+    # request 端已經擋過同樣的條件，這裡再擋一次是刻意的防禦深度：token 有效期內
+    #（預設 30 分鐘）帳號有可能才剛被改成 LDAP 或被停用，那張已經寄出去的連結不該還能用。
+    if user.auth_source == "ldap":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="LDAP 帳號的密碼由 LDAP 伺服器管理，無法在此變更"
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此帳號已停用")
+
     user.password_hash = hash_password(payload.new_password)
     reset_token.used_at = now
 
-    # 刻意與管理員重設他人密碼的情況區分開來（那種在 app/api/admin.py 記為 "user.update"
-    # 並附帶 "password reset" 說明）——這裡的 actor_id 就是使用者本人。
+    # 刻意與管理員重設他人密碼的情況區分開來（那種在 app/api/admin.py 記為
+    # "user.password_reset"）——這裡的 actor_id 就是使用者本人。
     write_audit_log(db, actor_id=user.id, action="user.self_password_reset", target=user.username)
 
     db.commit()

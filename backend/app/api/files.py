@@ -203,6 +203,7 @@ def update_file(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="沒有權限編輯此檔案")
 
     fields_set = payload.model_fields_set
+    was_public = file_row.is_public
 
     if payload.is_public is not None:
         file_row.is_public = payload.is_public
@@ -217,6 +218,22 @@ def update_file(
 
     if "announced_at" in fields_set:
         file_row.announced_at = payload.announced_at
+
+    # 與同檔 delete_file 同一個慣例：只記非擁有者（也就是管理員）的操作，擁有者編輯自己的
+    # 檔案屬於日常行為。可見度的前後值一定要記——把別人的私密檔案改成公開，比刪掉它更難
+    # 察覺，是這裡最需要留下痕跡的一種變更。
+    if current_user.id != file_row.owner_id:
+        changes = [f"owner_id={file_row.owner_id}"]
+        if file_row.is_public != was_public:
+            changes.append(f"is_public: {was_public} -> {file_row.is_public}")
+        changes += [f"{field} 已變更" for field in sorted(fields_set - {"is_public"})]
+        write_audit_log(
+            db,
+            actor_id=current_user.id,
+            action="file.update",
+            target=file_row.filename,
+            detail=", ".join(changes),
+        )
 
     db.commit()
     db.refresh(file_row)

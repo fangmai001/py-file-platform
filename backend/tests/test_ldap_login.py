@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from app.models import User
+from app.models import AuditLog, User
 from tests.conftest import auth_headers, configure_ldap, make_ldap_user, make_user
 
 
@@ -25,6 +25,24 @@ def test_login_creates_local_user_on_first_ldap_success(client, db_session, monk
     assert user.auth_source == "ldap"
     assert user.password_hash is None
     assert user.is_active is True
+
+    # 這是唯一一條會憑空生出帳號的路徑，少了稽核紀錄就看不出某個帳號是何時、如何出現的。
+    log = db_session.query(AuditLog).filter(AuditLog.action == "user.create").one()
+    assert log.actor_id == user.id
+    assert log.target == "newldapuser"
+    assert "ldap" in log.detail
+
+
+def test_existing_ldap_user_logging_in_again_is_not_audited(client, db_session, monkeypatch):
+    configure_ldap(db_session)
+    monkeypatch.setattr("app.api.auth.authenticate_ldap", MagicMock(return_value=True))
+    make_ldap_user(db_session, username="olduser")
+
+    response = client.post("/api/auth/login", json={"username": "olduser", "password": "whatever"})
+
+    assert response.status_code == 200
+    # 只有「建立帳號」該留紀錄；每次登入都記會把稽核紀錄淹掉。
+    assert db_session.query(AuditLog).filter(AuditLog.action == "user.create").count() == 0
 
 
 def test_login_ldap_bind_failure_401(client, db_session, monkeypatch):

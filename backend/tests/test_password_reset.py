@@ -1,7 +1,7 @@
 import re
 
 from app.models import AuditLog, PasswordResetToken
-from tests.conftest import auth_headers, make_user
+from tests.conftest import auth_headers, make_ldap_user, make_user
 
 TOKEN_RE = re.compile(r"token=([^\s]+)")
 
@@ -145,3 +145,68 @@ def test_confirm_rejects_expired_token(client, db_session, monkeypatch):
         "/api/password-reset/confirm", json={"token": token, "new_password": "new-password-123"}
     )
     assert response.status_code == 400
+
+
+def test_request_reset_for_ldap_account_with_email_sends_nothing(client, db_session, monkeypatch):
+    sent = _capture_sent_email(monkeypatch)
+    user = make_ldap_user(db_session, username="ldapuser")
+    # 管理員可以替 LDAP 帳號設定 email（上傳通知需要），所以「有 email」不足以判斷
+    # 這是本機帳號——這正是先前這條路徑漏掉的判斷。
+    user.email = "ldapuser@example.com"
+    db_session.commit()
+
+    response = client.post("/api/password-reset/request", json={"username_or_email": "ldapuser"})
+
+    assert response.status_code == 200
+    assert sent == {}
+    assert db_session.query(PasswordResetToken).count() == 0
+
+
+def test_request_reset_for_inactive_account_sends_nothing(client, db_session, monkeypatch):
+    sent = _capture_sent_email(monkeypatch)
+    make_user(db_session, username="alice", email="alice@example.com", is_active=False)
+
+    response = client.post("/api/password-reset/request", json={"username_or_email": "alice"})
+
+    assert response.status_code == 200
+    assert sent == {}
+    assert db_session.query(PasswordResetToken).count() == 0
+
+
+def test_confirm_rejects_account_switched_to_ldap_after_token_was_issued(client, db_session, monkeypatch):
+    sent = _capture_sent_email(monkeypatch)
+    user = make_user(db_session, username="alice", email="alice@example.com")
+    client.post("/api/password-reset/request", json={"username_or_email": "alice"})
+    token = _extract_token(sent["body"])
+
+    # token 有效期內帳號才被改成 LDAP。若 confirm 端不再檢查一次，使用者會收到「重設成功」，
+    # 然後拿新密碼永遠登不進去——因為 login 對 LDAP 帳號根本不看 password_hash。
+    user.auth_source = "ldap"
+    db_session.commit()
+
+    response = client.post(
+        "/api/password-reset/confirm", json={"token": token, "new_password": "new-password-1"}
+    )
+
+    assert response.status_code == 400
+    assert "LDAP" in response.json()["detail"]
+    db_session.refresh(user)
+    assert user.password_hash is not None
+    assert db_session.query(PasswordResetToken).one().used_at is None
+
+
+def test_confirm_rejects_account_deactivated_after_token_was_issued(client, db_session, monkeypatch):
+    sent = _capture_sent_email(monkeypatch)
+    user = make_user(db_session, username="alice", email="alice@example.com")
+    client.post("/api/password-reset/request", json={"username_or_email": "alice"})
+    token = _extract_token(sent["body"])
+
+    user.is_active = False
+    db_session.commit()
+
+    response = client.post(
+        "/api/password-reset/confirm", json={"token": token, "new_password": "new-password-1"}
+    )
+
+    assert response.status_code == 400
+    assert db_session.query(PasswordResetToken).one().used_at is None
