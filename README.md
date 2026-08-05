@@ -146,13 +146,24 @@ INITIAL_ADMIN_PASSWORD=change-me-to-a-real-password
 
 ### 後端 (backend)
 
-需先啟動一個 PostgreSQL（例如用 `docker compose up db`），再執行：
+需先啟動一個 PostgreSQL（例如用 `docker compose up db`）。
+
+第一次執行要先建立虛擬環境並安裝依賴（`backend/venv` 被 `.gitignore` 忽略，新 clone 的人不會有）：
 
 ```bash
 cd backend
-source venv/bin/activate   # venv 已存在，以 uv 建立、Python 3.12
+python3.12 -m venv venv            # 或 uv venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt   # 內含 -r requirements.txt，另有 pytest 與 httpx
+```
 
-alembic upgrade head       # 套用資料庫 migration
+之後每次開發：
+
+```bash
+cd backend
+source venv/bin/activate        # venv 已存在時直接 activate 即可
+
+alembic upgrade head            # 套用資料庫 migration
 uvicorn app.main:app --reload   # 開發模式啟動，預設 http://localhost:8000
 ```
 
@@ -166,6 +177,9 @@ npm install
 npm run dev   # Vite dev server，預設 http://localhost:5173
 ```
 
+> 人用 `npm install`（要能加套件、更新 lockfile），機器用 `npm ci`（完全照 lockfile 安裝）。
+> CI（`frontend-ci.yml`）與兩個 `Dockerfile` 都是 `npm ci`，這個區分是刻意的。
+
 ### 使用 Docker Compose 一次啟動全部服務
 
 ```bash
@@ -176,6 +190,12 @@ docker compose up --build
 head` 再啟動 uvicorn，`:8000`）、`frontend`（Vite dev server，`:5173`）。此模式下 backend 讀取的
 `DATABASE_URL` 會由 `docker-compose.yml` 覆寫為指向 `db` 這個 service。`./uploads` 會掛載進
 backend container，確保上傳檔案在容器重建後仍保留。
+
+> ⚠️ **這個模式的定位是「一鍵把整套跑起來看看」，不是日常開發環境。** 兩個 service 都沒有掛
+> 原始碼 volume（程式碼是 `COPY` 進 image 的），backend 也沒有 `--reload`，所以**改了程式碼要重跑
+> `docker compose up --build` 才會生效**——容器裡的 Vite 監看的是 image 內那份靜態複本，不會收到
+> host 上的改動。要邊改邊看，請用上面「後端 (backend)」與「前端 (frontend)」兩節的原生模式，
+> 只把 db 留在 Docker 裡（`docker compose up db`）。
 
 ## ✅ 測試 (Testing)
 
