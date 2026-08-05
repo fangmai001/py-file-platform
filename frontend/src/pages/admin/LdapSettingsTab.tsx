@@ -8,8 +8,15 @@ import { Label } from "../../components/ui/label";
 import type { useLdapSettingsAdmin } from "./useLdapSettingsAdmin";
 
 function LdapSettingsTab(props: ReturnType<typeof useLdapSettingsAdmin>) {
-  const { ldapSettings, ldapSettingsError, ldapDraft, setLdapDraft, isSavingLdapSettings, handleSaveLdapSettings } =
-    props;
+  const {
+    ldapSettings,
+    ldapSettingsError,
+    ldapDraft,
+    setLdapDraft,
+    isSavingLdapSettings,
+    isLdapDirty,
+    handleSaveLdapSettings,
+  } = props;
 
   return (
     <Card>
@@ -81,7 +88,7 @@ function LdapSettingsTab(props: ReturnType<typeof useLdapSettingsAdmin>) {
               onChange={(e) => setLdapDraft((draft) => ({ ...draft, userSearchFilter: e.target.value }))}
             />
           </div>
-          <Button type="submit" className="self-start" disabled={isSavingLdapSettings}>
+          <Button type="submit" className="self-start" disabled={isSavingLdapSettings || !isLdapDirty}>
             {isSavingLdapSettings ? "儲存中…" : "儲存"}
           </Button>
         </form>

@@ -567,6 +567,62 @@ describe("AdminPage", () => {
     await waitFor(() => expect(deleteFolder).toHaveBeenCalledWith(1));
   });
 
+  it("refreshes the audit log after a folder is deleted", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFolders).mockResolvedValue([
+      { id: 1, name: "教學文件", description: null, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    // 掛載時載入一次。
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
+    await waitFor(() => expect(screen.getByDisplayValue("教學文件")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+    await waitFor(() => expect(screen.getByText(/裡面的檔案將變為未分類/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    // 後端會為 folder.delete 寫稽核紀錄，所以這個分頁的操作也必須刷新它——否則切到
+    // 「操作紀錄」看不到剛才那筆，得整頁重整。
+    await waitFor(() => expect(deleteFolder).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(2));
+    // 連結卡片也引用 folder_id，它的資料夾選單同樣不能繼續列出已刪除的那個。
+    await waitFor(() => expect(listLinkCards).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the LDAP 儲存 disabled until something in the form actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getLdapSettings).mockResolvedValue({
+      enabled: true,
+      server_uri: "ldap://ldap.example.internal",
+      bind_dn: null,
+      bind_password_set: true,
+      base_dn: null,
+      user_search_filter: "(uid={username})",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "LDAP 設定" }));
+
+    // 這個 PATCH 會寫進稽核紀錄，所以什麼都沒改就能按下去，等於讓誤點產生一筆假的變更紀錄。
+    const save = await screen.findByRole("button", { name: "儲存" });
+    expect(save).toBeDisabled();
+
+    await user.type(screen.getByLabelText("搜尋起始 DN"), "ou=people,dc=example");
+    expect(screen.getByRole("button", { name: "儲存" })).toBeEnabled();
+    expect(updateLdapSettings).not.toHaveBeenCalled();
+  });
+
   it("creates a link card from the 連結卡片 tab", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([]);

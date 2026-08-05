@@ -4,11 +4,38 @@ import { ApiError } from "../../api/client";
 import { getSmtpSettings, updateSmtpSettings } from "../../api/smtp-settings";
 import type { SmtpSettings } from "../../api/smtp-settings";
 
+export interface SmtpDraft {
+  enabled: boolean;
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  fromAddress: string;
+  useTls: boolean;
+}
+
+/** 與 isLdapDirty 同一套理由：這裡的每一次 PATCH 都會寫進稽核紀錄。 */
+export function isSmtpDirty(settings: SmtpSettings | null, draft: SmtpDraft): boolean {
+  if (settings === null) {
+    return false;
+  }
+  const port = Number.parseInt(draft.port, 10);
+  return (
+    draft.enabled !== settings.enabled ||
+    (draft.host.trim() || null) !== (settings.host ?? null) ||
+    (Number.isNaN(port) ? settings.port : port) !== settings.port ||
+    (draft.username.trim() || null) !== (settings.username ?? null) ||
+    (draft.fromAddress.trim() || settings.from_address) !== settings.from_address ||
+    draft.useTls !== settings.use_tls ||
+    draft.password.trim() !== ""
+  );
+}
+
 /** State and actions behind the Email SMTP 設定 tab. */
 export function useSmtpSettingsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings | null>(null);
   const [smtpSettingsError, setSmtpSettingsError] = useState<string | null>(null);
-  const [smtpDraft, setSmtpDraft] = useState({
+  const [smtpDraft, setSmtpDraft] = useState<SmtpDraft>({
     enabled: false,
     host: "",
     port: "587",
@@ -71,6 +98,7 @@ export function useSmtpSettingsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () 
 
   return {
     smtpSettings,
+    isSmtpDirty: isSmtpDirty(smtpSettings, smtpDraft),
     smtpSettingsError,
     smtpDraft,
     setSmtpDraft,

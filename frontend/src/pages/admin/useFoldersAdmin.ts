@@ -29,7 +29,15 @@ export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined
  * 資料夾分頁背後的狀態與操作。folder 列表同時也被連結卡片分頁的 folder 選單讀取，
  * 而且刪除 folder 之後要重新列出檔案，所以這個 hook 放在頁面層級。
  */
-export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<void> }) {
+export function useFoldersAdmin({
+  reloadFiles,
+  reloadLinkCards,
+  reloadAuditLogs,
+}: {
+  reloadFiles: () => Promise<void>;
+  reloadLinkCards: () => Promise<void>;
+  reloadAuditLogs: () => Promise<void>;
+}) {
   const confirm = useConfirm();
 
   const [folders, setFolders] = useState<FolderItem[] | null>(null);
@@ -63,6 +71,7 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
       setNewFolderName("");
       setNewFolderDescription("");
       await loadFolders();
+      await reloadAuditLogs();
       toast.success(`已建立資料夾「${newFolderName}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "建立資料夾失敗";
@@ -81,6 +90,7 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
     try {
       await updateFolder(folder.id, { name: draft.name, description: draft.description.trim() || null });
       await loadFolders();
+      await reloadAuditLogs();
       toast.success(`已更新資料夾「${draft.name}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新資料夾失敗";
@@ -103,6 +113,9 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
       await deleteFolder(folder.id);
       await loadFolders();
       await reloadFiles();
+      // 連結卡片也有 folder_id，不刷新的話它的資料夾下拉選單會繼續列出剛剛刪掉的那個。
+      await reloadLinkCards();
+      await reloadAuditLogs();
       toast.success(`已刪除資料夾「${folder.name}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "刪除資料夾失敗";
@@ -112,6 +125,7 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
   }
 
   return {
+    reload: loadFolders,
     folders,
     foldersError,
     folderDrafts,
