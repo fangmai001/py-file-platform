@@ -69,6 +69,25 @@ Tag 使用 semver，格式為 `vMAJOR.MINOR.PATCH`（例如 `v0.1.0`），從 `m
 版號不只是 git 上的標記：`.env` 的 `APP_VERSION` 必須設成同一個值，正式環境的 image tag、離線交付的 tar
 檔名與 `GET /health` 回報的版本都由它決定，詳見下方 Project overview 對 `package-images.sh` 的說明。
 
+#### Release checklist
+
+這條鏈上的每一環都靠人工同步——`.env` 不在版控，沒有任何機制會自動推導版號。**順序錯了會產出
+tag 與 image 不一致的交付物**，所以照這個順序做：
+
+1. 確認 `main` 是要發布的內容，且 CI 全綠。
+2. 決定版號（先與使用者確認），以下用 `v0.2.0` 代稱。
+3. 改 **`.env.example`** 的 `APP_VERSION=v0.2.0`，commit 進 `main`。這一步不能省：`README.md`
+   教新使用者 `cp .env.example .env`，忘了改的話新部署會拿到舊 tag，而
+   `docker-compose.prod.yml` 會去找一個離線主機上根本不存在的 image。
+4. `git tag v0.2.0 && git push origin v0.2.0`。CI 會檢查 tag 與 `.env.example` 是否一致
+   （見 `.github/workflows/release-check.yml`），不一致就擋下來。
+5. 在**要打包的機器**上把 `.env` 的 `APP_VERSION` 也設成 `v0.2.0`，再跑
+   `scripts/package-images.sh`。它會以這個值當 image tag 與 tar 檔名。
+6. 交付後在離線主機上 `curl -s http://localhost/health` 確認回報的 `version` 就是 `v0.2.0`。
+   這是唯一能驗證「跑起來的真的是這一版」的方法。
+
+`frontend/package.json` 的 `version` 與這條鏈無關，不需要跟著改；本專案也沒有 CHANGELOG。
+
 ### Historical exceptions
 
 在 PR #31 之前合併的分支（`feature-issue-*`、`fix-about-heading`、`theme-blue-dark-light-toggle`、
@@ -79,13 +98,15 @@ Tag 使用 semver，格式為 `vMAJOR.MINOR.PATCH`（例如 `v0.1.0`），從 `m
 ## CI and branch protection
 
 `main` 受 GitHub Rulesets 保護：一律走 PR，禁止 force push 與刪除分支，而且 **PR 必須通過四個
-status check 才能合併**。三個 workflow 都在每個 PR 與 push 到 `main` 時觸發：
+status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main` 時觸發；第四個只在 push tag 時跑，
+不參與 PR：
 
 | Workflow | Check 名稱 | 內容 |
 | --- | --- | --- |
 | `.github/workflows/backend-ci.yml` | `Backend` | 對**真的 Postgres** 跑 `alembic upgrade head` → `alembic check` → `pytest` |
 | `.github/workflows/frontend-ci.yml` | `Frontend` | `npm ci` → `oxlint` → `vitest` → `tsc -b && vite build` |
-| `.github/workflows/production-ci.yml` | `Production image`、`Shell scripts` | 建置正式環境 image 並實跑 `GET /health`；對 `scripts/*.sh` 跑 `shellcheck -x` |
+| `.github/workflows/production-ci.yml` | `Production image`、`Shell scripts` | 建置正式環境 image 並實跑 `GET /health`；確認沒有 CORS header、佔位金鑰會被拒絕；對 `scripts/*.sh` 跑 `shellcheck -x` |
+| `.github/workflows/release-check.yml` | `Release version` | **只在 push `v*` tag 時跑**，比對 tag 與 `.env.example` 的 `APP_VERSION`。不是 PR 的必要檢查 |
 
 幾個實務上會影響工作方式的點：
 
@@ -96,7 +117,7 @@ status check 才能合併**。三個 workflow 都在每個 PR 與 push 到 `main
 - `Production image` 是唯一會碰到根目錄 `Dockerfile` 與 `docker-compose.prod.yml` 的檢查。它會確認
   bundle 裡沒有被烙進 `localhost:8000`——正式環境同 origin 就靠這件事，而它平常只有在瀏覽器裡才
   看得出來壞掉。
-- 三個 workflow 都**刻意不加 `paths:` 過濾**，原因見 README 的「為什麼不用 `paths:` 過濾」一節：
+- 參與 PR 的那三個 workflow **刻意不加 `paths:` 過濾**，原因見 README 的「為什麼不用 `paths:` 過濾」一節：
   被路徑過濾跳過的 workflow 不會回報 status，被列為必要檢查時會永遠卡在 `Expected`。
 - 新增 workflow **不會**自動成為必要檢查，必要檢查是按 job 名稱逐一列舉的。加了新 job 之後要手動到
   `Settings → Rules → Rulesets` 補上名稱，否則它只是「會跑但擋不住任何東西」的檢查。

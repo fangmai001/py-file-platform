@@ -94,7 +94,7 @@ cp .env.example .env
 
 | 變數                                                  | 說明                                                                 |
 | ----------------------------------------------------- | -------------------------------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `docker-compose` 建立 db service 時使用的帳密與資料庫名稱             |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `docker-compose` 建立 db service 時使用的帳密與資料庫名稱。**正式環境務必改掉密碼**——範例值是公開的 `platform`，而 dev 的 `docker-compose.yml` 還會把 5432 對 host 開出去。注意 postgres 只在初始化 `db_data` volume 時套用這組值，之後再改沒有效果，除非刪掉 volume 重來 |
 | `POSTGRES_PORT`                                       | db service 對外映射的 port，預設 `5432`                               |
 | `DATABASE_URL`                                        | 後端連線字串。原生開發用 `localhost`；全 Docker 時 `docker-compose.yml` 會覆寫為指向 `db` |
 
@@ -109,7 +109,7 @@ cp .env.example .env
 
 | 變數                           | 說明                                                                  |
 | ------------------------------ | --------------------------------------------------------------------- |
-| `JWT_SECRET_KEY`               | JWT 簽章金鑰，**正式環境務必改掉**：`openssl rand -hex 32`             |
+| `JWT_SECRET_KEY`               | JWT 簽章金鑰，**正式環境務必改掉**：`openssl rand -hex 32`。留在 `.env.example` 的佔位值時，原生開發會在啟動時警告，正式環境的 image 則**直接拒絕啟動** |
 | `JWT_ALGORITHM`                | 簽章演算法，預設 `HS256`                                              |
 | `ACCESS_TOKEN_EXPIRE_MINUTES`  | Token 有效時間（分鐘），預設 `1440`（一天）                           |
 
@@ -123,7 +123,9 @@ INITIAL_ADMIN_USERNAME=admin
 INITIAL_ADMIN_PASSWORD=change-me-to-a-real-password
 ```
 
-僅在「系統中還沒有任何 admin 帳號」時才會生效，建立完成後即可從 `.env` 移除。
+僅在「系統中還沒有任何 admin 帳號」時才會生效。**建立完成後請務必從 `.env` 移除**——留著等於把管理員密碼
+以明文放在部署主機上，而它已經沒有任何作用了。密碼強度不會被檢查，照抄 `.env.example` 的
+`change-me-to-a-real-password` 會被沉默接受。
 
 **前端連結與密碼重設**
 
@@ -191,6 +193,10 @@ head` 再啟動 uvicorn，`:8000`）、`frontend`（Vite dev server，`:5173`）
 `DATABASE_URL` 會由 `docker-compose.yml` 覆寫為指向 `db` 這個 service。`./uploads` 會掛載進
 backend container，確保上傳檔案在容器重建後仍保留。
 
+> ℹ️ dev compose **不在版號鏈上**：`backend/Dockerfile` 沒有 `ARG APP_VERSION`（只有正式環境的
+> 根目錄 `Dockerfile` 有），所以這個模式下 `GET /health` 一律回 `{"version": "dev"}`。這是預期行為，
+> 不是壞掉——版號機制只服務離線交付的正式 image。
+
 > ⚠️ **這個模式的定位是「一鍵把整套跑起來看看」，不是日常開發環境。** 兩個 service 都沒有掛
 > 原始碼 volume（程式碼是 `COPY` 進 image 的），backend 也沒有 `--reload`，所以**改了程式碼要重跑
 > `docker compose up --build` 才會生效**——容器裡的 Vite 監看的是 image 內那份靜態複本，不會收到
@@ -217,8 +223,9 @@ npm run lint    # oxlint
 
 ## 🤖 持續整合 (Continuous Integration)
 
-本專案在 GitHub Actions 設定了三個自動化檢查流程，分別對應後端、前端與正式環境。全部都在**每個**
-Pull Request 以及 push 到 `main` 時觸發（不做路徑過濾，原因見下方「為什麼不用 `paths:` 過濾」）：
+本專案在 GitHub Actions 設定了四個自動化檢查流程。前三個對應後端、前端與正式環境，都在**每個**
+Pull Request 以及 push 到 `main` 時觸發（不做路徑過濾，原因見下方「為什麼不用 `paths:` 過濾」）；
+第四個只在 push tag 時跑：
 
 ### 後端 (`.github/workflows/backend-ci.yml`，check 名稱 `Backend`)
 
@@ -263,6 +270,16 @@ Pull Request 以及 push 到 `main` 時觸發（不做路徑過濾，原因見�
 `Shell scripts` 這個 job 對 `scripts/*.sh` 執行 `shellcheck -x`。那三支 script（備份、還原、離線打包）
 與它們共用的 `lib.sh` 都在維運關鍵路徑上，先前卻完全沒有任何自動檢查。`-x` 用來跟進每支 script 開頭的
 `source .../lib.sh`。
+
+### 發布 (`.github/workflows/release-check.yml`，check 名稱 `Release version`)
+
+只在 push `v*` tag 時觸發，檢查 `.env.example` 的 `APP_VERSION` 是否與 tag 一致。
+
+這條版號鏈全靠人工同步（`.env` 不在版控），而漏改 `.env.example` 的後果不會當場出現：新部署照著
+`cp .env.example .env` 拿到舊版號，compose 於是去找一個離線主機上根本不存在的 image tag，
+直到 `up -d` 那一刻才爆。完整順序見 `CLAUDE.md` 的 release checklist。
+
+因為它只在 tag 上跑，**不會**、也不該被列為 PR 的必要檢查。
 
 ### 為什麼不用 `paths:` 過濾
 
@@ -418,7 +435,28 @@ release/
 | `JWT_SECRET_KEY` | 用 `openssl rand -hex 32` 產生；留著預設值等於任何知道這份 repo 的人都能自行簽出有效 token |
 | `APP_VERSION` | 必填且不可為 `latest`，說明見本節上方 |
 | `FRONTEND_BASE_URL` | 密碼重設信裡連結的來源（`backend/app/api/password_reset.py`），預設的 `http://localhost:5173` 在離線主機是死連結；填使用者實際連進來的網址，例如 `http://files.example.internal` |
-| `INITIAL_ADMIN_USERNAME`／`INITIAL_ADMIN_PASSWORD` | 全新資料庫裡一個 admin 都沒有，而建立帳號的 API 本身就要 admin 身分。僅在系統尚無 admin 時生效（`backend/app/core/seed.py`），第一個管理員建好後即可從 `.env` 移除 |
+| `INITIAL_ADMIN_USERNAME`／`INITIAL_ADMIN_PASSWORD` | 全新資料庫裡一個 admin 都沒有，而建立帳號的 API 本身就要 admin 身分。僅在系統尚無 admin 時生效（`backend/app/core/seed.py`），第一個管理員建好後**請務必**從 `.env` 移除 |
+
+`JWT_SECRET_KEY` 這一項有程式在把關：留著 `.env.example` 的佔位值時，正式環境的 image 會**直接拒絕
+啟動**並在 log 說明原因（`backend/app/core/startup_checks.py`）。其餘幾項沒有這種保護，只能照表檢查。
+
+#### Token 的生命週期與撤銷
+
+有一件事維運上必須知道：**這個系統沒有 token 撤銷機制。**
+
+JWT 的 payload 只有 `sub` 與 `exp`（`backend/app/core/security.py`），有效期由
+`ACCESS_TOKEN_EXPIRE_MINUTES` 決定，預設 1440 分鐘（一天）。因此：
+
+- 變更密碼（不論是使用者自己改、管理員重設，還是自助的忘記密碼流程）**都不會**讓已經發出去的
+  token 失效。舊 token 會一直有效到過期為止。
+- 唯一能立即生效的手段是把帳號**停用**（`is_active=False`），管理後台的「使用者」分頁可以做到——
+  每個請求都會重新檢查這個欄位（`backend/app/api/deps.py`）。
+
+所以帳號外洩時的正確處置是「停用帳號」，而不是「改密碼」。若要縮短暴露窗口，可以調低
+`ACCESS_TOKEN_EXPIRE_MINUTES`，代價是使用者更常需要重新登入。
+
+另外，本專案**沒有 debug 開關**——`.env` 裡沒有 `DEBUG` 之類的設定，`FastAPI()` 也沒有帶
+`debug=`，所以不需要擔心正式環境忘了關掉它。
 
 反過來說，這兩項在正式環境**不需要**動，改了反而容易出錯：`DATABASE_URL` 會被
 `docker-compose.prod.yml` 覆寫成指向 `db` service；`VITE_API_BASE_URL` 只服務前端開發，正式建置在

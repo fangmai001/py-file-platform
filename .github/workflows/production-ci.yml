@@ -92,8 +92,11 @@ jobs:
       # --network host 是讓容器連得到 postgres service 的關鍵。
       - name: Smoke-test the running image
         run: |
+          # JWT_SECRET_KEY 一定要給：.env.example 的佔位值會讓正式環境的 image 拒絕啟動
+          # （見 app/core/startup_checks.py），那正是我們想要的行為，這裡不該踩到它。
           docker run -d --name app --network host \
             -e DATABASE_URL=postgresql+psycopg2://platform:platform@localhost:5432/platform \
+            -e JWT_SECRET_KEY=ci-only-not-a-real-secret \
             "py-file-platform-app:$APP_VERSION"
 
           for _ in $(seq 1 30); do
@@ -106,6 +109,33 @@ jobs:
           cat health.json
           test "$(jq -r .status health.json)" = "ok"
           test "$(jq -r .version health.json)" = "$APP_VERSION"
+
+      # 正式環境同 origin，瀏覽器根本不會發跨來源請求，所以這個 image 不該掛 CORS。
+      # 只有真的把 image 跑起來才驗得到——單元測試看不到 middleware 是否被掛上。
+      - name: Check CORS is not enabled in the production image
+        run: |
+          headers=$(curl -fsS -D - -o /dev/null \
+            -H "Origin: https://evil.example.com" http://localhost:8000/health)
+          echo "$headers"
+          if grep -qi "access-control-allow-origin" <<<"$headers"; then
+            echo "production image is sending CORS headers - allow_origins should be dev-only" >&2
+            exit 1
+          fi
+
+      # 反過來確認前一步不是恆真：對 .env.example 的佔位金鑰，image 必須拒絕啟動。
+      - name: Check the placeholder JWT_SECRET_KEY is rejected
+        run: |
+          # 導向檔案而不是接管線：這個 shell 沒有 pipefail，`if cmd | tee` 檢查到的會是 tee
+          # 的結束碼（永遠是 0），docker run 到底成功還失敗就完全被吃掉了。
+          if docker run --rm --network host \
+               -e DATABASE_URL=postgresql+psycopg2://platform:platform@localhost:5432/platform \
+               -e JWT_SECRET_KEY=change-me-to-a-long-random-string \
+               "py-file-platform-app:$APP_VERSION" >boot.log 2>&1; then
+            echo "the image started with the placeholder JWT_SECRET_KEY" >&2
+            exit 1
+          fi
+          cat boot.log
+          grep -q "JWT_SECRET_KEY" boot.log
 
       - name: Container logs
         if: failure()

@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.core.static import mount_frontend
+from app.core.static import has_bundled_frontend, mount_frontend
 
 
 def _build_dist(tmp_path: Path) -> Path:
@@ -89,3 +89,15 @@ def test_mount_is_skipped_when_the_frontend_was_not_built(tmp_path):
     assert mount_frontend(app, tmp_path / "missing") is False
     assert len(app.routes) == route_count
     assert TestClient(app).get("/").status_code == 404
+
+
+def test_has_bundled_frontend_needs_index_html_not_just_the_directory(tmp_path):
+    empty = tmp_path / "static"
+    empty.mkdir()
+
+    # 空目錄不算——這個判斷同時被 CORS 設定（app/main.py）與啟動檢查
+    # （app/core/startup_checks.py）拿來認定「正在正式環境的 image 內執行」，
+    # 把一個剛好存在的空 static/ 誤判成正式部署，會讓 dev 環境莫名其妙拒絕啟動。
+    assert has_bundled_frontend(empty) is False
+    assert has_bundled_frontend(tmp_path / "does-not-exist") is False
+    assert has_bundled_frontend(_build_dist(tmp_path)) is True
