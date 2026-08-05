@@ -13,6 +13,17 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 
+def has_bundled_frontend(static_dir: Path) -> bool:
+    """前端是否已經被建置進這個 image。
+
+    這同時也是「正在正式環境的 image 內執行」的判斷依據：只有根目錄的 Dockerfile 會把
+    frontend/dist 複製到這裡，原生開發與 dev compose 都沒有這個目錄。CORS 設定
+    （app/main.py）與啟動檢查（app/core/startup_checks.py）都靠它區分 dev 與 prod，
+    所以判斷邏輯集中在這裡一份，不要各自再寫一次。
+    """
+    return (static_dir.resolve() / "index.html").is_file()
+
+
 def mount_frontend(app: FastAPI, static_dir: Path) -> bool:
     """若前端已被建置進 image，就從 ``static_dir`` 提供它。
 
@@ -23,7 +34,7 @@ def mount_frontend(app: FastAPI, static_dir: Path) -> bool:
     """
     static_dir = static_dir.resolve()
     index_html = static_dir / "index.html"
-    if not index_html.is_file():
+    if not has_bundled_frontend(static_dir):
         return False
 
     @app.get("/{full_path:path}", include_in_schema=False)

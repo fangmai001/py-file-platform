@@ -1,0 +1,33 @@
+name: Release check
+
+# 版號鏈的每一環都靠人工同步，而 .env 不在版控——唯一能自動比對的，是 git tag 與
+# .env.example 裡那個會被 `cp .env.example .env` 複製出去的值。
+#
+# 漏掉這一步的後果不會當場出現：新部署照著範例檔拿到舊版號，compose 於是去找一個離線主機上
+# 根本不存在的 image tag，直到 `up -d` 那一刻才爆。這裡在 push tag 時就先擋下來。
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  version:
+    name: Release version
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check .env.example matches the tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          example=$(grep -E '^APP_VERSION=' .env.example | cut -d= -f2-)
+
+          echo "tag:         $tag"
+          echo ".env.example: $example"
+
+          if [ "$tag" != "$example" ]; then
+            echo "::error::.env.example has APP_VERSION=$example but this tag is $tag." \
+                 "Update .env.example before tagging - see the release checklist in CLAUDE.md." >&2
+            exit 1
+          fi
