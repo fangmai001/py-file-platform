@@ -371,7 +371,7 @@ describe("AdminPage", () => {
       throw new Error("role combobox not found");
     }
     await user.click(roleCombobox);
-    await user.click(screen.getByRole("option", { name: "admin" }));
+    await user.click(screen.getByRole("option", { name: "管理員" }));
 
     expect(updateUser).not.toHaveBeenCalled();
 
@@ -424,12 +424,12 @@ describe("AdminPage", () => {
     renderAdminPage();
 
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
-    expect(screen.queryByText("卡片列表")).not.toBeInTheDocument();
+    expect(screen.queryByText("資料夾列表")).not.toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
 
-    await waitFor(() => expect(screen.getByText("卡片列表")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("資料夾列表")).toBeInTheDocument());
   });
 
   it("shows a readable label, not the raw sentinel value, for the audit log action filter", async () => {
@@ -458,7 +458,7 @@ describe("AdminPage", () => {
     expect(screen.queryByText("__all__")).not.toBeInTheDocument();
   });
 
-  it("creates a folder from the 卡片 tab", async () => {
+  it("creates a folder from the 資料夾 tab", async () => {
     await loginAsAdmin();
     vi.mocked(listUsers).mockResolvedValue([]);
     vi.mocked(createFolder).mockResolvedValue({
@@ -472,11 +472,11 @@ describe("AdminPage", () => {
 
     const user = userEvent.setup();
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
 
     await waitFor(() => expect(screen.getByLabelText("名稱")).toBeInTheDocument());
     await user.type(screen.getByLabelText("名稱"), "教學文件");
-    await user.type(screen.getByLabelText("描述"), "上課用");
+    await user.type(screen.getByLabelText("說明"), "上課用");
     await user.click(screen.getByRole("button", { name: "新增" }));
 
     await waitFor(() =>
@@ -501,7 +501,7 @@ describe("AdminPage", () => {
 
     const user = userEvent.setup();
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
 
     const nameInput = await screen.findByDisplayValue("教學文件");
     const row = nameInput.closest("tr");
@@ -528,7 +528,7 @@ describe("AdminPage", () => {
 
     const user = userEvent.setup();
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
 
     const nameInput = await screen.findByDisplayValue("教學文件");
     const row = nameInput.closest("tr");
@@ -553,14 +553,14 @@ describe("AdminPage", () => {
 
     const user = userEvent.setup();
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
+    await user.click(screen.getByRole("tab", { name: "資料夾" }));
 
     await waitFor(() => expect(screen.getByDisplayValue("教學文件")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "刪除" }));
 
-    // 刪除卡片的影響不只限於卡片本身——它會讓該卡片下的每個檔案都變成未分類，
+    // 刪除資料夾的影響不只限於資料夾本身——它會讓裡面的每個檔案都變成未分類，
     // 所以對話框必須在管理員按下去之前把這件事講清楚。
-    await waitFor(() => expect(screen.getByText(/此卡片下的檔案將變為未分類/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/裡面的檔案將變為未分類/)).toBeInTheDocument());
     const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
     await user.click(deleteButtons[deleteButtons.length - 1]);
 
@@ -1062,7 +1062,7 @@ describe("AdminPage", () => {
 
     expect(await screen.findByText("handbook.pdf")).toBeInTheDocument();
     expect(screen.getByText("budget.xlsx")).toBeInTheDocument();
-    // 所有分組的檔案都被攤平進同一張表格，因此卡片名稱是唯一還能分辨
+    // 所有分組的檔案都被攤平進同一張表格，因此資料夾名稱是唯一還能分辨
     // 「已分類」與「未分類」檔案的東西。
     expect(screen.getByText("教學文件")).toBeInTheDocument();
 

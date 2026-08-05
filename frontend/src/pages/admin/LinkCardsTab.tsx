@@ -40,7 +40,7 @@ function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: F
         <CardContent className="flex flex-col gap-4 text-left">
           <SectionTitle>新增連結卡片</SectionTitle>
           <p className="text-sm text-muted-foreground">
-            連結卡片會與檔案卡片一併顯示在首頁，點擊後在新分頁開啟指定網址，不涉及檔案上傳/下載。
+            連結卡片會與檔案卡片一併顯示在首頁，點擊後在新分頁開啟指定網址，不涉及檔案上傳／下載。
           </p>
           <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateLinkCard}>
             <div className="flex flex-col gap-1.5">
@@ -74,7 +74,7 @@ function LinkCardsTab(props: ReturnType<typeof useLinkCardsAdmin> & { folders: F
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-link-card-folder">卡片分類</Label>
+              <Label htmlFor="new-link-card-folder">所屬資料夾</Label>
               <Select value={newLinkCardFolderId} onValueChange={(value) => value && setNewLinkCardFolderId(value)}>
                 <SelectTrigger id="new-link-card-folder" className="w-40">
                   <SelectValue>

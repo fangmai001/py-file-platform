@@ -71,7 +71,7 @@ def upload_file(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="缺少檔案名稱")
 
     if folder_id is not None and db.get(Folder, folder_id) is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="資料夾不存在")
 
     extension = Path(upload.filename).suffix.lower()
     if extension not in _MAGIC_SIGNATURES:
@@ -209,7 +209,7 @@ def update_file(
 
     if "folder_id" in fields_set:
         if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="資料夾不存在")
         file_row.folder_id = payload.folder_id
 
     if "display_name" in fields_set:

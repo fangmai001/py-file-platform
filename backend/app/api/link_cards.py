@@ -33,7 +33,7 @@ def create_link_card(
     admin: User = Depends(require_admin),
 ) -> LinkCard:
     if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="所屬資料夾不存在")
 
     link_card = LinkCard(
         title=payload.title,
@@ -79,7 +79,7 @@ def update_link_card(
 
     if "folder_id" in fields_set and payload.folder_id != link_card.folder_id:
         if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="卡片不存在")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="所屬資料夾不存在")
         changes.append("folder_id updated")
         link_card.folder_id = payload.folder_id
 

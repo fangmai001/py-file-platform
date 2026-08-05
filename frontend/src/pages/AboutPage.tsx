@@ -4,10 +4,10 @@ import SectionTitle from "../components/SectionTitle";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 
 const IMPLEMENTED_FEATURES = [
-  "本機帳號登入 / JWT 驗證，亦支援串接 LDAP 進行驗證",
+  "本機帳號登入／JWT 驗證，亦支援串接 LDAP 進行驗證",
   "檔案上傳、下載，並可設定公開／私密可見度",
   "檔案版本歷史（同名檔案上傳不覆蓋，保留舊版本）",
-  "資料夾卡片與連結卡片分類瀏覽",
+  "依資料夾與連結卡片分類瀏覽",
   "使用者自助密碼重設，登入後亦可自行修改姓名與密碼",
   "上傳通知（新檔案上傳後，站內通知其他使用者，並視情況寄送 Email）",
   "管理員使用者管理與站台設定",

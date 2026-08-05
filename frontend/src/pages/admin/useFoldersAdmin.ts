@@ -26,7 +26,7 @@ export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined
 }
 
 /**
- * 卡片分頁背後的狀態與操作。folder 列表同時也被連結卡片分頁的 folder 選單讀取，
+ * 資料夾分頁背後的狀態與操作。folder 列表同時也被連結卡片分頁的 folder 選單讀取，
  * 而且刪除 folder 之後要重新列出檔案，所以這個 hook 放在頁面層級。
  */
 export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<void> }) {
@@ -46,7 +46,7 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
       setFolderDrafts(toFolderDrafts(data));
       setFoldersError(null);
     } catch (err) {
-      setFoldersError(err instanceof ApiError ? err.message : "無法載入卡片列表");
+      setFoldersError(err instanceof ApiError ? err.message : "無法載入資料夾列表");
     }
   }
 
@@ -63,9 +63,9 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
       setNewFolderName("");
       setNewFolderDescription("");
       await loadFolders();
-      toast.success(`已建立卡片「${newFolderName}」`);
+      toast.success(`已建立資料夾「${newFolderName}」`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "建立卡片失敗";
+      const message = err instanceof ApiError ? err.message : "建立資料夾失敗";
       setFoldersError(message);
       toast.error(message);
     } finally {
@@ -81,9 +81,9 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
     try {
       await updateFolder(folder.id, { name: draft.name, description: draft.description.trim() || null });
       await loadFolders();
-      toast.success(`已更新卡片「${draft.name}」`);
+      toast.success(`已更新資料夾「${draft.name}」`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "更新卡片失敗";
+      const message = err instanceof ApiError ? err.message : "更新資料夾失敗";
       setFoldersError(message);
       toast.error(message);
     }
@@ -91,8 +91,8 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
 
   async function handleDeleteFolder(folder: FolderItem) {
     const ok = await confirm({
-      title: "刪除卡片",
-      description: `確定要刪除卡片「${folder.name}」嗎？此卡片下的檔案將變為未分類。`,
+      title: "刪除資料夾",
+      description: `確定要刪除資料夾「${folder.name}」嗎？裡面的檔案將變為未分類。`,
       confirmLabel: "刪除",
       variant: "destructive",
     });
@@ -103,9 +103,9 @@ export function useFoldersAdmin({ reloadFiles }: { reloadFiles: () => Promise<vo
       await deleteFolder(folder.id);
       await loadFolders();
       await reloadFiles();
-      toast.success(`已刪除卡片「${folder.name}」`);
+      toast.success(`已刪除資料夾「${folder.name}」`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "刪除卡片失敗";
+      const message = err instanceof ApiError ? err.message : "刪除資料夾失敗";
       setFoldersError(message);
       toast.error(message);
     }

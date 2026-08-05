@@ -38,7 +38,7 @@ function FilesTab(props: ReturnType<typeof useFilesAdmin>) {
               <TableRow>
                 <TableHead>檔名</TableHead>
                 <TableHead>顯示名稱</TableHead>
-                <TableHead>卡片</TableHead>
+                <TableHead>資料夾</TableHead>
                 <TableHead>公告日期</TableHead>
                 <TableHead>擁有者 ID</TableHead>
                 <TableHead>可見度</TableHead>
