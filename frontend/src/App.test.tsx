@@ -32,6 +32,62 @@ vi.mock("./api/admin", () => ({
   createUser: vi.fn(),
   updateUser: vi.fn(),
   deleteUser: vi.fn(),
+  resetUserPassword: vi.fn(),
+  listAuditLogs: vi.fn().mockResolvedValue([]),
+}));
+// 進到 /admin 會一次掛載所有管理分頁的 hook（見 AdminPage.tsx），而包在每個路由外層的
+// 外殼又會拉進站台設定與通知鈴鐺——所以這個檔案必須把整片範圍都 mock 起來，
+// 而不只是斷言真正碰到的那幾個模組。
+vi.mock("./api/link-cards", () => ({
+  listLinkCards: vi.fn().mockResolvedValue([]),
+  createLinkCard: vi.fn(),
+  updateLinkCard: vi.fn(),
+  deleteLinkCard: vi.fn(),
+}));
+vi.mock("./api/site-settings", () => ({
+  getSiteSettings: vi.fn().mockResolvedValue({
+    brand_name: null,
+    browser_title: null,
+    hero_title: null,
+    hero_subtitle: null,
+    favicon_url: null,
+    hero_image_url: null,
+    max_upload_size_mb: 50,
+  }),
+  updateSiteSettings: vi.fn(),
+  uploadFavicon: vi.fn(),
+  uploadHeroImage: vi.fn(),
+  deleteFavicon: vi.fn(),
+  deleteHeroImage: vi.fn(),
+  siteAssetUrl: (path: string | null) => path,
+}));
+vi.mock("./api/ldap-settings", () => ({
+  getLdapSettings: vi.fn().mockResolvedValue({
+    enabled: false,
+    server_uri: null,
+    bind_dn: null,
+    bind_password_set: false,
+    base_dn: null,
+    user_search_filter: "(uid={username})",
+  }),
+  updateLdapSettings: vi.fn(),
+}));
+vi.mock("./api/smtp-settings", () => ({
+  getSmtpSettings: vi.fn().mockResolvedValue({
+    enabled: false,
+    host: null,
+    port: 587,
+    username: null,
+    password_set: false,
+    from_address: "no-reply@example.com",
+    use_tls: true,
+  }),
+  updateSmtpSettings: vi.fn(),
+}));
+vi.mock("./api/notifications", () => ({
+  listNotifications: vi.fn().mockResolvedValue([]),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
 }));
 
 import { fetchCurrentUser } from "./api/auth";
