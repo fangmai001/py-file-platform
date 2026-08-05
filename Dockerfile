@@ -2,8 +2,9 @@
 # postgres——沒有另外的 nginx，也不必記得先在 host 上重新建置 frontend/dist/。build context
 # 是 repo 根目錄，因為 backend/ 與 frontend/ 兩邊都會用到。
 #
-# 開發用的組態（docker-compose.yml）不會用到這個檔案——它為了 HMR，仍在 frontend/Dockerfile
-# 裡保留 Vite 開發伺服器。
+# 開發用的組態（docker-compose.yml）不會用到這個檔案，它走的是 frontend/Dockerfile 的 Vite
+# 開發伺服器。注意那套並沒有掛 source volume，程式碼是 COPY 進 image 的，所以改了要重跑
+# build 才會生效——想要即時重載請用原生開發模式，見 README。
 
 FROM node:22-alpine AS frontend-build
 WORKDIR /build

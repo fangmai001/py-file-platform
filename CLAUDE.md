@@ -76,6 +76,33 @@ Tag 使用 semver，格式為 `vMAJOR.MINOR.PATCH`（例如 `v0.1.0`），從 `m
 這類純英文主旨），都早於上述規則。它們維持原樣——改寫它們等於改寫已發布的歷史——所以不要把它們當成
 可以跟隨的範例。
 
+## CI and branch protection
+
+`main` 受 GitHub Rulesets 保護：一律走 PR，禁止 force push 與刪除分支，而且 **PR 必須通過四個
+status check 才能合併**。三個 workflow 都在每個 PR 與 push 到 `main` 時觸發：
+
+| Workflow | Check 名稱 | 內容 |
+| --- | --- | --- |
+| `.github/workflows/backend-ci.yml` | `Backend` | 對**真的 Postgres** 跑 `alembic upgrade head` → `alembic check` → `pytest` |
+| `.github/workflows/frontend-ci.yml` | `Frontend` | `npm ci` → `oxlint` → `vitest` → `tsc -b && vite build` |
+| `.github/workflows/production-ci.yml` | `Production image`、`Shell scripts` | 建置正式環境 image 並實跑 `GET /health`；對 `scripts/*.sh` 跑 `shellcheck -x` |
+
+幾個實務上會影響工作方式的點：
+
+- `alembic check` 會擋下「model 改了但沒補 migration」。這個檢查是必要的，因為 `pytest` 是用
+  `Base.metadata.create_all` 從 model 建表（見 `backend/tests/conftest.py`），根本不跑 migration，
+  兩邊各自對著不同的 schema 都會過。改完 `app/models/` 底下的東西，本機就先跑一次
+  `alembic check` 比較省事。
+- `Production image` 是唯一會碰到根目錄 `Dockerfile` 與 `docker-compose.prod.yml` 的檢查。它會確認
+  bundle 裡沒有被烙進 `localhost:8000`——正式環境同 origin 就靠這件事，而它平常只有在瀏覽器裡才
+  看得出來壞掉。
+- 三個 workflow 都**刻意不加 `paths:` 過濾**，原因見 README 的「為什麼不用 `paths:` 過濾」一節：
+  被路徑過濾跳過的 workflow 不會回報 status，被列為必要檢查時會永遠卡在 `Expected`。
+- 新增 workflow **不會**自動成為必要檢查，必要檢查是按 job 名稱逐一列舉的。加了新 job 之後要手動到
+  `Settings → Rules → Rulesets` 補上名稱，否則它只是「會跑但擋不住任何東西」的檢查。
+
+完整說明（含各步驟的理由與尚未涵蓋的部分）在 README 的「持續整合」一節，這裡不重複。
+
 ## Project overview
 
 py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並
@@ -101,7 +128,17 @@ LDAP 設定（server URI、bind DN／密碼、base DN、user search filter）可
 
 ### Backend (`backend/`)
 
-`backend/venv` 已有現成的 venv（以 `uv` 建立，Python 3.12）。
+`backend/venv` 若已存在（以 `uv` 建立，Python 3.12）可直接 activate。它被 `.gitignore` 忽略，
+所以新 clone 出來的工作目錄（包含新開的 worktree）不會有，需要先自己建一個：
+
+```bash
+cd backend
+python3.12 -m venv venv            # 或 uv venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt  # 內含 -r requirements.txt
+```
+
+之後的日常指令：
 
 ```bash
 cd backend
@@ -147,6 +184,12 @@ docker compose up --build
 任何反向代理。改前端不需要在 host 上先跑 `npm run build`。dev 的 `docker-compose.yml` 與
 `frontend/Dockerfile` 維持 Vite dev server 不受影響。
 
+不過 dev compose **不適合拿來當日常開發環境**：`frontend` service 完全沒有 `volumes:`，`backend`
+也只掛了 `./uploads`，兩個 Dockerfile 都是 `COPY . .`，backend 的 CMD 也沒有 `--reload`。也就是說
+容器裡跑的 Vite 監看的是 image 內那份靜態複本，改 host 上的原始碼不會傳進去，得
+`docker compose up --build` 重跑一次。它的定位是「一鍵把整套跑起來看看」；要邊改邊看，請用上方
+Commands 一節的原生模式（`uvicorn --reload` + `npm run dev`，只把 db 留在 Docker 裡）。
+
 `app` 有明確的 `image: py-file-platform-app:${APP_VERSION:?...}`，不能拿掉——少了它，compose 會用
 「專案目錄名 + 服務名」推導 image 名稱，離線主機只要不是部署在 `py-file-platform/` 目錄下就會找不到
 載入的 image 而改去執行 build，在沒有網路的機器上必然失敗。離線交付走 `scripts/package-images.sh`，
@@ -180,8 +223,14 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
 放在**專案根目錄**（而非 `backend/` 之下）的單一 `.env` 是原生開發與 Docker 開發共同的設定來源——見
 `.env.example`。特別注意：
 
-- `backend/app/core/config.py` 會從自身檔案路徑往上走三層來定位這個根目錄的 `.env`，因此不論 uvicorn 是
-  從 `backend/` 原生啟動，還是應用程式跑在 Docker 容器內，`Settings()` 的行為都一致。
+- `backend/app/core/config.py` 會從自身檔案路徑往上走三層來定位這個根目錄的 `.env`。**這條路徑只對
+  原生開發成立**——它的作用是讓 uvicorn 不論從 `backend/` 還是 repo 根目錄啟動，都讀到同一份 `.env`。
+  在容器內 WORKDIR 是 `/app`、檔案在 `/app/app/core/config.py`，往上三層是 `/`，所以它找的是**不存在的
+  `/.env`**；容器的設定完全來自 compose `env_file:` 注入的環境變數，而 pydantic-settings 的環境變數
+  優先於 env file，兩邊的結果才會一致。
+- 順帶一提：`.env` 刻意不進 image（見 `.dockerignore`），**不要**為了「讓容器也讀得到」而改這一點。
+  那會把密鑰烤進 image，也會破壞 `VITE_API_BASE_URL` 不洩漏的那條鏈（現在由 `production-ci.yml`
+  的 bundle 檢查守著）。
 - `DATABASE_URL` 在原生開發與完整 docker-compose 之下並不相同：當 uvicorn 跑在 host 上、連向
   dockerized 的 `db` 時使用 `localhost`；當 backend 本身也跑在 Docker 內時則使用 host `db`
   （docker-compose 正是為此透過 `environment:` 區塊覆寫 `DATABASE_URL`，見 `docker-compose.yml`）。

@@ -2,7 +2,13 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/app/core/config.py 往上三層就是專案根目錄
+# backend/app/core/config.py 往上三層就是專案根目錄——但這只在原生開發時成立，用意是讓 uvicorn
+# 不論從 backend/ 還是 repo 根目錄啟動，都讀到同一份 .env。
+#
+# 容器內完全不是這麼一回事：WORKDIR 是 /app、檔案在 /app/app/core/config.py，往上三層是 /，
+# 所以這裡指向的是不存在的 /.env。容器的設定全部來自 compose env_file: 注入的環境變數，而
+# pydantic-settings 的環境變數優先於 env file，兩邊的結果才會一致。.env 刻意不進 image
+#（見 .dockerignore），不要為了讓容器讀得到它而改這一點。
 _ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
