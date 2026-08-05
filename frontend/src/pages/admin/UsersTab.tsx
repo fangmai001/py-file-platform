@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
 import { formatDateTime } from "../../lib/format";
+import { roleLabel } from "../../lib/roles";
 import TableSkeleton from "./TableSkeleton";
 import { isUserDirty, type useUsersAdmin } from "./useUsersAdmin";
 
@@ -94,11 +95,11 @@ function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
               <Label htmlFor="new-role">角色</Label>
               <Select value={newRole} onValueChange={(value) => value && setNewRole(value)}>
                 <SelectTrigger id="new-role" className="w-28">
-                  <SelectValue />
+                  <SelectValue>{(value: string) => roleLabel(value)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">user</SelectItem>
-                  <SelectItem value="admin">admin</SelectItem>
+                  <SelectItem value="user">{roleLabel("user")}</SelectItem>
+                  <SelectItem value="admin">{roleLabel("admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -186,11 +187,11 @@ function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
                         }
                       >
                         <SelectTrigger className="w-28">
-                          <SelectValue />
+                          <SelectValue>{(value: string) => roleLabel(value)}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="user">user</SelectItem>
-                          <SelectItem value="admin">admin</SelectItem>
+                          <SelectItem value="user">{roleLabel("user")}</SelectItem>
+                          <SelectItem value="admin">{roleLabel("admin")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>

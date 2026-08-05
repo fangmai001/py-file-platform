@@ -5,7 +5,7 @@ const DEFAULT_BRAND_NAME = "py-file-platform";
 const DEFAULT_BROWSER_TITLE = "py-file-platform";
 const DEFAULT_HERO_TITLE = "公開檔案牆";
 const DEFAULT_HERO_SUBTITLE =
-  "瀏覽並下載社團 / 團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。";
+  "瀏覽並下載社團／團隊公開的檔案，不需登入即可查看；上傳與管理檔案才需要登入帳號。";
 // 尚未上傳 favicon 時，退回使用打包在 frontend/public 裡的圖示。
 const DEFAULT_FAVICON_HREF = "/favicon.svg";
 // 只在管理員設定的真正上限抵達之前使用；與 MAX_UPLOAD_SIZE_MB 的預設值一致。

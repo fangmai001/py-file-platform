@@ -120,7 +120,7 @@ function UploadPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="folder">卡片分類</Label>
+              <Label htmlFor="folder">資料夾</Label>
               <Select value={folderId} onValueChange={(value) => value && setFolderId(value)}>
                 <SelectTrigger id="folder" className="w-full">
                   <SelectValue>

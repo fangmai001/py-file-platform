@@ -5,6 +5,7 @@ import SectionTitle from "../../components/SectionTitle";
 import { Card, CardContent } from "../../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { auditActionLabel } from "../../lib/audit-actions";
 import { formatDateTime } from "../../lib/format";
 import TableSkeleton from "./TableSkeleton";
 import { ALL_ACTIONS, AUDIT_LOG_LIMIT, type useAuditLogsAdmin } from "./useAuditLogsAdmin";
@@ -19,13 +20,13 @@ function AuditLogsTab(props: ReturnType<typeof useAuditLogsAdmin>) {
           <SectionTitle>操作紀錄</SectionTitle>
           <Select value={auditActionFilter} onValueChange={(value) => value && setAuditActionFilter(value)}>
             <SelectTrigger className="w-48" aria-label="依動作類型篩選">
-              <SelectValue>{(value: string) => (value === ALL_ACTIONS ? "全部動作" : value)}</SelectValue>
+              <SelectValue>{(value: string) => (value === ALL_ACTIONS ? "全部動作" : auditActionLabel(value))}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_ACTIONS}>全部動作</SelectItem>
               {auditActions.map((action) => (
                 <SelectItem key={action} value={action}>
-                  {action}
+                  {auditActionLabel(action)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -53,7 +54,7 @@ function AuditLogsTab(props: ReturnType<typeof useAuditLogsAdmin>) {
                 <TableRow key={log.id}>
                   <TableCell className="whitespace-nowrap">{formatDateTime(log.created_at)}</TableCell>
                   <TableCell className="whitespace-nowrap">{log.actor_username}</TableCell>
-                  <TableCell className="whitespace-nowrap">{log.action}</TableCell>
+                  <TableCell className="whitespace-nowrap">{auditActionLabel(log.action)}</TableCell>
                   <TableCell>{log.target ?? "—"}</TableCell>
                   <TableCell>{log.detail ?? "—"}</TableCell>
                 </TableRow>

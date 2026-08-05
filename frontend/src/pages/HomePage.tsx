@@ -326,7 +326,7 @@ function HomePage() {
                 aria-label="依檔名搜尋檔案"
               />
               <Select value={folderFilter} onValueChange={(value) => value && setFolderFilter(value)}>
-                <SelectTrigger className="w-40" aria-label="依卡片分類篩選">
+                <SelectTrigger className="w-40" aria-label="依資料夾篩選">
                   <SelectValue>
                     {(value: string) =>
                       value === ALL_FOLDERS ? "全部分類" : (folders.find((f) => String(f.id) === value)?.name ?? "全部分類")
@@ -433,7 +433,7 @@ function HomePage() {
                               />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                              <Label htmlFor={`edit-folder-${file.id}`}>卡片分類</Label>
+                              <Label htmlFor={`edit-folder-${file.id}`}>資料夾</Label>
                               <Select
                                 value={editDraft.folderId}
                                 onValueChange={(value) =>

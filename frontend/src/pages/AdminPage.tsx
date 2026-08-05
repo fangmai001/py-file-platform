@@ -87,7 +87,7 @@ function AdminPage() {
             使用者
           </TabsTrigger>
           <TabsTrigger value="folders" className="h-9 flex-none px-3">
-            卡片
+            資料夾
           </TabsTrigger>
           <TabsTrigger value="link-cards" className="h-9 flex-none px-3">
             連結卡片

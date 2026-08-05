@@ -22,7 +22,7 @@ def create_folder(
     admin: User = Depends(require_admin),
 ) -> Folder:
     if db.query(Folder).filter(Folder.name == payload.name).first() is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="卡片名稱已存在")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="資料夾名稱已存在")
 
     folder = Folder(name=payload.name, description=payload.description)
     db.add(folder)
@@ -43,14 +43,14 @@ def update_folder(
 ) -> Folder:
     folder = db.get(Folder, folder_id)
     if folder is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="卡片不存在")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="資料夾不存在")
 
     fields_set = payload.model_fields_set
     changes: list[str] = []
 
     if "name" in fields_set and payload.name is not None and payload.name != folder.name:
         if db.query(Folder).filter(Folder.name == payload.name, Folder.id != folder_id).first() is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="卡片名稱已存在")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="資料夾名稱已存在")
         changes.append(f"name: {folder.name} -> {payload.name}")
         folder.name = payload.name
 
@@ -74,10 +74,10 @@ def delete_folder(
 ) -> None:
     folder = db.get(Folder, folder_id)
     if folder is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="卡片不存在")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="資料夾不存在")
 
-    # 原本歸在這張卡片底下的檔案會退回「未分類」，而不是擋下刪除或被連帶刪掉——
-    # 卡片只是顯示用的 metadata，並不是檔案的擁有者。
+    # 原本歸在這個資料夾底下的檔案會退回「未分類」，而不是擋下刪除或被連帶刪掉——
+    # 資料夾只是顯示用的 metadata，並不是檔案的擁有者。
     db.query(File).filter(File.folder_id == folder_id).update({File.folder_id: None})
     write_audit_log(db, actor_id=admin.id, action="folder.delete", target=folder.name)
     db.delete(folder)
