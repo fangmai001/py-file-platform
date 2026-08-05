@@ -69,12 +69,28 @@ vi.mock("../api/ldap-settings", () => ({
   }),
   updateLdapSettings: vi.fn(),
 }));
+vi.mock("../api/smtp-settings", () => ({
+  getSmtpSettings: vi.fn().mockResolvedValue({
+    enabled: false,
+    host: null,
+    port: 587,
+    username: null,
+    password_set: false,
+    from_address: "no-reply@example.com",
+    use_tls: true,
+  }),
+  updateSmtpSettings: vi.fn(),
+}));
 
 import { fetchCurrentUser } from "../api/auth";
 import { createUser, deleteUser, listAuditLogs, listUsers, resetUserPassword, updateUser } from "../api/admin";
 import { getLdapSettings, updateLdapSettings } from "../api/ldap-settings";
+import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
+import { ApiError } from "../api/client";
 import { createHighlight, deleteHighlight, listHighlights, updateHighlight } from "../api/highlights";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
+import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
+import { deleteFile, listFiles } from "../api/files";
 import {
   deleteHeroImage,
   getSiteSettings,
@@ -440,6 +456,115 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByLabelText("依動作類型篩選")).toBeInTheDocument());
     expect(screen.getByLabelText("依動作類型篩選")).toHaveTextContent("全部動作");
     expect(screen.queryByText("__all__")).not.toBeInTheDocument();
+  });
+
+  it("creates a folder from the 卡片 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(createFolder).mockResolvedValue({
+      id: 1,
+      name: "教學文件",
+      description: "上課用",
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "卡片" }));
+
+    await waitFor(() => expect(screen.getByLabelText("名稱")).toBeInTheDocument());
+    await user.type(screen.getByLabelText("名稱"), "教學文件");
+    await user.type(screen.getByLabelText("描述"), "上課用");
+    await user.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() =>
+      expect(createFolder).toHaveBeenCalledWith({ name: "教學文件", description: "上課用" }),
+    );
+  });
+
+  it("edits and saves a folder's description", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFolders).mockResolvedValue([
+      { id: 1, name: "教學文件", description: null, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    vi.mocked(updateFolder).mockResolvedValue({
+      id: 1,
+      name: "教學文件",
+      description: "上課用",
+      created_at: "2024-01-01T00:00:00Z",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "卡片" }));
+
+    const nameInput = await screen.findByDisplayValue("教學文件");
+    const row = nameInput.closest("tr");
+    if (!row) {
+      throw new Error("folder row not found");
+    }
+    const descriptionInput = within(row).getAllByRole("textbox")[1];
+    await user.type(descriptionInput, "上課用");
+    await user.click(within(row).getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateFolder).toHaveBeenCalledWith(1, { name: "教學文件", description: "上課用" }),
+    );
+  });
+
+  it("keeps a folder row's 儲存 disabled until something in it actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFolders).mockResolvedValue([
+      { id: 1, name: "教學文件", description: "上課用", created_at: "2024-01-01T00:00:00Z" },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "卡片" }));
+
+    const nameInput = await screen.findByDisplayValue("教學文件");
+    const row = nameInput.closest("tr");
+    if (!row) {
+      throw new Error("folder row not found");
+    }
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeDisabled();
+
+    await user.type(nameInput, "（舊）");
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeEnabled();
+    expect(updateFolder).not.toHaveBeenCalled();
+  });
+
+  it("asks for confirmation before deleting a folder, and warns its files become unfiled", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFolders).mockResolvedValue([
+      { id: 1, name: "教學文件", description: null, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "卡片" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("教學文件")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    // 刪除卡片的影響不只限於卡片本身——它會讓該卡片下的每個檔案都變成未分類，
+    // 所以對話框必須在管理員按下去之前把這件事講清楚。
+    await waitFor(() => expect(screen.getByText(/此卡片下的檔案將變為未分類/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    await waitFor(() => expect(deleteFolder).toHaveBeenCalledWith(1));
   });
 
   it("creates a link card from the 連結卡片 tab", async () => {
@@ -889,5 +1014,230 @@ describe("AdminPage", () => {
         user_search_filter: "(uid={username})",
       }),
     );
+  });
+
+  it("lists files grouped under their folder and filters them by filename", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFiles).mockResolvedValue([
+      {
+        folder: { id: 1, name: "教學文件", description: null, created_at: "2024-01-01T00:00:00Z" },
+        files: [
+          {
+            id: 10,
+            owner_id: 1,
+            filename: "handbook.pdf",
+            display_name: "新生手冊",
+            folder_id: 1,
+            announced_at: null,
+            is_public: true,
+            size: 1024,
+            created_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      },
+      {
+        folder: null,
+        files: [
+          {
+            id: 11,
+            owner_id: 2,
+            filename: "budget.xlsx",
+            display_name: null,
+            folder_id: null,
+            announced_at: null,
+            is_public: false,
+            size: 2048,
+            created_at: "2024-01-02T00:00:00Z",
+          },
+        ],
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "檔案" }));
+
+    expect(await screen.findByText("handbook.pdf")).toBeInTheDocument();
+    expect(screen.getByText("budget.xlsx")).toBeInTheDocument();
+    // 所有分組的檔案都被攤平進同一張表格，因此卡片名稱是唯一還能分辨
+    // 「已分類」與「未分類」檔案的東西。
+    expect(screen.getByText("教學文件")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("依檔名搜尋檔案"), "budget");
+
+    await waitFor(() => expect(screen.queryByText("handbook.pdf")).not.toBeInTheDocument());
+    expect(screen.getByText("budget.xlsx")).toBeInTheDocument();
+  });
+
+  it("asks for confirmation before deleting a file from the 檔案 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFiles).mockResolvedValue([
+      {
+        folder: null,
+        files: [
+          {
+            id: 10,
+            owner_id: 1,
+            filename: "handbook.pdf",
+            display_name: null,
+            folder_id: null,
+            announced_at: null,
+            is_public: true,
+            size: 1024,
+            created_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "檔案" }));
+
+    await waitFor(() => expect(screen.getByText("handbook.pdf")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    await waitFor(() => expect(screen.getByText(/此操作無法復原/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    // 刪除他人的檔案屬於會被稽核的管理員操作，所以操作紀錄必須與列表一起刷新
+    // ——見 useFilesAdmin。
+    await waitFor(() => expect(deleteFile).toHaveBeenCalledWith(10));
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(2));
+  });
+
+  it("cancelling the confirmation keeps the file", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listFiles).mockResolvedValue([
+      {
+        folder: null,
+        files: [
+          {
+            id: 10,
+            owner_id: 1,
+            filename: "handbook.pdf",
+            display_name: null,
+            folder_id: null,
+            announced_at: null,
+            is_public: true,
+            size: 1024,
+            created_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      },
+    ]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "檔案" }));
+
+    await waitFor(() => expect(screen.getByText("handbook.pdf")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    await waitFor(() => expect(screen.getByText(/此操作無法復原/)).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(deleteFile).not.toHaveBeenCalled();
+    expect(screen.getByText("handbook.pdf")).toBeInTheDocument();
+  });
+
+  it("saves SMTP settings from the Email SMTP 設定 tab without sending a blank password", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getSmtpSettings).mockResolvedValue({
+      enabled: false,
+      host: null,
+      port: 587,
+      username: null,
+      password_set: true,
+      from_address: "no-reply@example.com",
+      use_tls: true,
+    });
+    vi.mocked(updateSmtpSettings).mockResolvedValue({
+      enabled: true,
+      host: "smtp.example.internal",
+      port: 587,
+      username: null,
+      password_set: true,
+      from_address: "no-reply@example.com",
+      use_tls: true,
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "Email SMTP 設定" }));
+
+    const enabledCheckbox = await screen.findByRole("checkbox", { name: "啟用 SMTP 寄信" });
+    await user.click(enabledCheckbox);
+    await user.type(screen.getByLabelText("伺服器位址"), "smtp.example.internal");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    // password 是刻意整個不存在，而不是給空字串：送出空值會把已儲存的密碼清掉，
+    // 這正是 useSmtpSettingsAdmin 要用條件展開把它放進去的原因。
+    await waitFor(() =>
+      expect(updateSmtpSettings).toHaveBeenCalledWith({
+        enabled: true,
+        host: "smtp.example.internal",
+        port: 587,
+        username: null,
+        from_address: "no-reply@example.com",
+        use_tls: true,
+      }),
+    );
+  });
+
+  it("sends a newly typed SMTP password", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getSmtpSettings).mockResolvedValue({
+      enabled: true,
+      host: "smtp.example.internal",
+      port: 587,
+      username: "mailer",
+      password_set: true,
+      from_address: "no-reply@example.com",
+      use_tls: true,
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "Email SMTP 設定" }));
+
+    await user.type(await screen.findByLabelText("密碼"), "new-secret");
+    await user.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() =>
+      expect(updateSmtpSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ password: "new-secret" }),
+      ),
+    );
+  });
+
+  it("shows an error when the SMTP settings fail to load", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getSmtpSettings).mockRejectedValue(new ApiError(500, "無法連線至伺服器"));
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "Email SMTP 設定" }));
+
+    expect(await screen.findByText("無法連線至伺服器")).toBeInTheDocument();
   });
 });
