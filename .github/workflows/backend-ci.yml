@@ -47,6 +47,14 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
+      # 測試是用 Base.metadata.create_all 建 schema 的（tests/conftest.py），從來不跑
+      # migration，所以「model 與 migration 已經分岔」這件事在 pytest 裡完全看不見——
+      # 兩邊各自對著不同的 schema 一起變綠。這一步拿 migrate 出來的資料庫比對 model，
+      # 只要有差異就失敗。
+      - name: Check models against migrations
+        working-directory: backend
+        run: alembic check
+
       - name: Run tests
         working-directory: backend
         run: pytest

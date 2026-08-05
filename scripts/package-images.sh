@@ -55,7 +55,12 @@ export APP_VERSION
 APP_IMAGE="py-file-platform-app:${APP_VERSION}"
 # db image 是從 compose 檔讀回來的，而不是在這裡再寫一次，這樣 docker-compose.prod.yml
 # 就仍是「這個部署釘在哪個 postgres 版本」的唯一來源。
-DB_IMAGE="$(docker compose -f "$COMPOSE_FILE" config --images | grep -vFx "$APP_IMAGE" | head -n1)"
+#
+# `|| true` 才是讓下方那個檢查真的跑得到的關鍵。在 `set -e` 之下，賦值會採用其命令替換的
+# 結束碼，而 `pipefail` 又會把管線中任一段的非零值往外傳——少了它，一份沒有列出 db image
+# 的 compose 檔（或是 `head` 提早關閉管線害 grep 收到 SIGPIPE）會讓 script 就地中止，
+# 底下那句明確的錯誤訊息因此成為部署者永遠看不到的死碼。
+DB_IMAGE="$(docker compose -f "$COMPOSE_FILE" config --images | grep -vFx "$APP_IMAGE" | head -n1 || true)"
 if [ -z "$DB_IMAGE" ]; then
   die "Could not resolve the db image from $COMPOSE_FILE"
 fi

@@ -1,0 +1,128 @@
+name: Production CI
+
+# 這裡涵蓋的是另外兩個 workflow 結構上不可能碰到的東西：正式環境的 image（dev 與 prod 是
+# 兩套完全不同的 compose 組合，backend-ci／frontend-ci 從來不會用到根目錄的 Dockerfile），
+# 以及 scripts/ 底下的維運 script。
+#
+# 刻意不加 `paths:` 過濾：被路徑過濾跳過的 workflow 不會回報 status，被列為必要檢查時會
+# 永遠停在 "Expected"，PR 就再也合不進去。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  image:
+    name: Production image
+    runs-on: ubuntu-latest
+
+    # image 的 CMD 會先跑 `alembic upgrade head` 才啟動 uvicorn，所以底下的煙霧測試
+    # 需要一個真的連得到的資料庫。
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # compose 內插時 shell 的環境變數優先於 .env，所以不論 .env.example 裡寫的是什麼，
+      # image 的 tag 與烙進去的版本都以這裡為準。
+      APP_VERSION: v0.0.0-ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # docker-compose.prod.yml 宣告了 `env_file: .env`，就算只跑 `config`，compose 也要求
+      # 這個檔案存在。用 .env.example 來充當，順便驗證這份文件化的範例仍然滿足正式環境的
+      # compose 檔——而且它會在磁碟上放進一個真的
+      # VITE_API_BASE_URL=http://localhost:8000，讓底下的 bundle 檢查真的有東西可抓。
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Validate the production compose file
+        run: docker compose -f docker-compose.prod.yml config
+
+      # APP_VERSION 刻意不設 fallback（見 docker-compose.prod.yml 裡的註解）：兩次發布共用
+      # 同一個 tag，會互相覆蓋對方的離線 tar，讓人無版可回滾。這裡實際驗證這個 guard 還在，
+      # 而不是只相信註解——否則哪天多了一個 `:-latest`，要等到離線主機需要回滾才會發現。
+      - name: Reject a missing APP_VERSION
+        run: |
+          grep -v '^APP_VERSION=' .env > .env.no-version
+          if env -u APP_VERSION docker compose --env-file .env.no-version \
+               -f docker-compose.prod.yml config >/dev/null 2>&1; then
+            echo "docker-compose.prod.yml accepted an unset APP_VERSION" >&2
+            exit 1
+          fi
+          rm .env.no-version
+
+      - name: Build the production image
+        run: docker compose -f docker-compose.prod.yml build
+
+      # app/core/static.py 只有在這個檔案存在時才會掛載 SPA，找不到就靜默 return False。
+      # 前端建置階段哪天不再產出它，image 就會變成一台只有 API 的伺服器，整個 UI 全部 404。
+      - name: Check the frontend was built into the image
+        run: |
+          docker run --rm --entrypoint sh "py-file-platform-app:$APP_VERSION" \
+            -c 'test -f /app/static/index.html'
+
+      # 正式環境前後端同 origin，靠的是建置時不設定 VITE_API_BASE_URL，讓
+      # frontend/src/api/client.ts 退回相對路徑 /api/...。只要有人把 .env 從 .dockerignore
+      # 拿掉、或在 build args 加一行，dev 的值就會被烙進 bundle——而且除了在瀏覽器裡實際
+      # 開起來，沒有任何地方看得出來。
+      - name: Check no API base URL was baked into the bundle
+        run: |
+          if docker run --rm --entrypoint sh "py-file-platform-app:$APP_VERSION" \
+               -c 'grep -rl "localhost:8000" /app/static'; then
+            echo "VITE_API_BASE_URL leaked into the production bundle" >&2
+            exit 1
+          fi
+
+      # 用與正式環境相同的方式把 image 跑起來，然後問它自己是哪一版。一個請求就涵蓋了整條
+      # 鏈：image 起得來、alembic 連得到資料庫，以及
+      # ARG APP_VERSION -> ENV APP_BUILD_VERSION -> GET /health 一路沒有斷。
+      # --network host 是讓容器連得到 postgres service 的關鍵。
+      - name: Smoke-test the running image
+        run: |
+          docker run -d --name app --network host \
+            -e DATABASE_URL=postgresql+psycopg2://platform:platform@localhost:5432/platform \
+            "py-file-platform-app:$APP_VERSION"
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health -o health.json; then
+              break
+            fi
+            sleep 2
+          done
+
+          cat health.json
+          test "$(jq -r .status health.json)" = "ok"
+          test "$(jq -r .version health.json)" = "$APP_VERSION"
+
+      - name: Container logs
+        if: failure()
+        run: docker logs app || true
+
+  scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GitHub 託管的 ubuntu runner 已預裝 shellcheck，因此不需要額外的 action 或 apt
+      # install。-x 用來跟進每支 script 開頭的 `source .../lib.sh`，而
+      # --source-path=SCRIPTDIR 才是真正解析得出那個路徑的關鍵——它是執行期由 BASH_SOURCE
+      # 組出來的，沒辦法照字面讀。
+      - name: Run shellcheck
+        run: |
+          shellcheck --version
+          shellcheck -x --source-path=SCRIPTDIR scripts/*.sh
