@@ -21,17 +21,40 @@ export const BRANDING_IMAGE_LABELS: Record<BrandingImageKind, string> = {
   heroImage: "首頁歡迎圖片",
 };
 
+export interface SiteSettingsDraft {
+  brandName: string;
+  browserTitle: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  maxUploadSizeMb: string;
+}
+
+/** 與 isLdapDirty 同一套理由：這裡的每一次 PATCH 都會寫進稽核紀錄。 */
+export function isSiteSettingsDirty(
+  current: { brandName: string; browserTitle: string; heroTitle: string; heroSubtitle: string; maxUploadSizeMb: number },
+  draft: SiteSettingsDraft,
+): boolean {
+  return (
+    draft.brandName.trim() !== current.brandName ||
+    draft.browserTitle.trim() !== current.browserTitle ||
+    draft.heroTitle.trim() !== current.heroTitle ||
+    draft.heroSubtitle.trim() !== current.heroSubtitle ||
+    draft.maxUploadSizeMb.trim() !== String(current.maxUploadSizeMb)
+  );
+}
+
 /** State and actions behind the 站台設定 tab. */
-export function useSiteSettingsAdmin() {
+export function useSiteSettingsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const siteSettings = useSiteSettings();
 
-  const [siteSettingsDraft, setSiteSettingsDraft] = useState({
+  const [siteSettingsDraft, setSiteSettingsDraft] = useState<SiteSettingsDraft>({
     brandName: siteSettings.brandName,
     browserTitle: siteSettings.browserTitle,
     heroTitle: siteSettings.heroTitle,
     heroSubtitle: siteSettings.heroSubtitle,
     maxUploadSizeMb: String(siteSettings.maxUploadSizeMb),
   });
+  const [siteSettingsError, setSiteSettingsError] = useState<string | null>(null);
   const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
   const [brandingImageBusy, setBrandingImageBusy] = useState<BrandingImageKind | null>(null);
 
@@ -73,9 +96,12 @@ export function useSiteSettingsAdmin() {
         max_upload_size_mb: maxUploadSizeMb,
       });
       await siteSettings.refresh();
+      await reloadAuditLogs();
+      setSiteSettingsError(null);
       toast.success("已更新站台設定");
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新站台設定失敗";
+      setSiteSettingsError(message);
       toast.error(message);
     } finally {
       setIsSavingSiteSettings(false);
@@ -96,9 +122,13 @@ export function useSiteSettingsAdmin() {
     try {
       await (kind === "favicon" ? uploadFavicon(file) : uploadHeroImage(file));
       await siteSettings.refresh();
+      await reloadAuditLogs();
+      setSiteSettingsError(null);
       toast.success(`已更新${BRANDING_IMAGE_LABELS[kind]}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : `更新${BRANDING_IMAGE_LABELS[kind]}失敗`);
+      const message = err instanceof ApiError ? err.message : `更新${BRANDING_IMAGE_LABELS[kind]}失敗`;
+      setSiteSettingsError(message);
+      toast.error(message);
     } finally {
       setBrandingImageBusy(null);
     }
@@ -109,15 +139,21 @@ export function useSiteSettingsAdmin() {
     try {
       await (kind === "favicon" ? deleteFavicon() : deleteHeroImage());
       await siteSettings.refresh();
+      await reloadAuditLogs();
+      setSiteSettingsError(null);
       toast.success(`已移除${BRANDING_IMAGE_LABELS[kind]}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : `移除${BRANDING_IMAGE_LABELS[kind]}失敗`);
+      const message = err instanceof ApiError ? err.message : `移除${BRANDING_IMAGE_LABELS[kind]}失敗`;
+      setSiteSettingsError(message);
+      toast.error(message);
     } finally {
       setBrandingImageBusy(null);
     }
   }
 
   return {
+    siteSettingsError,
+    isSiteSettingsDirty: isSiteSettingsDirty(siteSettings, siteSettingsDraft),
     siteSettingsDraft,
     setSiteSettingsDraft,
     isSavingSiteSettings,

@@ -47,7 +47,7 @@ export function isHighlightDirty(highlight: HighlightItem, draft: HighlightDraft
 }
 
 /** State and actions behind the 首頁特色 tab. */
-export function useHighlightsAdmin() {
+export function useHighlightsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const confirm = useConfirm();
 
   const [highlights, setHighlights] = useState<HighlightItem[] | null>(null);
@@ -90,6 +90,7 @@ export function useHighlightsAdmin() {
       setNewHighlightDescription("");
       setNewHighlightSortOrder("");
       await loadHighlights();
+      await reloadAuditLogs();
       toast.success(`已建立首頁特色「${newHighlightTitle}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "建立首頁特色失敗";
@@ -114,6 +115,7 @@ export function useHighlightsAdmin() {
         is_public: draft.isPublic,
       });
       await loadHighlights();
+      await reloadAuditLogs();
       toast.success(`已更新首頁特色「${draft.title}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "更新首頁特色失敗";
@@ -135,6 +137,7 @@ export function useHighlightsAdmin() {
     try {
       await deleteHighlight(highlight.id);
       await loadHighlights();
+      await reloadAuditLogs();
       toast.success(`已刪除首頁特色「${highlight.title}」`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "刪除首頁特色失敗";
@@ -144,6 +147,7 @@ export function useHighlightsAdmin() {
   }
 
   return {
+    reload: loadHighlights,
     highlights,
     highlightsError,
     highlightDrafts,
