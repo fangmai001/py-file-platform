@@ -54,8 +54,9 @@ export function useSiteSettingsAdmin() {
   async function handleSaveSiteSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    // 前端與伺服器端都要檢查：後端會以 422 拒絕超出範圍的值，而它的 detail 是一份
-    // validation error 清單，直接渲染出來並不是一句看得懂的訊息。
+    // 前端與伺服器端都檢查。422 現在已經看得懂了（client.ts 會把 detail 陣列攤平成中文，
+    // 見 lib/validation-errors.ts），留著這道預檢是為了在送出前就給回饋，並且能講出這個
+    // 欄位真正的上下限——那是後端的泛用訊息說不出來的。
     const maxUploadSizeMb = Number(siteSettingsDraft.maxUploadSizeMb);
     if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > MAX_UPLOAD_SIZE_MB_CEILING) {
       toast.error(`上傳大小上限須為 1 到 ${MAX_UPLOAD_SIZE_MB_CEILING} 之間的整數（MB）`);

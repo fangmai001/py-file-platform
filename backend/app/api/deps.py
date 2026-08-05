@@ -41,20 +41,31 @@ _optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_
 def get_current_user_optional(
     token: str | None = Depends(_optional_oauth2_scheme), db: Session = Depends(get_db)
 ) -> User | None:
+    # 「沒帶 token」與「帶了但無效／過期」是兩件不同的事，只有前者是訪客。
+    #
+    # 兩者都回 None 的話，同一個過期 token 打 PATCH /api/files/{id} 會拿到 401，打
+    # GET /api/files 卻是 200 但少了自己的私密檔案——使用者看到的是「我的檔案不見了」而不是
+    # 「請重新登入」，前端也沒有任何依據可以判斷該提示重新登入。
     if token is None:
         return None
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="無法驗證身份",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = decode_access_token(token)
     except InvalidTokenError:
-        return None
+        raise credentials_exception
 
     username = payload.get("sub")
     if username is None:
-        return None
+        raise credentials_exception
 
     user = db.query(User).filter(User.username == username).first()
     if user is None or not user.is_active:
-        return None
+        raise credentials_exception
     return user
 
 

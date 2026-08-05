@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Loader2, Moon, Sun } from "lucide-react";
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -38,13 +38,20 @@ function RouteFallback() {
   );
 }
 
+// 帶上目前的路徑，登入後才回得到原處。token 過期時使用者是被動落到這裡的
+//（AuthContext 收到 401 就清掉登入狀態），把他丟回首頁等於要他自己找路走回來。
+function LoginRedirect() {
+  const location = useLocation();
+  return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+}
+
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) {
     return <RouteFallback />;
   }
   if (!user || user.role !== "admin") {
-    return <Navigate to="/login" replace />;
+    return <LoginRedirect />;
   }
   return <>{children}</>;
 }
@@ -55,7 +62,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
     return <RouteFallback />;
   }
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <LoginRedirect />;
   }
   return <>{children}</>;
 }
