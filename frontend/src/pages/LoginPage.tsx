@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import AuthLayout from "../components/AuthLayout";
 import Callout from "../components/Callout";
@@ -11,6 +11,9 @@ import { useAuth } from "../context/AuthContext";
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  // 被守衛導過來時會帶上原本要去的路徑（見 App.tsx 的 LoginRedirect）。
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +25,7 @@ function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(username, password);
-      navigate("/");
+      navigate(from ?? "/", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "登入失敗，請稍後再試");
     } finally {

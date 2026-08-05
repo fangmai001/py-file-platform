@@ -11,17 +11,15 @@ def test_guest_can_list_folders(client, db_session):
     assert [f["name"] for f in response.json()] == ["財務"]
 
 
-def test_listing_folders_with_an_invalid_token_still_returns_the_full_list(client, db_session):
+def test_listing_folders_with_an_invalid_token_returns_401(client, db_session):
     db_session.add(Folder(name="財務"))
     db_session.commit()
 
-    # 這個端點掛了 get_current_user_optional 純粹是為了與其他列表端點形狀一致，並不依身分過濾。
-    # 無效／過期的 token 目前一律靜默降級成訪客（見 deps.py），所以這裡必須是 200 而不是 401
-    # ——哪天要改成 401，那是全站一致的決定，不該從這個端點悄悄開始。
+    # 帶了 token 就代表自稱是某個人，那張 token 無效／過期時該說出來，而不是靜默降級成訪客。
+    # 沒帶 header 的真訪客仍然是 200，見上面的 test_guest_can_list_folders。
     response = client.get("/api/folders", headers={"Authorization": "Bearer not-a-real-token"})
 
-    assert response.status_code == 200
-    assert [f["name"] for f in response.json()] == ["財務"]
+    assert response.status_code == 401
 
 
 def test_non_admin_cannot_create_folder(client, db_session):
