@@ -9,6 +9,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
+# 由 source 這個檔案的各支 script 使用，而不是 lib.sh 自己——shellcheck 單獨檢查本檔案時
+# 正好看不到這一點。
+# shellcheck disable=SC2034
 COMPOSE_FILE="$REPO_ROOT/docker-compose.prod.yml"
 
 log() {

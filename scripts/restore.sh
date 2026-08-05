@@ -54,7 +54,9 @@ POSTGRES_DB="$(env_get POSTGRES_DB platform)"
 UPLOAD_DIR="$(resolve_path "$(env_get UPLOAD_DIR ./uploads)")"
 
 if [ -n "$TIMESTAMP" ]; then
-  [ -z "$DB_PATH" ] && [ -z "$UPLOADS_PATH" ] || die "--timestamp cannot be combined with --db/--uploads"
+  if [ -n "$DB_PATH" ] || [ -n "$UPLOADS_PATH" ]; then
+    die "--timestamp cannot be combined with --db/--uploads"
+  fi
   DB_PATH="$BACKUP_LOCAL_DIR/db_${TIMESTAMP}.sql.gz"
   UPLOADS_PATH="$BACKUP_LOCAL_DIR/uploads_${TIMESTAMP}.tar.gz"
 fi
@@ -63,7 +65,16 @@ if [ -z "$DB_PATH" ] && [ -z "$UPLOADS_PATH" ]; then
   usage >&2
   echo >&2
   echo "Available backups in $BACKUP_LOCAL_DIR:" >&2
-  ls -1 "$BACKUP_LOCAL_DIR" 2>/dev/null | grep -E '^(db|uploads)_' >&2 || echo "  (none)" >&2
+  # 用 glob 而不是 `ls | grep`：不需要開子 shell、不在意目錄存不存在，
+  # 也不會被檔名裡的特殊字元弄混。
+  shopt -s nullglob
+  AVAILABLE=("$BACKUP_LOCAL_DIR"/db_*.sql.gz "$BACKUP_LOCAL_DIR"/uploads_*.tar.gz)
+  shopt -u nullglob
+  if [ ${#AVAILABLE[@]} -eq 0 ]; then
+    echo "  (none)" >&2
+  else
+    printf '  %s\n' "${AVAILABLE[@]##*/}" >&2
+  fi
   exit 1
 fi
 
