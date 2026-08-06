@@ -8,6 +8,7 @@ export interface FolderItem {
 export interface FileItem {
   id: number;
   owner_id: number;
+  owner_username: string;
   filename: string;
   display_name: string | null;
   folder_id: number | null;

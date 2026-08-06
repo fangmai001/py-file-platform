@@ -101,7 +101,9 @@ function HomePage() {
     try {
       await downloadFile(file);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "下載失敗");
+      // 走 toast 而非 setError：error 這個 state 只有在 loadFiles() 成功時才會被清掉，
+      // 一次下載失敗會讓紅框一直卡在檔案列表卡片頂端。下載失敗是操作結果，本來就該用 toast。
+      toast.error(err instanceof ApiError ? err.message : "下載失敗");
     }
   }
 

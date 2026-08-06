@@ -46,6 +46,7 @@ describe("UploadPage", () => {
     vi.mocked(uploadFile).mockResolvedValue({
       id: 1,
       owner_id: 1,
+      owner_username: "uploader",
       filename: "a.pdf",
       display_name: null,
       folder_id: null,

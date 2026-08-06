@@ -1082,6 +1082,7 @@ describe("AdminPage", () => {
           {
             id: 10,
             owner_id: 1,
+            owner_username: "alice",
             filename: "handbook.pdf",
             display_name: "新生手冊",
             folder_id: 1,
@@ -1098,6 +1099,7 @@ describe("AdminPage", () => {
           {
             id: 11,
             owner_id: 2,
+            owner_username: "bob",
             filename: "budget.xlsx",
             display_name: null,
             folder_id: null,
@@ -1121,6 +1123,10 @@ describe("AdminPage", () => {
     // 所有分組的檔案都被攤平進同一張表格，因此資料夾名稱是唯一還能分辨
     // 「已分類」與「未分類」檔案的東西。
     expect(screen.getByText("教學文件")).toBeInTheDocument();
+    // 擁有者那一欄顯示的是帳號名稱，不是 owner_id 那個數字。
+    expect(screen.getByRole("columnheader", { name: "擁有者" })).toBeInTheDocument();
+    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.getByText("bob")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("依檔名搜尋檔案"), "budget");
 
@@ -1138,6 +1144,7 @@ describe("AdminPage", () => {
           {
             id: 10,
             owner_id: 1,
+            owner_username: "alice",
             filename: "handbook.pdf",
             display_name: null,
             folder_id: null,
@@ -1179,6 +1186,7 @@ describe("AdminPage", () => {
           {
             id: 10,
             owner_id: 1,
+            owner_username: "alice",
             filename: "handbook.pdf",
             display_name: null,
             folder_id: null,

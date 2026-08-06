@@ -40,7 +40,7 @@ function FilesTab(props: ReturnType<typeof useFilesAdmin>) {
                 <TableHead>顯示名稱</TableHead>
                 <TableHead>資料夾</TableHead>
                 <TableHead>公告日期</TableHead>
-                <TableHead>擁有者 ID</TableHead>
+                <TableHead>擁有者</TableHead>
                 <TableHead>可見度</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -52,7 +52,7 @@ function FilesTab(props: ReturnType<typeof useFilesAdmin>) {
                   <TableCell>{file.display_name ?? "—"}</TableCell>
                   <TableCell>{folderName}</TableCell>
                   <TableCell className="whitespace-nowrap">{file.announced_at ?? "—"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{file.owner_id}</TableCell>
+                  <TableCell className="whitespace-nowrap">{file.owner_username}</TableCell>
                   <TableCell>
                     <Badge variant={file.is_public ? "success" : "secondary"}>
                       {file.is_public ? "公開" : "私密"}
