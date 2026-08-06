@@ -8,6 +8,7 @@ import Callout from "../components/Callout";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { MIN_PASSWORD_LENGTH } from "../lib/password";
 
 function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -63,6 +64,7 @@ function ResetPasswordPage() {
           <Input
             id="new-password"
             type="password"
+            minLength={MIN_PASSWORD_LENGTH}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
@@ -73,6 +75,7 @@ function ResetPasswordPage() {
           <Input
             id="confirm-new-password"
             type="password"
+            minLength={MIN_PASSWORD_LENGTH}
             value={confirmNewPassword}
             onChange={(e) => setConfirmNewPassword(e.target.value)}
             required

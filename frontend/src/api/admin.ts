@@ -1,16 +1,16 @@
 import { del, getJSON, patchJSON, postJSON } from "./client";
-import type { AuditLogItem, UserItem } from "./types";
+import type { AuditLogItem, UserItem, UserRole } from "./types";
 
 export interface CreateUserInput {
   username: string;
   password: string;
-  role: string;
+  role: UserRole;
   email?: string | null;
   full_name?: string | null;
 }
 
 export interface UpdateUserInput {
-  role?: string;
+  role?: UserRole;
   is_active?: boolean;
   email?: string | null;
   full_name?: string | null;

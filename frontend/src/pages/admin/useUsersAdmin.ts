@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { createUser, deleteUser, listUsers, resetUserPassword, updateUser } from "../../api/admin";
 import { ApiError } from "../../api/client";
-import type { UserItem } from "../../api/types";
+import type { UserItem, UserRole } from "../../api/types";
 import { useConfirm } from "../../context/ConfirmDialogContext";
 
 export interface UserDraft {
   email: string;
-  role: string;
+  role: UserRole;
   full_name: string;
 }
 
@@ -53,7 +53,7 @@ export function useUsersAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Prom
   const [userDrafts, setUserDrafts] = useState<Record<number, UserDraft>>({});
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState("user");
+  const [newRole, setNewRole] = useState<UserRole>("user");
   const [newEmail, setNewEmail] = useState("");
   const [newFullName, setNewFullName] = useState("");
   const [isCreating, setIsCreating] = useState(false);

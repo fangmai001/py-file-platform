@@ -306,12 +306,28 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
   `MAX_UPLOAD_SIZE_MB_CEILING`（512），也就是 schema 驗證時對照的值——
   `frontend/src/pages/admin/useSiteSettingsAdmin.ts` 中的 `MAX_UPLOAD_SIZE_MB_CEILING` 寫死同一個
   數字，必須一起修改。正式環境已無反向代理，這兩處就是唯一的上限來源。
+- `app/core/security.py` — bcrypt 雜湊、JWT 簽發，以及管理員重設密碼用的 `generate_temp_password()`。
+  其中的 `MIN_PASSWORD_LENGTH`（8）由所有「會寫入新密碼」的 schema 共用，並在
+  `frontend/src/lib/password.ts` 有一份鏡像（欄位的 `minLength`），兩處必須一起改——與
+  `MAX_UPLOAD_SIZE_MB_CEILING` 是同一種做法。它刻意**不**套用在登入用的 `LoginRequest` 上：既有帳號
+  的密碼可能比它短，在登入端加限制等於把那些人鎖在門外。
 - `app/core/database.py` — SQLAlchemy 的 engine／session 設定；所有 model 繼承的 `Base`
   （DeclarativeBase），以及供 FastAPI 依賴注入使用的 `get_db()` generator。
 - `app/models/` — 一張表一個檔案（`User`、`File`、`FileVersion`、`Folder`、`LinkCard`、`Highlight`、
   `SiteSetting`、`LdapSetting`、`SmtpSetting`、`PasswordResetToken`、`Notification`、`AuditLog`），全部
   在 `app/models/__init__.py` 中 import 並重新匯出。Alembic 的 `env.py` 會執行
   `from app.models import *`，因此每個 model 都必須加進那個 `__init__.py`，autogenerate 才抓得到。
+- `app/schemas/user.py` — 除了各個 request／response model，另外定義三個共用型別。
+  `UserRole`（`Literal["user", "admin"]`）在 `frontend/src/api/types.ts` 有同名的鏡像 union，兩邊必須
+  一起改；`require_admin` 只認 `== "admin"`，所以放行其他值等於製造「看起來有角色、實際上永遠拿不到
+  權限」的靜默失敗。`OptionalEmail`／`ClearableEmail` 則是 email 欄位用的型別，差別在後者額外允許
+  `""`——那兩個 PATCH 端點以 `None` 表示「這次沒有要動」，因此「清空 email」只能用空字串。
+  兩者都刻意寫成「`str | None` ＋ `AfterValidator`」而非 `EmailStr | Literal[""] | None` union：union
+  失敗時每個成員各產生一筆錯誤，且 `loc` 尾端會是 pydantic 的內部標籤，而前端
+  `lib/validation-errors.ts` 取的正是 `loc` 最後一段當欄位名，畫面上就會冒出
+  `function-after[_validate(), str]` 這種字樣。
+  **回應端（`UserResponse`）的 `role` 與 `email` 刻意維持寬鬆的 `str`**：它們讀的是 DB 現況，一列不合
+  規的舊資料若讓序列化失敗，整個 `GET /api/admin/users` 會變成 500，管理員連修正它的畫面都打不開。
 
 資料模型關聯：`File.owner_id` → `User.id`；`File.folder_id` → `Folder.id`（可為 null；這是一種帶名稱與
 描述、由管理員維護的「card」分組，任何檔案擁有者都可以把自己的檔案歸進去）；`FileVersion.file_id` →

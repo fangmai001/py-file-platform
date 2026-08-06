@@ -11,6 +11,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
+import { MIN_PASSWORD_LENGTH } from "../lib/password";
 
 function ProfilePage() {
   const { user, setUser } = useAuth();
@@ -143,6 +144,7 @@ function ProfilePage() {
                 <Input
                   id="new-password"
                   type="password"
+                  minLength={MIN_PASSWORD_LENGTH}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -153,6 +155,7 @@ function ProfilePage() {
                 <Input
                   id="confirm-new-password"
                   type="password"
+                  minLength={MIN_PASSWORD_LENGTH}
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   required

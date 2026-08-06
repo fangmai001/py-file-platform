@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
 import { formatDateTime } from "../../lib/format";
+import { MIN_PASSWORD_LENGTH } from "../../lib/password";
 import { roleLabel } from "../../lib/roles";
 import TableSkeleton from "./TableSkeleton";
 import { isUserDirty, type useUsersAdmin } from "./useUsersAdmin";
@@ -68,6 +69,7 @@ function UsersTab(props: ReturnType<typeof useUsersAdmin>) {
               <Input
                 id="new-password"
                 type="password"
+                minLength={MIN_PASSWORD_LENGTH}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
