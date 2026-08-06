@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AliasPath, BaseModel, ConfigDict, Field
 
 from app.schemas.folder import FolderResponse
 
@@ -9,7 +9,10 @@ class FileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    # owner_id 仍然保留：前端用它判斷目前登入者能不能編輯這個檔案。owner_username 則是
+    # 給人看的，比照 AuditLogItem.actor_username 的作法，不讓呼叫端自己拿 id 去拼名稱。
     owner_id: int
+    owner_username: str = Field(validation_alias=AliasPath("owner", "username"))
     filename: str
     display_name: str | None
     folder_id: int | None

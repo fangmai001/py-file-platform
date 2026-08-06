@@ -1,9 +1,10 @@
 from datetime import date, datetime
 
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.user import User
 
 
 class File(Base):
@@ -21,3 +22,8 @@ class File(Base):
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # 純粹讓 FileResponse 取得擁有者的帳號名稱（見 app/schemas/file.py），不產生任何 DDL。
+    # 因為 owner_id 是 nullable=False 且刪除帳號時會被 409 擋下，這一端永遠指得到人，
+    # 不需要 audit_logs 那種「已刪除的使用者」fallback。
+    owner: Mapped[User] = relationship()

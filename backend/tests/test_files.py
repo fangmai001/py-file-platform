@@ -109,6 +109,25 @@ def test_owner_list_sees_own_private_files(client, db_session):
     assert names == {"private.pdf"}
 
 
+def test_list_includes_owner_username(client, db_session):
+    """管理後台的檔案表格要顯示帳號名稱而非數字 ID，所以名稱得由 response 直接帶出來。"""
+    owner = make_user(db_session, username="alice")
+    _upload(client, owner, filename="report.pdf")
+
+    response = client.get("/api/files")
+    assert response.status_code == 200
+    file_row = response.json()[0]["files"][0]
+    assert file_row["owner_username"] == "alice"
+    # owner_id 仍然保留：前端用它判斷目前登入者能不能編輯這個檔案。
+    assert file_row["owner_id"] == owner.id
+
+
+def test_upload_response_includes_owner_username(client, db_session):
+    owner = make_user(db_session, username="bob")
+    response = _upload(client, owner)
+    assert response.json()["owner_username"] == "bob"
+
+
 def test_list_filters_by_search_keyword(client, db_session):
     owner = make_user(db_session, username="owner")
     _upload(client, owner, filename="budget-report.pdf")

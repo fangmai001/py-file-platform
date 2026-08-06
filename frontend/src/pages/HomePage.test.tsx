@@ -42,7 +42,8 @@ vi.mock("../api/auth", () => ({
   fetchCurrentUser: vi.fn(),
 }));
 
-import { deleteFile, listFiles } from "../api/files";
+import { ApiError } from "../api/client";
+import { deleteFile, downloadFile, listFiles } from "../api/files";
 import { listHighlights } from "../api/highlights";
 import { listLinkCards } from "../api/link-cards";
 import { getSiteSettings } from "../api/site-settings";
@@ -76,6 +77,7 @@ describe("HomePage", () => {
           {
             id: 1,
             owner_id: 2,
+            owner_username: "owner",
             filename: "a.pdf",
             display_name: null,
             folder_id: null,
@@ -123,6 +125,7 @@ describe("HomePage", () => {
           {
             id: 1,
             owner_id: 2,
+            owner_username: "owner",
             filename: "a.pdf",
             display_name: null,
             folder_id: null,
@@ -154,6 +157,40 @@ describe("HomePage", () => {
     await waitFor(() => expect(deleteFile).toHaveBeenCalledWith(1));
   });
 
+  it("reports a failed download without leaving a stuck error banner", async () => {
+    vi.mocked(listFiles).mockResolvedValue([
+      {
+        folder: null,
+        files: [
+          {
+            id: 1,
+            owner_id: 2,
+            owner_username: "owner",
+            filename: "a.pdf",
+            display_name: null,
+            folder_id: null,
+            announced_at: null,
+            is_public: true,
+            size: 2048,
+            created_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      },
+    ]);
+    vi.mocked(downloadFile).mockRejectedValue(new ApiError(500, "下載失敗"));
+
+    renderHomePage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("a.pdf")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "下載" }));
+
+    await waitFor(() => expect(downloadFile).toHaveBeenCalled());
+    // 下載失敗走 toast。改用 error state 的話紅框會卡在檔案列表頂端，因為那個 state
+    // 只有在 loadFiles() 成功時才會被清掉——見 HomePage 的 handleDownload。
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("debounces the search input and calls listFiles with the search term", async () => {
     vi.mocked(listFiles).mockResolvedValue([]);
 
@@ -172,6 +209,7 @@ describe("HomePage", () => {
     const files = Array.from({ length: 25 }, (_, i) => ({
       id: i + 1,
       owner_id: 2,
+      owner_username: "owner",
       filename: `file-${i + 1}.pdf`,
       display_name: null,
       folder_id: null,

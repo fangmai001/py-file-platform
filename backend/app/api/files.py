@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Up
 from fastapi import File as UploadFileParam
 from fastapi.responses import FileResponse as FileDownloadResponse
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, get_current_user_optional
 from app.core.audit import write_audit_log
@@ -355,6 +355,9 @@ def list_files(
 
     files = (
         query.outerjoin(Folder, File.folder_id == Folder.id)
+        # 一併把擁有者撈出來：FileResponse.owner_username 每一列都要用，少了這行會變成
+        # 每個檔案各補一次 query。
+        .options(joinedload(File.owner))
         .order_by(Folder.name.asc().nulls_first(), File.filename.asc())
         .all()
     )
