@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from app.api.admin import DELETED_ACTOR_USERNAME
-from app.core.security import verify_password
+from app.core.security import MIN_PASSWORD_LENGTH, verify_password
 from app.models import AuditLog, Notification, PasswordResetToken, User
 from tests.conftest import auth_headers, make_ldap_user, make_user
 from tests.test_files import _upload
@@ -249,3 +249,95 @@ def test_audit_logs_pagination_limit_is_clamped(client, db_session):
     response = client.get("/api/admin/audit-logs?limit=2", headers=auth_headers(admin))
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+def test_create_user_rejects_unknown_role(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    # "Admin" 大小寫不同，require_admin 只認 "admin"，所以這種帳號建起來會是「看起來有角色、
+    # 實際上永遠拿不到權限」的靜默失敗。改由 schema 在這裡就擋下。
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw", "role": "Admin"},
+    )
+    assert response.status_code == 422
+    assert db_session.query(User).filter(User.username == "bob").first() is None
+
+
+def test_update_user_rejects_unknown_role(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+
+    response = client.patch(
+        f"/api/admin/users/{bob.id}", headers=auth_headers(admin), json={"role": "superuser"}
+    )
+    assert response.status_code == 422
+    db_session.refresh(bob)
+    assert bob.role == "user"
+
+
+def test_create_user_rejects_invalid_email(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "s3cret-pw", "email": "not-an-email"},
+    )
+    assert response.status_code == 422
+    assert db_session.query(User).filter(User.username == "bob").first() is None
+
+
+def test_create_user_rejects_short_password(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "bob", "password": "short", "role": "user"},
+    )
+    assert response.status_code == 422
+    assert db_session.query(User).filter(User.username == "bob").first() is None
+
+
+def test_create_user_rejects_empty_username(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+
+    response = client.post(
+        "/api/admin/users",
+        headers=auth_headers(admin),
+        json={"username": "", "password": "s3cret-pw"},
+    )
+    assert response.status_code == 422
+
+
+def test_admin_can_clear_email_without_hitting_the_unique_index(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob", email="bob@example.com")
+    carol = make_user(db_session, username="carol", email="carol@example.com")
+
+    # 兩個帳號都清空 email。若 "" 被原封不動寫進去，第二個就會撞上 users.email 的 unique
+    # index 而變成 500。
+    for target in (bob, carol):
+        response = client.patch(
+            f"/api/admin/users/{target.id}", headers=auth_headers(admin), json={"email": ""}
+        )
+        assert response.status_code == 200
+        assert response.json()["email"] is None
+
+    db_session.refresh(bob)
+    db_session.refresh(carol)
+    assert bob.email is None
+    assert carol.email is None
+
+
+def test_admin_generated_temp_password_satisfies_the_minimum_length(client, db_session):
+    admin = make_user(db_session, username="root", role="admin")
+    bob = make_user(db_session, username="bob")
+
+    response = client.post(f"/api/admin/users/{bob.id}/reset-password", headers=auth_headers(admin))
+    assert response.status_code == 200
+    # 管理員會把這組密碼交給使用者，之後對方可能拿它去走「變更密碼」流程，因此它自己也必須
+    # 通過同一條長度規則。
+    assert len(response.json()["password"]) >= MIN_PASSWORD_LENGTH

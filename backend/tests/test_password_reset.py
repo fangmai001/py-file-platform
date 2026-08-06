@@ -210,3 +210,20 @@ def test_confirm_rejects_account_deactivated_after_token_was_issued(client, db_s
 
     assert response.status_code == 400
     assert db_session.query(PasswordResetToken).one().used_at is None
+
+
+def test_confirm_rejects_short_new_password(client, db_session, monkeypatch):
+    sent = _capture_sent_email(monkeypatch)
+    make_user(db_session, username="alice", password="old-password", email="alice@example.com")
+    client.post("/api/password-reset/request", json={"username_or_email": "alice"})
+    token = _extract_token(sent["body"])
+
+    response = client.post("/api/password-reset/confirm", json={"token": token, "new_password": "short"})
+    assert response.status_code == 422
+
+    # 密碼沒被改掉，token 也還沒被消耗掉。
+    login_response = client.post(
+        "/api/auth/login", json={"username": "alice", "password": "old-password"}
+    )
+    assert login_response.status_code == 200
+    assert db_session.query(PasswordResetToken).filter(PasswordResetToken.used_at.is_(None)).count() == 1

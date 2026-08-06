@@ -74,11 +74,18 @@ def update_user(
     if payload.is_active is not None and payload.is_active != user.is_active:
         changes.append(f"is_active: {user.is_active} -> {payload.is_active}")
         user.is_active = payload.is_active
-    if payload.email is not None and payload.email != user.email:
-        if db.query(User).filter(User.email == payload.email, User.id != user.id).first() is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
-        changes.append("email updated")
-        user.email = payload.email
+    if payload.email is not None:
+        # "" 代表清空。必須正規化成 None 再寫入：users.email 有 unique index，直接存 "" 的話
+        # 第二個被清空 email 的帳號會在 commit 當下撞成 500。
+        new_email = payload.email or None
+        if new_email != user.email:
+            if (
+                new_email is not None
+                and db.query(User).filter(User.email == new_email, User.id != user.id).first() is not None
+            ):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email 已被使用")
+            changes.append("email updated")
+            user.email = new_email
     if payload.full_name is not None and payload.full_name != user.full_name:
         changes.append("full_name updated")
         user.full_name = payload.full_name

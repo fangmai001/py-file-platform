@@ -51,12 +51,19 @@ export interface FileVersionItem {
   uploaded_at: string;
 }
 
+/**
+ * 後端只認得這兩個角色，寫入端由 backend/app/schemas/user.py 的 `UserRole` 擋下其他值；
+ * 兩份清單必須一起改。後端的回應型別刻意仍是寬鬆的 str（見該檔說明），所以顯示用的
+ * `roleLabel()` 仍保留未知值的 fallback。
+ */
+export type UserRole = "user" | "admin";
+
 export interface UserItem {
   id: number;
   username: string;
   full_name: string | null;
   email: string | null;
-  role: string;
+  role: UserRole;
   auth_source: string;
   is_active: boolean;
   notify_by_email: boolean;

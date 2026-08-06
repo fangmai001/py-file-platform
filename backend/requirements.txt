@@ -4,6 +4,9 @@ sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
 pydantic-settings==2.7.0
+# pydantic 的 EmailStr 需要這個套件才能運作（app/schemas/user.py）；它不是 pydantic 的
+# 預設依賴，少了它 import 時就會直接報錯，因此必須明確列出。
+email-validator==2.2.0
 passlib[bcrypt]==1.7.4
 # passlib 1.7.4 (unmaintained) reads bcrypt's old `__about__.__version__` attr;
 # bcrypt>=4.1 dropped it, so pin to the last compatible release.
