@@ -84,8 +84,11 @@ gh pr merge <n> --auto --squash --delete-branch
   舊分支繼續改，那才是真的會撞出衝突。
 - 真的遇到衝突時：在分支上 `git merge origin/main`，解完之後 push，auto-merge 會自己重跑並合併。
 
-清理分支時有一個不能刪：`docs/dark-mode-check-evidence` 與 `main` 沒有共同祖先，是刻意留在版本線之外
-的 orphan 分支，存放 PR #113 的深色模式巡檢截圖。它永遠不會被合併，但也不是殘骸。
+`docs/dark-mode-check-evidence` 是與 `main` 沒有共同祖先的 orphan 分支，曾經是 PR #113 那批深色模式
+巡檢截圖的唯一存放處。那 11 張截圖已由 PR #170 收進 `docs/screenshots/`，對應的筆記在
+`docs/notes/dark-mode-visual-check.md`，因此這個分支已經沒有保留價值，可以刪。往後也不要再用 orphan
+分支存放這類資料——它 `grep` 不到、不隨程式碼一起演進，正確的去處是 `docs/`（見 Documentation and
+notes 一節）。
 
 ### Release tags
 
