@@ -26,6 +26,11 @@ backups/*
 release/
 *.tar
 
+# Local scratch notes (see the README section 「文件與筆記」). Untracked because
+# this is a public repo and notes may contain real LDAP/SMTP settings or
+# internal hostnames.
+*.local.md
+
 # Editors/OS
 .vscode/
 .idea/

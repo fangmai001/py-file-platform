@@ -344,6 +344,50 @@ squash 方式合併，GitHub 自動附加的 `(#NN)` 屬工具行為，不需要
 - **後端的 lint／format 檢查**：前端有 oxlint，後端則完全沒有對應的檢查（`requirements-dev.txt` 只有
   pytest 與 httpx）。兩邊標準不一致，是否導入 ruff 仍待決定。
 
+## 📝 文件與筆記 (Documentation and Notes)
+
+筆記依「要不要留存」與「能不能公開」分成三個去處。選錯地方的代價是真實的——不是每次 PR 都跑滿 CI，
+就是把不該公開的東西推上 public repo：
+
+| 內容 | 位置 | 進版控 | 公開 | 變更成本 |
+| --- | --- | --- | --- | --- |
+| 要留存、他人也要看的專案筆記 | `docs/notes/` | 是 | 是 | feature branch + PR + 四個必要檢查 |
+| 有生命週期的待辦與議題 | GitHub Issues | 否 | 是 | 無 |
+| 個人隨手速記、草稿 | `*.local.md`（已被 `.gitignore` 排除） | 否 | 否 | 無 |
+
+`docs/notes/` 與既有的 `docs/screenshots/` 平行，索引在 `docs/notes/README.md`——新增筆記時順手在那份
+清單補一行。檔名使用 `kebab-case.md`，內容比照本專案其餘文件，使用繁體中文與全形標點。
+
+### 為什麼隨手速記不要放 `docs/`
+
+因為本專案的三個 workflow **刻意不加 `paths:` 過濾**（理由見上方「為什麼不用 `paths:` 過濾」），
+所以即使 PR 只改了一個 markdown 錯字，`Backend`、`Frontend`、`Production image`、`Shell scripts`
+四個必要檢查仍會全部執行，而且要全綠才能合併。對「記一筆待會要查的東西」來說，開分支、送 PR、等 CI
+這串流程的成本遠大於筆記本身。
+
+這不是 CI 設定的缺陷，不要為了讓文件 PR 跑快一點而去加 `paths:`——那會讓被跳過的 workflow 永遠卡在
+`Expected — Waiting for status to be reported`，PR 反而完全合不進去。正確做法是讓高頻速記留在
+`*.local.md`，只有真正要留存的內容才進 `docs/notes/`。
+
+### 為什麼不使用 GitHub Wiki
+
+這個 repo 的 Wiki 分頁雖然是開啟的（`has_wiki: true`），但**刻意保持空白**，原因是：
+
+- **沒有 API。** GitHub 沒有提供 wiki 內容的 REST 端點（`gh api repos/<owner>/<repo>/wiki` 回 404），
+  `gh` CLI 也沒有 wiki 子指令。wiki 只能透過一個獨立的 `<repo>.wiki.git` 存取，而且**第一頁必須從網頁
+  UI 建立**，CLI 繞不過去。（作為對照，GitLab 有 `/projects/:id/wikis` 的完整 CRUD，但本專案在 GitHub。）
+- **不隨程式碼版控。** wiki 是另一個 git repo，不會出現在本 repo 的 commit 或 PR 裡，改了程式碼不會有人
+  順手更新它，也無法在同一個 PR 內一起 review。
+- **搜尋不到。** 在本 repo 內 `grep` 不到 wiki 的內容，對照著讀原始碼時等於不存在。
+
+同樣的內容放在 `docs/notes/` 就沒有這些問題：它跟著程式碼一起版控、一起 review、`grep` 得到。
+
+### ⚠️ 安全邊界
+
+**這是公開 repo。** 密鑰、`.env` 的實際內容、LDAP／SMTP 的真實設定值（server URI、bind DN、密碼）、
+內部主機名稱與 IP，一律不得寫進 `docs/`、Issues 或 PR 內文。那些內容只能留在 `*.local.md`——
+`.gitignore` 已經以萬用字元排除（`NOTES.local.md`、`deploy.local.md` 都涵蓋在內），不會被誤推上來。
+
 ## 📦 發布模式執行方式 (Production / Release Mode)
 
 `docker compose up`（即 `docker-compose.yml`）啟動的 frontend container 內部是跑 `npm run dev`

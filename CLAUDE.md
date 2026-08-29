@@ -20,6 +20,8 @@
   翻了反而不一致。migration 內的**手寫**說明註解則照樣使用繁中。
 - `.env.example` 中被註解掉的設定項（例如 `# SMTP_HOST=smtp.example.com`）——那些是可直接取消註解
   啟用的設定，不是散文。只翻它們上方的說明段落。
+- `.gitignore` 的註解——既有內容全部是英文，新增規則時沿用英文，維持單一檔案內的一致性。它不在上方
+  那份需要繁中的檔案清單內。
 
 本檔案（CLAUDE.md）本身也以繁體中文撰寫，後續維護請沿用同一風格：敘述文字用繁中並使用全形標點，
 章節標題、檔案路徑、識別符、指令等技術符號一律維持英文原樣。
@@ -123,6 +125,35 @@ status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main
   `Settings → Rules → Rulesets` 補上名稱，否則它只是「會跑但擋不住任何東西」的檢查。
 
 完整說明（含各步驟的理由與尚未涵蓋的部分）在 README 的「持續整合」一節，這裡不重複。
+
+## Documentation and notes
+
+筆記與文件有三個去處，依「要不要留存」與「能不能公開」區分，不要混用：
+
+| 內容 | 位置 | 進版控 | 公開 |
+| --- | --- | --- | --- |
+| 要留存、他人也要看的專案筆記 | `docs/notes/`（索引在 `docs/notes/README.md`） | 是 | 是 |
+| 有生命週期的待辦與議題 | GitHub Issues | 否 | 是 |
+| 個人隨手速記、草稿 | `*.local.md`（`.gitignore` 已排除） | 否 | 否 |
+
+幾個必須遵守的邊界：
+
+- **這是 public repo。** 密鑰、LDAP／SMTP 的實際設定值、內部主機名稱一律不得寫進 `docs/` 或 Issues，
+  那些只能放 `*.local.md`。
+- **高頻速記不要進 `docs/`。** `docs/` 底下的變更照樣要走 feature branch + PR（見 Git workflow），
+  而參與 PR 的三個 workflow 刻意不加 `paths:` 過濾，所以改一個 markdown 錯字也會跑滿
+  `Backend`、`Frontend`、`Production image`、`Shell scripts` 四個必要檢查，全綠才能合併。這個成本
+  對隨手記一筆來說太高。
+- **文件變更的分支 type 用 `docs`**，見上方 Branch naming。
+- `docs/notes/` 底下的筆記同樣適用 Language 一節的規則：繁體中文、全形標點。
+
+**GitHub Wiki 刻意不使用**，不要再提議它，也不用重新調查一次——這個 repo 的 `has_wiki` 雖然是 `true`，
+但一頁都沒建過（clone `<repo>.wiki.git` 回報 repository not found）。原因是：GitHub **沒有** wiki 內容的
+API（`gh` 沒有 wiki 子指令，`gh api repos/<owner>/<repo>/wiki` 回 404），wiki 只能透過獨立的 git repo
+存取，而且第一頁必須從網頁 UI 建立，CLI 繞不過去；它也不隨程式碼版控、不進 code review、在本 repo 內
+`grep` 不到，改了程式不會有人順手更新它。
+
+完整理由（含三個去處的取捨與安全邊界）在 README 的「文件與筆記」一節，這裡不重複。
 
 ## Project overview
 
