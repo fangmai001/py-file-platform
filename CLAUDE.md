@@ -147,11 +147,8 @@ status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main
 - **文件變更的分支 type 用 `docs`**，見上方 Branch naming。
 - `docs/notes/` 底下的筆記同樣適用 Language 一節的規則：繁體中文、全形標點。
 
-**GitHub Wiki 刻意不使用**，不要再提議它，也不用重新調查一次——這個 repo 的 `has_wiki` 雖然是 `true`，
-但一頁都沒建過（clone `<repo>.wiki.git` 回報 repository not found）。原因是：GitHub **沒有** wiki 內容的
-API（`gh` 沒有 wiki 子指令，`gh api repos/<owner>/<repo>/wiki` 回 404），wiki 只能透過獨立的 git repo
-存取，而且第一頁必須從網頁 UI 建立，CLI 繞不過去；它也不隨程式碼版控、不進 code review、在本 repo 內
-`grep` 不到，改了程式不會有人順手更新它。
+**GitHub Wiki 刻意不使用**（沒有內容 API、不隨程式碼版控、`grep` 不到），不要再提議它，也不用重新
+調查一次。上表那三個去處就是全部。
 
 完整理由（含三個去處的取捨與安全邊界）在 README 的「文件與筆記」一節，這裡不重複。
 
