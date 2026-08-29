@@ -91,3 +91,40 @@ export interface AuditLogItem {
   detail: string | null;
   created_at: string;
 }
+
+export interface FeedSource {
+  id: number;
+  title: string;
+  description: string | null;
+  url: string;
+  folder_id: number | null;
+  is_public: boolean;
+  is_active: boolean;
+  last_fetched_at: string | null;
+  last_status: string | null;
+  created_at: string;
+}
+
+/** 只有管理員的清單（GET /api/feeds/admin）會帶上 last_error，公開的清單不揭露失敗原因。 */
+export interface AdminFeedSource extends FeedSource {
+  last_error: string | null;
+}
+
+/** 從訂閱來源抓回來的單一則項目。 */
+export interface FeedArticle {
+  id: number;
+  feed_id: number;
+  title: string;
+  link: string | null;
+  author: string | null;
+  summary: string | null;
+  published_at: string | null;
+  fetched_at: string;
+}
+
+export interface FeedFetchResult {
+  status: string;
+  created: number;
+  skipped: number;
+  error: string | null;
+}

@@ -217,7 +217,7 @@ Commands 一節的原生模式（`uvicorn --reload` + `npm run dev`，只把 db 
 產出**兩個**分開的 tar（`app` 與 `postgres`）加一份 `MANIFEST.sha256`，而不是合併成單一 tar：兩個
 image 沒有共用 layer，合併省不到空間，分開則讓釘死版本的 postgres 不必隨每次改版重新傳輸。
 
-`scripts/` 底下的三支 script（`backup.sh`、`restore.sh`、`package-images.sh`）都 `source` 同目錄的
+`scripts/` 底下的四支 script（`backup.sh`、`restore.sh`、`package-images.sh`、`fetch-feeds.sh`）都 `source` 同目錄的
 `scripts/lib.sh`，共用 `log()`／`die()`／`env_get()`／`resolve_path()`／`require_env_file()`，路徑則由
 `lib.sh` 以自身的 `BASH_SOURCE` 推導，因此不論從哪個 cwd（例如 cron）呼叫都指向同一個部署根目錄。
 `env_get` 一律以 regex 讀取 `.env` 而非 `source`，`.env` 的內容永遠不會被當成 shell code 執行——新增
@@ -270,6 +270,9 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
 - `app/api/router.py` — `APIRouter(prefix="/api")`，納入各個功能 router，每個都是 `app/api/` 底下獨立的
   模組：`auth.py`（登入／JWT——本機密碼或透過 `app/core/ldap.py` 的 LDAP bind，以及 `/me`）、
   `files.py`（上傳下載、版本、可見性切換、依 folder 分組的列表，並觸發上傳通知）、
+  `feeds.py`（RSS／Atom 訂閱來源的 CRUD 與「立即抓取」；`GET /api/feeds` 與 `GET /api/feeds/items`
+  公開，寫入與 `GET /api/feeds/admin` 僅限管理員——後者多回傳 `last_error`，公開的回應刻意不揭露
+  抓取失敗的內部訊息。`/admin` 與 `/items` 這兩個字面路徑必須註冊在 `/{feed_id}` 之前）、
   `folders.py`（card CRUD，寫入操作透過 `require_admin` 限定管理員）、`link_cards.py`
   （管理員維護的外部連結卡片，與檔案一樣依 folder 分組）、`highlights.py`（首頁的特色卡片——與
   `link_cards.py` 相同的「`GET` 公開、寫入僅限管理員」形狀；`icon` 存的是 kebab-case 字串 key，由
@@ -311,10 +314,19 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
   `frontend/src/lib/password.ts` 有一份鏡像（欄位的 `minLength`），兩處必須一起改——與
   `MAX_UPLOAD_SIZE_MB_CEILING` 是同一種做法。它刻意**不**套用在登入用的 `LoginRequest` 上：既有帳號
   的密碼可能比它短，在登入端加限制等於把那些人鎖在門外。
+- `app/core/feeds.py` — 訂閱來源的抓取與解析。`fetch_feed()` 用 httpx 帶著上次的 `ETag`／
+  `Last-Modified` 做條件式 GET（並限制 timeout、redirect 次數與回應大小），`parse_feed()` 用
+  feedparser 把 RSS 2.0／Atom／RDF 的欄位差異抹平，`refresh_feed()` 串起兩者並只寫入沒見過的項目
+  （去重鍵是 `(feed_id, guid)`）。所有網路錯誤都收斂成帶訊息的結果而不往外拋，取向與
+  `app/core/mailer.py` 相同。`refresh_feed()` 刻意不 commit，交易邊界留給呼叫端。
+- `app/cli/fetch_feeds.py` — `python -m app.cli.fetch_feeds`，由 `scripts/fetch-feeds.sh` 在容器內
+  執行，逐一抓取所有啟用中的來源、每個各自 commit，有任何一個失敗就以結束碼 1 結束。走 CLI 而不是
+  打 HTTP API，是為了讓 cron 不必保管一份管理員 JWT。
 - `app/core/database.py` — SQLAlchemy 的 engine／session 設定；所有 model 繼承的 `Base`
   （DeclarativeBase），以及供 FastAPI 依賴注入使用的 `get_db()` generator。
 - `app/models/` — 一張表一個檔案（`User`、`File`、`FileVersion`、`Folder`、`LinkCard`、`Highlight`、
-  `SiteSetting`、`LdapSetting`、`SmtpSetting`、`PasswordResetToken`、`Notification`、`AuditLog`），全部
+  `Feed`、`FeedItem`、`SiteSetting`、`LdapSetting`、`SmtpSetting`、`PasswordResetToken`、`Notification`、
+  `AuditLog`），全部
   在 `app/models/__init__.py` 中 import 並重新匯出。Alembic 的 `env.py` 會執行
   `from app.models import *`，因此每個 model 都必須加進那個 `__init__.py`，autogenerate 才抓得到。
 - `app/schemas/user.py` — 除了各個 request／response model，另外定義三個共用型別。
@@ -332,7 +344,10 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
 資料模型關聯：`File.owner_id` → `User.id`；`File.folder_id` → `Folder.id`（可為 null；這是一種帶名稱與
 描述、由管理員維護的「card」分組，任何檔案擁有者都可以把自己的檔案歸進去）；`FileVersion.file_id` →
 `File.id`（檔案每上傳一個版本就一列，用以支援 README 所描述的「不覆蓋、保留版本歷史」行為）；
-`AuditLog.actor_id` → `User.id` 記錄高權限的管理員操作。檔案內容本身存放在磁碟上的
+`AuditLog.actor_id` → `User.id` 記錄高權限的管理員操作。`Feed.folder_id` → `Folder.id`（可為 null，
+與 `LinkCard` 同樣的分組方式——所以 `app/api/folders.py` 的 `delete_folder` 也必須把它清回 null）；
+`FeedItem.feed_id` → `Feed.id` 帶 `ON DELETE CASCADE`，並以 `(feed_id, guid)` 的 unique constraint
+作為重抓時的去重依據。檔案內容本身存放在磁碟上的
 `UPLOAD_DIR`／`uploads/` 之下——DB 只存 metadata 與 `FileVersion.stored_path`。
 `SiteSetting.favicon_filename`／`hero_image_filename` 遵循同樣的拆分方式：DB 存純 uuid 檔名，位元組資料
 放在 `UPLOAD_DIR/branding/`，由 response schema 從檔名推導出公開 URL。`File.display_name` 與
@@ -345,14 +360,14 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
 ## Frontend architecture
 
 Vite + React 19 + TypeScript + `react-router-dom` v7。路由定義在 `App.tsx`，包含 `/`、`/login`、
-`/forgot-password`、`/reset-password`、`/upload`、`/profile`、`/about`、`/admin`
+`/forgot-password`、`/reset-password`、`/upload`、`/profile`、`/feeds`、`/about`、`/admin`
 （→ `HomePage`、`LoginPage`、`ForgotPasswordPage`、`ResetPasswordPage`、`UploadPage`、`ProfilePage`、
-`AboutPage`、`AdminPage`），全部透過 `src/api/`（`auth.ts`、`files.ts`、`folders.ts`、`admin.ts`、
+`FeedsPage`、`AboutPage`、`AdminPage`），全部透過 `src/api/`（`auth.ts`、`files.ts`、`folders.ts`、`admin.ts`、
 `client.ts`）接上後端 API；`AuthContext.tsx` 保存已登入的使用者與 JWT。`/upload` 與 `/profile` 開放給
 任何已登入使用者，`/admin` 則僅限管理員（未通過時都會導向 `/login`，於前端把關）。Lint 使用 `oxlint`
 （設定在 `.oxlintrc.json`），而非 eslint。
 
-`AdminPage.tsx` 只是外殼：統計卡片與九個 `<Tabs>` 觸發器。每個分頁是 `src/pages/admin/` 底下的一對
+`AdminPage.tsx` 只是外殼：統計卡片與十個 `<Tabs>` 觸發器。每個分頁是 `src/pages/admin/` 底下的一對
 檔案——`useXxxAdmin.ts`（狀態、載入器、handler）與 `XxxTab.tsx`（版面，以 hook 的回傳值作為 props）。
 這些 hook 是由 `AdminPage` 呼叫，而不是由分頁元件自己呼叫，原因有三：統計卡片要在 `<Tabs>` 之外讀取
 使用者與檔案總數；分頁之間彼此相依（連結卡片的 folder 選單要讀 folder 列表、資料異動後要刷新操作紀錄、

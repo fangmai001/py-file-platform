@@ -4,6 +4,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import AuditLogsTab from "./admin/AuditLogsTab";
+import FeedsTab from "./admin/FeedsTab";
 import FilesTab from "./admin/FilesTab";
 import FoldersTab from "./admin/FoldersTab";
 import HighlightsTab from "./admin/HighlightsTab";
@@ -13,6 +14,7 @@ import SiteSettingsTab from "./admin/SiteSettingsTab";
 import SmtpSettingsTab from "./admin/SmtpSettingsTab";
 import UsersTab from "./admin/UsersTab";
 import { useAuditLogsAdmin } from "./admin/useAuditLogsAdmin";
+import { useFeedsAdmin } from "./admin/useFeedsAdmin";
 import { useFilesAdmin } from "./admin/useFilesAdmin";
 import { useFoldersAdmin } from "./admin/useFoldersAdmin";
 import { useHighlightsAdmin } from "./admin/useHighlightsAdmin";
@@ -32,10 +34,12 @@ function AdminPage() {
   const files = useFilesAdmin({ reloadAuditLogs: auditLogs.reload });
   const users = useUsersAdmin({ reloadAuditLogs: auditLogs.reload });
   const linkCards = useLinkCardsAdmin({ reloadAuditLogs: auditLogs.reload });
-  // 必須排在 linkCards 之後：刪掉資料夾會讓檔案與連結卡片兩邊的引用同時失效。
+  const feeds = useFeedsAdmin({ reloadAuditLogs: auditLogs.reload });
+  // 必須排在 linkCards 與 feeds 之後：刪掉資料夾會讓檔案、連結卡片與訂閱來源三邊的引用同時失效。
   const folders = useFoldersAdmin({
     reloadFiles: files.reload,
     reloadLinkCards: linkCards.reload,
+    reloadFeeds: feeds.reload,
     reloadAuditLogs: auditLogs.reload,
   });
   const highlights = useHighlightsAdmin({ reloadAuditLogs: auditLogs.reload });
@@ -85,7 +89,7 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="users">
-        {/* line 變體加上 flex-none：九個中文標籤硬塞進預設的帶內距凹槽會被擠扁，
+        {/* line 變體加上 flex-none：十個中文標籤硬塞進預設的帶內距凹槽會被擠扁，
             因為原本的 trigger 是 flex-1。 */}
         <TabsList variant="line" className="w-full justify-start">
           <TabsTrigger value="users" className="h-9 flex-none px-3">
@@ -96,6 +100,9 @@ function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="link-cards" className="h-9 flex-none px-3">
             連結卡片
+          </TabsTrigger>
+          <TabsTrigger value="feeds" className="h-9 flex-none px-3">
+            RSS 訂閱
           </TabsTrigger>
           <TabsTrigger value="highlights" className="h-9 flex-none px-3">
             首頁特色
@@ -127,6 +134,10 @@ function AdminPage() {
 
         <TabsContent value="link-cards" className="flex flex-col gap-6 pt-4">
           <LinkCardsTab {...linkCards} folders={folders.folders} />
+        </TabsContent>
+
+        <TabsContent value="feeds" className="flex flex-col gap-6 pt-4">
+          <FeedsTab {...feeds} folders={folders.folders} />
         </TabsContent>
 
         <TabsContent value="highlights" className="flex flex-col gap-6 pt-4">

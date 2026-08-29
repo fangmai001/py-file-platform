@@ -35,6 +35,13 @@ vi.mock("../api/link-cards", () => ({
   updateLinkCard: vi.fn(),
   deleteLinkCard: vi.fn(),
 }));
+vi.mock("../api/feeds", () => ({
+  listAdminFeeds: vi.fn().mockResolvedValue([]),
+  createFeed: vi.fn(),
+  updateFeed: vi.fn(),
+  deleteFeed: vi.fn(),
+  fetchFeedNow: vi.fn(),
+}));
 vi.mock("../api/highlights", () => ({
   listHighlights: vi.fn().mockResolvedValue([]),
   createHighlight: vi.fn(),
@@ -89,6 +96,8 @@ import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
 import { ApiError } from "../api/client";
 import { createHighlight, deleteHighlight, listHighlights, updateHighlight } from "../api/highlights";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
+import { createFeed, deleteFeed, fetchFeedNow, listAdminFeeds } from "../api/feeds";
+import type { AdminFeedSource } from "../api/types";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
 import { deleteFile, listFiles } from "../api/files";
 import {
@@ -110,6 +119,23 @@ function renderAdminPage() {
       </AuthProvider>
     </MemoryRouter>,
   );
+}
+
+function makeFeed(overrides: Partial<AdminFeedSource> = {}): AdminFeedSource {
+  return {
+    id: 1,
+    title: "社團部落格",
+    description: null,
+    url: "https://example.com/rss",
+    folder_id: null,
+    is_public: true,
+    is_active: true,
+    last_fetched_at: null,
+    last_status: null,
+    last_error: null,
+    created_at: "2024-01-01T00:00:00Z",
+    ...overrides,
+  };
 }
 
 async function loginAsAdmin() {
@@ -592,8 +618,9 @@ describe("AdminPage", () => {
     // 「操作紀錄」看不到剛才那筆，得整頁重整。
     await waitFor(() => expect(deleteFolder).toHaveBeenCalledWith(1));
     await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(2));
-    // 連結卡片也引用 folder_id，它的資料夾選單同樣不能繼續列出已刪除的那個。
+    // 連結卡片也引用 folder_id，它的資料夾選單同樣不能繼續列出已刪除的那個。訂閱來源同理。
     await waitFor(() => expect(listLinkCards).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(listAdminFeeds).toHaveBeenCalledTimes(2));
   });
 
   it("keeps the LDAP 儲存 disabled until something in the form actually changes", async () => {
@@ -770,6 +797,111 @@ describe("AdminPage", () => {
     await user.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => expect(deleteLinkCard).toHaveBeenCalledWith(1));
+  });
+
+  it("creates a feed from the RSS 訂閱 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(createFeed).mockResolvedValue(makeFeed());
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(screen.getByLabelText("名稱")).toBeInTheDocument());
+    await user.type(screen.getByLabelText("名稱"), "社團部落格");
+    await user.type(screen.getByLabelText("Feed 網址"), "https://example.com/rss");
+    await user.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() =>
+      expect(createFeed).toHaveBeenCalledWith({
+        title: "社團部落格",
+        description: null,
+        url: "https://example.com/rss",
+        folder_id: null,
+      }),
+    );
+  });
+
+  it("fetches a feed on demand and refreshes the audit log", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listAdminFeeds).mockResolvedValue([makeFeed()]);
+    vi.mocked(fetchFeedNow).mockResolvedValue({ status: "ok", created: 3, skipped: 1, error: null });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "立即抓取" }));
+
+    await waitFor(() => expect(fetchFeedNow).toHaveBeenCalledWith(1));
+    // 後端會為 feed.fetch 寫稽核紀錄，所以這個操作也必須刷新操作紀錄。
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(2));
+  });
+
+  it("surfaces a fetch failure that the API reports inside a 200 response", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listAdminFeeds).mockResolvedValue([makeFeed()]);
+    // 抓取失敗不是 HTTP 錯誤——後端仍回 200，失敗原因在 error 欄位裡，畫面必須自己讀出來。
+    vi.mocked(fetchFeedNow).mockResolvedValue({ status: "error", created: 0, skipped: 0, error: "HTTP 404" });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "立即抓取" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("HTTP 404"));
+  });
+
+  it("keeps a feed row's 儲存 disabled until something in it actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listAdminFeeds).mockResolvedValue([makeFeed()]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "儲存" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "啟用中" }));
+    expect(screen.getByRole("button", { name: "儲存" })).toBeEnabled();
+  });
+
+  it("asks for confirmation before deleting a feed, and warns its articles go with it", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(listAdminFeeds).mockResolvedValue([makeFeed()]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+
+    await waitFor(() => expect(screen.getByText(/已抓回的文章會一併刪除/)).toBeInTheDocument());
+    const deleteButtons = screen.getAllByRole("button", { name: "刪除" });
+    await user.click(deleteButtons[deleteButtons.length - 1]);
+
+    await waitFor(() => expect(deleteFeed).toHaveBeenCalledWith(1));
   });
 
   it("creates a highlight from the 首頁特色 tab", async () => {
