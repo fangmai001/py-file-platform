@@ -1,4 +1,6 @@
 from app.models.audit_log import AuditLog
+from app.models.feed import Feed
+from app.models.feed_item import FeedItem
 from app.models.file import File
 from app.models.file_version import FileVersion
 from app.models.folder import Folder
@@ -15,6 +17,8 @@ __all__ = [
     "User",
     "File",
     "FileVersion",
+    "Feed",
+    "FeedItem",
     "Folder",
     "LinkCard",
     "Highlight",

@@ -3,6 +3,7 @@ import { Loader2, Moon, Sun } from "lucide-react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
+import FeedsPage from "./pages/FeedsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -115,6 +116,9 @@ function HeaderNav() {
       <NavLink to="/" end className={navLinkClass}>
         首頁
       </NavLink>
+      <NavLink to="/feeds" className={navLinkClass}>
+        訂閱
+      </NavLink>
       <NavLink to="/about" className={navLinkClass}>
         關於
       </NavLink>
@@ -171,6 +175,7 @@ function AppShell() {
       <main className="w-full flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/feeds" element={<FeedsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

@@ -32,10 +32,12 @@ export function isFolderDirty(folder: FolderItem, draft: FolderDraft | undefined
 export function useFoldersAdmin({
   reloadFiles,
   reloadLinkCards,
+  reloadFeeds,
   reloadAuditLogs,
 }: {
   reloadFiles: () => Promise<void>;
   reloadLinkCards: () => Promise<void>;
+  reloadFeeds: () => Promise<void>;
   reloadAuditLogs: () => Promise<void>;
 }) {
   const confirm = useConfirm();
@@ -115,6 +117,7 @@ export function useFoldersAdmin({
       await reloadFiles();
       // 連結卡片也有 folder_id，不刷新的話它的資料夾下拉選單會繼續列出剛剛刪掉的那個。
       await reloadLinkCards();
+      await reloadFeeds();
       await reloadAuditLogs();
       toast.success(`已刪除資料夾「${folder.name}」`);
     } catch (err) {

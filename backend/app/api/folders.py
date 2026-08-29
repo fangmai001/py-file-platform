@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user_optional, require_admin
 from app.core.audit import write_audit_log
 from app.core.database import get_db
-from app.models import File, Folder, User
+from app.models import Feed, File, Folder, User
 from app.schemas.folder import FolderCreate, FolderResponse, FolderUpdate
 
 router = APIRouter()
@@ -85,8 +85,10 @@ def delete_folder(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="資料夾不存在")
 
     # 原本歸在這個資料夾底下的檔案會退回「未分類」，而不是擋下刪除或被連帶刪掉——
-    # 資料夾只是顯示用的 metadata，並不是檔案的擁有者。
+    # 資料夾只是顯示用的 metadata，並不是檔案的擁有者。訂閱來源同理，而且它的 folder_id
+    # 是不帶 ondelete 的外鍵，不清掉的話 Postgres 會直接拒絕整個刪除。
     db.query(File).filter(File.folder_id == folder_id).update({File.folder_id: None})
+    db.query(Feed).filter(Feed.folder_id == folder_id).update({Feed.folder_id: None})
     write_audit_log(db, actor_id=admin.id, action="folder.delete", target=folder.name)
     db.delete(folder)
     db.commit()

@@ -44,6 +44,15 @@ vi.mock("./api/link-cards", () => ({
   updateLinkCard: vi.fn(),
   deleteLinkCard: vi.fn(),
 }));
+vi.mock("./api/feeds", () => ({
+  listFeeds: vi.fn().mockResolvedValue([]),
+  listFeedArticles: vi.fn().mockResolvedValue([]),
+  listAdminFeeds: vi.fn().mockResolvedValue([]),
+  createFeed: vi.fn(),
+  updateFeed: vi.fn(),
+  deleteFeed: vi.fn(),
+  fetchFeedNow: vi.fn(),
+}));
 vi.mock("./api/site-settings", () => ({
   getSiteSettings: vi.fn().mockResolvedValue({
     brand_name: null,
