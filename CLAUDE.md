@@ -63,6 +63,30 @@ PR 標題套用與 commit 訊息相同的主旨規則，見 Git workflow 底下�
 一個好例子，取自每日備份那次 commit：
 `新增每日備份 script（本機 pg_dump + tar，保留 30 天）`
 
+### Merging
+
+PR 開好之後**一律掛上 auto-merge**，不要留著等使用者按鈕：
+
+```bash
+gh pr merge <n> --auto --squash --delete-branch
+```
+
+必要檢查通過後 GitHub 會自己 squash 合併並刪掉分支（repo 已開啟 auto-merge 與「合併後自動刪除分支」
+兩個設定）。需要人介入的只剩 CI 失敗與衝突兩種情況，而這兩種都由 Claude 處理完再回報，不是把 PR
+丟回去給使用者管。
+
+為了讓上面那句話成立，有幾件事是 Claude 的責任，不是使用者的：
+
+- **開新分支前先同步 `main`**（`git switch main && git pull`）。從落後的 `main` 切分支，是這個 repo
+  唯一真正會製造衝突的來源。
+- **同一批檔案不要同時開兩個 PR。** `CLAUDE.md` 與 `README.md` 是熱點檔案，平行改必然衝突。
+- **合併後順手清掉殘骸分支。** 危險不在於它們佔空間，而在於日後不小心接著一個落後幾十個 commit 的
+  舊分支繼續改，那才是真的會撞出衝突。
+- 真的遇到衝突時：在分支上 `git merge origin/main`，解完之後 push，auto-merge 會自己重跑並合併。
+
+清理分支時有一個不能刪：`docs/dark-mode-check-evidence` 與 `main` 沒有共同祖先，是刻意留在版本線之外
+的 orphan 分支，存放 PR #113 的深色模式巡檢截圖。它永遠不會被合併，但也不是殘骸。
+
 ### Release tags
 
 Tag 使用 semver，格式為 `vMAJOR.MINOR.PATCH`（例如 `v0.1.0`），從 `main` 切出。第一個 tag 是 `v0.1.0`
