@@ -369,19 +369,6 @@ squash 方式合併，GitHub 自動附加的 `(#NN)` 屬工具行為，不需要
 `Expected — Waiting for status to be reported`，PR 反而完全合不進去。正確做法是讓高頻速記留在
 `*.local.md`，只有真正要留存的內容才進 `docs/notes/`。
 
-### 為什麼不使用 GitHub Wiki
-
-這個 repo 的 Wiki 分頁雖然是開啟的（`has_wiki: true`），但**刻意保持空白**，原因是：
-
-- **沒有 API。** GitHub 沒有提供 wiki 內容的 REST 端點（`gh api repos/<owner>/<repo>/wiki` 回 404），
-  `gh` CLI 也沒有 wiki 子指令。wiki 只能透過一個獨立的 `<repo>.wiki.git` 存取，而且**第一頁必須從網頁
-  UI 建立**，CLI 繞不過去。（作為對照，GitLab 有 `/projects/:id/wikis` 的完整 CRUD，但本專案在 GitHub。）
-- **不隨程式碼版控。** wiki 是另一個 git repo，不會出現在本 repo 的 commit 或 PR 裡，改了程式碼不會有人
-  順手更新它，也無法在同一個 PR 內一起 review。
-- **搜尋不到。** 在本 repo 內 `grep` 不到 wiki 的內容，對照著讀原始碼時等於不存在。
-
-同樣的內容放在 `docs/notes/` 就沒有這些問題：它跟著程式碼一起版控、一起 review、`grep` 得到。
-
 ### ⚠️ 安全邊界
 
 **這是公開 repo。** 密鑰、`.env` 的實際內容、LDAP／SMTP 的真實設定值（server URI、bind DN、密碼）、
