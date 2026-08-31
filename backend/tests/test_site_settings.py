@@ -39,7 +39,7 @@ def test_non_admin_cannot_update_site_settings(client, db_session):
     response = client.patch(
         "/api/site-settings",
         headers=auth_headers(user),
-        json={"brand_name": "我的社團"},
+        json={"brand_name": "我的平台"},
     )
     assert response.status_code == 403
 
@@ -51,18 +51,18 @@ def test_admin_can_update_site_settings_and_audit_log_is_written(client, db_sess
         "/api/site-settings",
         headers=auth_headers(admin),
         json={
-            "brand_name": "我的社團",
-            "browser_title": "我的社團官網",
+            "brand_name": "我的平台",
+            "browser_title": "我的公告網站",
             "hero_title": "歡迎光臨",
-            "hero_subtitle": "社團公開檔案牆",
+            "hero_subtitle": "公開檔案牆",
         },
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["brand_name"] == "我的社團"
-    assert body["browser_title"] == "我的社團官網"
+    assert body["brand_name"] == "我的平台"
+    assert body["browser_title"] == "我的公告網站"
     assert body["hero_title"] == "歡迎光臨"
-    assert body["hero_subtitle"] == "社團公開檔案牆"
+    assert body["hero_subtitle"] == "公開檔案牆"
 
     logs = db_session.query(AuditLog).filter(AuditLog.action == "site_settings.update").all()
     assert len(logs) == 1
@@ -74,12 +74,12 @@ def test_updated_site_settings_are_publicly_readable(client, db_session):
     client.patch(
         "/api/site-settings",
         headers=auth_headers(admin),
-        json={"brand_name": "我的社團"},
+        json={"brand_name": "我的平台"},
     )
 
     response = client.get("/api/site-settings")
     assert response.status_code == 200
-    assert response.json()["brand_name"] == "我的社團"
+    assert response.json()["brand_name"] == "我的平台"
 
 
 def test_update_only_writes_audit_log_when_something_changes(client, db_session):

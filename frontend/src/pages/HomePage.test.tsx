@@ -236,7 +236,7 @@ describe("HomePage", () => {
     vi.mocked(listLinkCards).mockResolvedValue([
       {
         id: 1,
-        title: "社團官網",
+        title: "公告網站",
         description: "官方網站",
         url: "https://example.com/",
         folder_id: null,
@@ -247,9 +247,9 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await waitFor(() => expect(screen.getByText("社團官網")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("公告網站")).toBeInTheDocument());
     expect(screen.getByText("連結")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /社團官網/ });
+    const link = screen.getByRole("link", { name: /公告網站/ });
     expect(link).toHaveAttribute("href", "https://example.com/");
     expect(link).toHaveAttribute("target", "_blank");
   });
@@ -259,7 +259,7 @@ describe("HomePage", () => {
     vi.mocked(getSiteSettings).mockResolvedValue({
       brand_name: null,
       browser_title: null,
-      hero_title: "歡迎光臨我的社團",
+      hero_title: "歡迎光臨我的平台",
       hero_subtitle: "這裡是自訂的副標說明",
       favicon_url: null,
       hero_image_url: null,
@@ -268,7 +268,7 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await waitFor(() => expect(screen.getByText("歡迎光臨我的社團")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("歡迎光臨我的平台")).toBeInTheDocument());
     expect(screen.getByText("這裡是自訂的副標說明")).toBeInTheDocument();
   });
 

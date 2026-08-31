@@ -58,7 +58,7 @@ NO_GUID_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def make_feed(db_session, *, title="社團部落格", url="https://example.com/rss", is_public=True, is_active=True):
+def make_feed(db_session, *, title="消息部落格", url="https://example.com/rss", is_public=True, is_active=True):
     feed = Feed(title=title, url=url, is_public=is_public, is_active=is_active)
     db_session.add(feed)
     db_session.commit()
@@ -334,17 +334,17 @@ def test_admin_can_create_feed_and_audit_log_is_written(client, db_session):
     response = client.post(
         "/api/feeds",
         headers=auth_headers(admin),
-        json={"title": "社團部落格", "description": "每週更新", "url": "https://example.com/rss"},
+        json={"title": "消息部落格", "description": "每週更新", "url": "https://example.com/rss"},
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["title"] == "社團部落格"
+    assert body["title"] == "消息部落格"
     assert body["is_public"] is True
     assert body["is_active"] is True
     assert body["last_status"] is None
 
     log = db_session.query(AuditLog).filter(AuditLog.action == "feed.create").one()
-    assert log.target == "社團部落格"
+    assert log.target == "消息部落格"
 
 
 def test_creating_duplicate_url_is_rejected(client, db_session):
@@ -365,7 +365,7 @@ def test_creating_feed_with_unknown_folder_is_rejected(client, db_session):
     response = client.post(
         "/api/feeds",
         headers=auth_headers(admin),
-        json={"title": "社團部落格", "url": "https://example.com/rss", "folder_id": 999},
+        json={"title": "消息部落格", "url": "https://example.com/rss", "folder_id": 999},
     )
     assert response.status_code == 400
 

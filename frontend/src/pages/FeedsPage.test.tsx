@@ -15,7 +15,7 @@ import type { FeedArticle, FeedSource } from "../api/types";
 function makeFeed(overrides: Partial<FeedSource> = {}): FeedSource {
   return {
     id: 1,
-    title: "社團部落格",
+    title: "消息部落格",
     description: null,
     url: "https://example.com/rss",
     folder_id: null,
@@ -60,7 +60,7 @@ describe("FeedsPage", () => {
     expect(screen.getByRole("heading", { name: "訂閱文章" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("link", { name: /第一篇/ })).toBeInTheDocument());
     expect(screen.getByRole("link", { name: /第一篇/ })).toHaveAttribute("href", "https://example.com/posts/1");
-    await waitFor(() => expect(screen.getByText("社團部落格")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("消息部落格")).toBeInTheDocument());
   });
 
   it("renders the summary as plain text instead of the feed's raw HTML", async () => {
