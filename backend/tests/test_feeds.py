@@ -5,7 +5,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 from app.core import feeds as feeds_core
-from app.core.feeds import RawFeed, fetch_feed, parse_feed, refresh_feed
+from app.core.feed_schedule import get_feed_settings
+from app.core.feeds import RawFeed, fetch_feed, parse_feed, refresh_all_feeds, refresh_feed
 from app.models import AuditLog, Feed, FeedItem, Folder
 from tests.conftest import auth_headers, make_user
 
@@ -450,3 +451,67 @@ def test_deleting_folder_resets_feed_folder_id(client, db_session):
     assert response.status_code == 204
     db_session.refresh(feed)
     assert feed.folder_id is None
+
+
+def test_refresh_all_feeds_skips_inactive_and_summarises(db_session, fake_fetch):
+    make_feed(db_session, title="啟用 A", url="https://example.com/a")
+    make_feed(db_session, title="啟用 B", url="https://example.com/b")
+    make_feed(db_session, title="停用", url="https://example.com/c", is_active=False)
+    fake_fetch(RawFeed(status="ok", content=RSS_XML))
+
+    result = refresh_all_feeds(db_session)
+
+    assert result.total == 2
+    assert result.ok == 2
+    assert result.failed == 0
+    assert result.created == 4
+    assert db_session.query(FeedItem).count() == 4
+    assert "2 個來源" in result.summary
+
+
+def test_refresh_all_feeds_keeps_going_after_one_source_fails(db_session, monkeypatch):
+    """一個來源壞掉不該讓同一批裡其他來源已經抓好的項目跟著消失——這正是 per-feed commit 的理由。"""
+    ok_feed = make_feed(db_session, title="正常來源", url="https://example.com/ok")
+    make_feed(db_session, title="壞掉的來源", url="https://example.com/bad")
+
+    def _fake_fetch(url, *args, **kwargs):
+        if url == "https://example.com/bad":
+            return RawFeed(status="error", error="無法連線至來源：ConnectError")
+        return RawFeed(status="ok", content=RSS_XML)
+
+    monkeypatch.setattr(feeds_core, "fetch_feed", _fake_fetch)
+
+    result = refresh_all_feeds(db_session)
+
+    assert result.ok == 1
+    assert result.failed == 1
+    assert result.errors == ["壞掉的來源：無法連線至來源：ConnectError"]
+    assert db_session.query(FeedItem).filter(FeedItem.feed_id == ok_feed.id).count() == 2
+
+
+def test_admin_can_fetch_all_feeds_and_result_is_recorded(client, db_session, fake_fetch):
+    admin = make_user(db_session, username="root", role="admin")
+    make_feed(db_session)
+    fake_fetch(RawFeed(status="ok", content=RSS_XML))
+
+    response = client.post("/api/feeds/fetch-all", headers=auth_headers(admin))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["ok"] == 1
+    assert body["created"] == 2
+    assert body["errors"] == []
+    assert db_session.query(AuditLog).filter(AuditLog.action == "feed.fetch_all").count() == 1
+
+    # 手動的整批抓取同樣算「上次執行」，後台不必為它多開一組欄位。
+    settings_row = get_feed_settings(db_session)
+    assert settings_row.last_run_status == "ok"
+    assert settings_row.last_run_at is not None
+
+
+def test_non_admin_cannot_fetch_all_feeds(client, db_session):
+    user = make_user(db_session)
+
+    assert client.post("/api/feeds/fetch-all").status_code == 401
+    assert client.post("/api/feeds/fetch-all", headers=auth_headers(user)).status_code == 403

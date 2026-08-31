@@ -1,8 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { ApiError } from "../../api/client";
-import { createFeed, deleteFeed, fetchFeedNow, listAdminFeeds, updateFeed } from "../../api/feeds";
-import type { AdminFeedSource } from "../../api/types";
+import {
+  createFeed,
+  deleteFeed,
+  fetchAllFeeds,
+  fetchFeedNow,
+  getFeedSettings,
+  listAdminFeeds,
+  updateFeed,
+  updateFeedSettings,
+} from "../../api/feeds";
+import type { AdminFeedSource, FeedSettings } from "../../api/types";
 import { useConfirm } from "../../context/ConfirmDialogContext";
 
 /** 代表「不屬於任何 folder」的哨符值——Select item 的 value 不能是空字串。 */
@@ -51,6 +60,37 @@ export function isFeedDirty(feed: AdminFeedSource, draft: FeedDraft | undefined)
   );
 }
 
+/**
+ * 抓取排程的編輯草稿。間隔以字串保存，因為輸入框清空的中間狀態不是合法的數字，
+ * 硬轉成 number 會在使用者刪掉最後一個字元時跳回 0。
+ */
+export interface FeedScheduleDraft {
+  fetchEnabled: boolean;
+  fetchIntervalMinutes: string;
+}
+
+/** 與後端 app/core/feed_schedule.py 的 MIN／MAX_FETCH_INTERVAL_MINUTES 是同一組數字，必須一起改。 */
+export const MIN_FETCH_INTERVAL_MINUTES = 5;
+export const MAX_FETCH_INTERVAL_MINUTES = 1440;
+
+function toScheduleDraft(settings: FeedSettings): FeedScheduleDraft {
+  return {
+    fetchEnabled: settings.fetch_enabled,
+    fetchIntervalMinutes: String(settings.fetch_interval_minutes),
+  };
+}
+
+/** 判斷排程設定是否與伺服器上的不同，讓「儲存」不會為了一次什麼都不送的編輯而啟用。 */
+export function isScheduleDirty(settings: FeedSettings | null, draft: FeedScheduleDraft): boolean {
+  if (!settings) {
+    return false;
+  }
+  return (
+    draft.fetchEnabled !== settings.fetch_enabled ||
+    draft.fetchIntervalMinutes !== String(settings.fetch_interval_minutes)
+  );
+}
+
 /** State and actions behind the RSS 訂閱 tab. */
 export function useFeedsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Promise<void> }) {
   const confirm = useConfirm();
@@ -66,6 +106,14 @@ export function useFeedsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Prom
   // 抓取是同步的網路操作，可能要好幾秒；記住是哪一列正在跑，才能只停用那一顆按鈕。
   const [fetchingFeedId, setFetchingFeedId] = useState<number | null>(null);
 
+  const [feedSettings, setFeedSettings] = useState<FeedSettings | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<FeedScheduleDraft>({
+    fetchEnabled: false,
+    fetchIntervalMinutes: "60",
+  });
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [isFetchingAll, setIsFetchingAll] = useState(false);
+
   async function loadFeeds() {
     try {
       const data = await listAdminFeeds();
@@ -77,8 +125,19 @@ export function useFeedsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Prom
     }
   }
 
+  async function loadFeedSettings() {
+    try {
+      const data = await getFeedSettings();
+      setFeedSettings(data);
+      setScheduleDraft(toScheduleDraft(data));
+    } catch (err) {
+      setFeedsError(err instanceof ApiError ? err.message : "無法載入抓取排程設定");
+    }
+  }
+
   useEffect(() => {
     loadFeeds();
+    loadFeedSettings();
   }, []);
 
   async function handleCreateFeed(event: FormEvent<HTMLFormElement>) {
@@ -183,8 +242,64 @@ export function useFeedsAdmin({ reloadAuditLogs }: { reloadAuditLogs: () => Prom
     }
   }
 
+  async function handleSaveSchedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSavingSchedule(true);
+    setFeedsError(null);
+    try {
+      const data = await updateFeedSettings({
+        fetch_enabled: scheduleDraft.fetchEnabled,
+        fetch_interval_minutes: Number(scheduleDraft.fetchIntervalMinutes),
+      });
+      setFeedSettings(data);
+      setScheduleDraft(toScheduleDraft(data));
+      await reloadAuditLogs();
+      toast.success(data.fetch_enabled ? `已啟用定時抓取，每 ${data.fetch_interval_minutes} 分鐘一次` : "已停用定時抓取");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "儲存抓取排程失敗";
+      setFeedsError(message);
+      toast.error(message);
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  }
+
+  async function handleFetchAll() {
+    setIsFetchingAll(true);
+    setFeedsError(null);
+    try {
+      const result = await fetchAllFeeds();
+      // 順序與 handleFetchFeed 相同：重新載入會清掉 feedsError，必須排在顯示結果之前。
+      await loadFeeds();
+      await loadFeedSettings();
+      await reloadAuditLogs();
+
+      if (result.failed > 0) {
+        // 整批抓取即使有來源失敗仍回 200，失敗的細節在 errors 裡而不是 ApiError。
+        const message = `${result.summary}。失敗原因：${result.errors.join("；")}`;
+        setFeedsError(message);
+        toast.error(`有 ${result.failed} 個來源抓取失敗`);
+      } else {
+        toast.success(result.summary);
+      }
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "抓取全部訂閱來源失敗";
+      setFeedsError(message);
+      toast.error(message);
+    } finally {
+      setIsFetchingAll(false);
+    }
+  }
+
   return {
     reload: loadFeeds,
+    feedSettings,
+    scheduleDraft,
+    setScheduleDraft,
+    isSavingSchedule,
+    isFetchingAll,
+    handleSaveSchedule,
+    handleFetchAll,
     feeds,
     feedsError,
     feedDrafts,

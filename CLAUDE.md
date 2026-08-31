@@ -332,7 +332,9 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
   `files.py`（上傳下載、版本、可見性切換、依 folder 分組的列表，並觸發上傳通知）、
   `feeds.py`（RSS／Atom 訂閱來源的 CRUD 與「立即抓取」；`GET /api/feeds` 與 `GET /api/feeds/items`
   公開，寫入與 `GET /api/feeds/admin` 僅限管理員——後者多回傳 `last_error`，公開的回應刻意不揭露
-  抓取失敗的內部訊息。`/admin` 與 `/items` 這兩個字面路徑必須註冊在 `/{feed_id}` 之前）、
+  抓取失敗的內部訊息。`/admin`、`/items` 與 `/fetch-all` 這幾個字面路徑必須註冊在 `/{feed_id}` 之前）、
+  `feed_settings.py`（定時抓取排程的開關與間隔，`GET`+`PATCH` 都僅限管理員。刻意獨立成一個
+  `/api/feed-settings` router 而不是塞進 `feeds.py` 的 `/settings`，就是為了避開上面那個路徑順序陷阱）、
   `folders.py`（card CRUD，寫入操作透過 `require_admin` 限定管理員）、`link_cards.py`
   （管理員維護的外部連結卡片，與檔案一樣依 folder 分組）、`highlights.py`（首頁的特色卡片——與
   `link_cards.py` 相同的「`GET` 公開、寫入僅限管理員」形狀；`icon` 存的是 kebab-case 字串 key，由
@@ -378,14 +380,29 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
   `Last-Modified` 做條件式 GET（並限制 timeout、redirect 次數與回應大小），`parse_feed()` 用
   feedparser 把 RSS 2.0／Atom／RDF 的欄位差異抹平，`refresh_feed()` 串起兩者並只寫入沒見過的項目
   （去重鍵是 `(feed_id, guid)`）。所有網路錯誤都收斂成帶訊息的結果而不往外拋，取向與
-  `app/core/mailer.py` 相同。`refresh_feed()` 刻意不 commit，交易邊界留給呼叫端。
+  `app/core/mailer.py` 相同。`refresh_feed()` 刻意不 commit，交易邊界留給呼叫端。批次入口
+  `refresh_all_feeds()` 則相反——它**每個來源各自 commit**，好讓一個來源壞掉不會回滾同一批裡其他
+  來源已經抓好的項目；排程器、CLI 與後台的「全部立即抓取」三個入口都共用它。
+- `app/core/feed_schedule.py` — `get_feed_settings(db)` 取出單列的 `FeedSetting`（與
+  `ldap_config.py`／`smtp_config.py` 同一個 get-or-create 模式，差別在它沒有環境變數初始值），以及
+  `record_run_result()`——把一次整批抓取的摘要寫進「上次執行」欄位。`MIN`／`MAX_FETCH_INTERVAL_MINUTES`
+  也定義在這裡，`frontend/src/pages/admin/useFeedsAdmin.ts` 有一份鏡像，兩處必須一起改。
+- `app/core/feed_scheduler.py` — 內建的定時抓取排程，取代部署主機上的 crontab。`start()`／`stop()` 由
+  `app/main.py` 的 lifespan 呼叫，迴圈本身只是「呼叫 `_run_once()`，睡它回傳的秒數」。三個刻意的決定：
+  `_run_once()` 必須走 `asyncio.to_thread()`，因為抓取用的是同步的 httpx 與 SQLAlchemy，跑在 event loop
+  裡會讓整個應用程式在抓取期間停止回應；迴圈外層攔下所有例外後繼續跑，一次意外若終結那個 task，之後
+  就再也不會抓取而且沒人看得出來；`request_wakeup()` 用 `call_soon_threadsafe`，因為它是從 FastAPI 的
+  threadpool（同步端點）呼叫的，而 `asyncio.Event.set()` 不是 thread-safe。刻意不引入 APScheduler：
+  這裡只有一個工作，而「跑完才睡」的序列迴圈天生不會重疊、也沒有 misfire 需要補償。`.env` 的
+  `FEED_SCHEDULER_ENABLED` 是 process 層級的總開關，與管理員在後台切換的 `fetch_enabled` 是兩回事。
 - `app/cli/fetch_feeds.py` — `python -m app.cli.fetch_feeds`，由 `scripts/fetch-feeds.sh` 在容器內
-  執行，逐一抓取所有啟用中的來源、每個各自 commit，有任何一個失敗就以結束碼 1 結束。走 CLI 而不是
-  打 HTTP API，是為了讓 cron 不必保管一份管理員 JWT。
+  執行，是 `refresh_all_feeds()` 的薄殼，有任何一個來源失敗就以結束碼 1 結束。排程搬進應用程式之後
+  它不再是定時抓取的主要路徑，而是保留給手動觸發與排錯——在沒有瀏覽器的離線主機上比後台好用。
 - `app/core/database.py` — SQLAlchemy 的 engine／session 設定；所有 model 繼承的 `Base`
   （DeclarativeBase），以及供 FastAPI 依賴注入使用的 `get_db()` generator。
 - `app/models/` — 一張表一個檔案（`User`、`File`、`FileVersion`、`Folder`、`LinkCard`、`Highlight`、
-  `Feed`、`FeedItem`、`SiteSetting`、`LdapSetting`、`SmtpSetting`、`PasswordResetToken`、`Notification`、
+  `Feed`、`FeedItem`、`FeedSetting`、`SiteSetting`、`LdapSetting`、`SmtpSetting`、`PasswordResetToken`、
+  `Notification`、
   `AuditLog`），全部
   在 `app/models/__init__.py` 中 import 並重新匯出。Alembic 的 `env.py` 會執行
   `from app.models import *`，因此每個 model 都必須加進那個 `__init__.py`，autogenerate 才抓得到。

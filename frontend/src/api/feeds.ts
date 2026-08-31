@@ -1,5 +1,12 @@
 import { del, getJSON, patchJSON, postJSON } from "./client";
-import type { AdminFeedSource, FeedArticle, FeedFetchResult, FeedSource } from "./types";
+import type {
+  AdminFeedSource,
+  BatchFetchResult,
+  FeedArticle,
+  FeedFetchResult,
+  FeedSettings,
+  FeedSource,
+} from "./types";
 
 export interface CreateFeedInput {
   title: string;
@@ -65,4 +72,20 @@ export function deleteFeed(feedId: number): Promise<void> {
 /** 立即抓取單一來源。抓取失敗時後端仍回 200，失敗原因在回應的 error 欄位裡。 */
 export function fetchFeedNow(feedId: number): Promise<FeedFetchResult> {
   return postJSON<FeedFetchResult>(`/feeds/${feedId}/fetch`, {});
+}
+
+/** 立即抓取全部啟用中的來源。與單一來源的抓取一樣是同步的，來源多時可能要跑數十秒。 */
+export function fetchAllFeeds(): Promise<BatchFetchResult> {
+  return postJSON<BatchFetchResult>("/feeds/fetch-all", {});
+}
+
+export function getFeedSettings(): Promise<FeedSettings> {
+  return getJSON<FeedSettings>("/feed-settings");
+}
+
+export function updateFeedSettings(input: {
+  fetch_enabled?: boolean;
+  fetch_interval_minutes?: number;
+}): Promise<FeedSettings> {
+  return patchJSON<FeedSettings>("/feed-settings", input);
 }

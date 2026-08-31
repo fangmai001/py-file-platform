@@ -42,6 +42,15 @@ def _isolated_upload_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
 
 
+# client fixture 是以 with TestClient(app) 進入的，因此每個測試都會跑一次 lifespan——包含啟動
+# 內建的 RSS 抓取排程器。那條迴圈會用 SessionLocal 連向真正設定的資料庫（而非這裡的 in-memory
+# SQLite），並可能真的對外發出 HTTP 請求，所以測試裡一律關掉它。排程器本身的邏輯改為直接測
+# _run_once()，見 tests/test_feed_scheduler.py。
+@pytest.fixture(autouse=True)
+def _disable_feed_scheduler(monkeypatch):
+    monkeypatch.setattr(settings, "feed_scheduler_enabled", False)
+
+
 @pytest.fixture
 def db_session():
     session = _TestSessionLocal()

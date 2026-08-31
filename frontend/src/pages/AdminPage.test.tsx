@@ -41,6 +41,15 @@ vi.mock("../api/feeds", () => ({
   updateFeed: vi.fn(),
   deleteFeed: vi.fn(),
   fetchFeedNow: vi.fn(),
+  fetchAllFeeds: vi.fn(),
+  getFeedSettings: vi.fn().mockResolvedValue({
+    fetch_enabled: false,
+    fetch_interval_minutes: 60,
+    last_run_at: null,
+    last_run_status: null,
+    last_run_detail: null,
+  }),
+  updateFeedSettings: vi.fn(),
 }));
 vi.mock("../api/highlights", () => ({
   listHighlights: vi.fn().mockResolvedValue([]),
@@ -96,7 +105,15 @@ import { getSmtpSettings, updateSmtpSettings } from "../api/smtp-settings";
 import { ApiError } from "../api/client";
 import { createHighlight, deleteHighlight, listHighlights, updateHighlight } from "../api/highlights";
 import { createLinkCard, deleteLinkCard, listLinkCards, updateLinkCard } from "../api/link-cards";
-import { createFeed, deleteFeed, fetchFeedNow, listAdminFeeds } from "../api/feeds";
+import {
+  createFeed,
+  deleteFeed,
+  fetchAllFeeds,
+  fetchFeedNow,
+  getFeedSettings,
+  listAdminFeeds,
+  updateFeedSettings,
+} from "../api/feeds";
 import type { AdminFeedSource } from "../api/types";
 import { createFolder, deleteFolder, listFolders, updateFolder } from "../api/folders";
 import { deleteFile, listFiles } from "../api/files";
@@ -877,10 +894,11 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
 
     await waitFor(() => expect(screen.getByDisplayValue("消息部落格")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "儲存" })).toBeDisabled();
+    const row = screen.getByDisplayValue("消息部落格").closest("tr") as HTMLElement;
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "啟用中" }));
-    expect(screen.getByRole("button", { name: "儲存" })).toBeEnabled();
+    await user.click(within(row).getByRole("button", { name: "啟用中" }));
+    expect(within(row).getByRole("button", { name: "儲存" })).toBeEnabled();
   });
 
   it("asks for confirmation before deleting a feed, and warns its articles go with it", async () => {
@@ -902,6 +920,99 @@ describe("AdminPage", () => {
     await user.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => expect(deleteFeed).toHaveBeenCalledWith(1));
+  });
+
+  it("saves the fetch schedule from the RSS 訂閱 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(updateFeedSettings).mockResolvedValue({
+      fetch_enabled: true,
+      fetch_interval_minutes: 15,
+      last_run_at: null,
+      last_run_status: null,
+      last_run_detail: null,
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(getFeedSettings).toHaveBeenCalled());
+    await user.click(await screen.findByRole("checkbox", { name: "啟用定時抓取" }));
+    await user.clear(screen.getByLabelText("間隔（分鐘）"));
+    await user.type(screen.getByLabelText("間隔（分鐘）"), "15");
+    await user.click(screen.getByRole("button", { name: "儲存排程" }));
+
+    await waitFor(() =>
+      expect(updateFeedSettings).toHaveBeenCalledWith({ fetch_enabled: true, fetch_interval_minutes: 15 }),
+    );
+  });
+
+  it("keeps 儲存排程 disabled until the schedule actually changes", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(getFeedSettings).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "儲存排程" })).toBeDisabled();
+
+    await user.click(await screen.findByRole("checkbox", { name: "啟用定時抓取" }));
+    expect(screen.getByRole("button", { name: "儲存排程" })).toBeEnabled();
+  });
+
+  it("fetches every feed at once and surfaces per-source failures", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    // 整批抓取即使有來源失敗仍回 200，失敗細節在 errors 裡，畫面必須自己讀出來。
+    vi.mocked(fetchAllFeeds).mockResolvedValue({
+      total: 2,
+      ok: 1,
+      not_modified: 0,
+      failed: 1,
+      created: 3,
+      errors: ["壞掉的來源：HTTP 404"],
+      summary: "2 個來源：成功 1、無更新 0、失敗 1，新增 3 則",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(getFeedSettings).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "全部立即抓取" }));
+
+    await waitFor(() => expect(fetchAllFeeds).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("壞掉的來源：HTTP 404"));
+  });
+
+  it("shows the last scheduled run on the RSS 訂閱 tab", async () => {
+    await loginAsAdmin();
+    vi.mocked(listUsers).mockResolvedValue([]);
+    vi.mocked(getFeedSettings).mockResolvedValue({
+      fetch_enabled: true,
+      fetch_interval_minutes: 60,
+      last_run_at: "2025-03-03T08:00:00Z",
+      last_run_status: "error",
+      last_run_detail: "2 個來源：成功 1、無更新 0、失敗 1，新增 3 則",
+    });
+
+    renderAdminPage();
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
+
+    await waitFor(() => expect(screen.getByText("有來源失敗")).toBeInTheDocument());
+    expect(screen.getByText("2 個來源：成功 1、無更新 0、失敗 1，新增 3 則")).toBeInTheDocument();
   });
 
   it("creates a highlight from the 首頁特色 tab", async () => {

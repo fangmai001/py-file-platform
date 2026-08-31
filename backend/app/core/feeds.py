@@ -10,7 +10,7 @@
 import hashlib
 import logging
 from calendar import timegm
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import feedparser
@@ -75,6 +75,31 @@ class FeedFetchResult:
     created: int = 0
     skipped: int = 0
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class BatchFetchResult:
+    """一次「抓取全部啟用中來源」的結果。
+
+    排程器、CLI 與管理員的「全部立即抓取」三個入口共用它，畫面上的「上次執行」摘要也由它產生。
+    """
+
+    total: int = 0
+    ok: int = 0
+    not_modified: int = 0
+    failed: int = 0
+    created: int = 0
+    # 每個失敗的來源一則「標題：原因」，供 log 與稽核紀錄使用。刻意與 summary 分開：
+    # 摘要是給畫面看的一行字，這裡則是排錯時真正需要的細節。
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def summary(self) -> str:
+        """給人看的一行摘要，會寫進 feed_settings.last_run_detail。"""
+        return (
+            f"{self.total} 個來源：成功 {self.ok}、無更新 {self.not_modified}、"
+            f"失敗 {self.failed}，新增 {self.created} 則"
+        )
 
 
 def _truncate(value: str | None, limit: int) -> str | None:
@@ -248,3 +273,41 @@ def refresh_feed(db: Session, feed: Feed) -> FeedFetchResult:
     feed.last_modified = raw.last_modified
     feed.last_error = None
     return FeedFetchResult(status="ok", created=created, skipped=skipped)
+
+
+def refresh_all_feeds(db: Session) -> BatchFetchResult:
+    """抓取所有啟用中的來源。
+
+    與 refresh_feed() 的契約刻意不同：這個函式**會 commit，而且是每個來源各自 commit**。
+    一個來源失敗（連不上、格式壞掉）不該讓同一批裡其他來源已經抓好的項目跟著被回滾，而
+    per-feed 的交易邊界正是這個批次入口存在的理由。呼叫端因此不必、也不應該再包一層交易。
+    """
+    feeds = db.query(Feed).filter(Feed.is_active.is_(True)).order_by(Feed.id.asc()).all()
+
+    ok = 0
+    not_modified = 0
+    failed = 0
+    created = 0
+    errors: list[str] = []
+
+    for feed in feeds:
+        result = refresh_feed(db, feed)
+        db.commit()
+
+        if result.status == "error":
+            failed += 1
+            errors.append(f"{feed.title}：{result.error}")
+        elif result.status == "not_modified":
+            not_modified += 1
+        else:
+            ok += 1
+            created += result.created
+
+    return BatchFetchResult(
+        total=len(feeds),
+        ok=ok,
+        not_modified=not_modified,
+        failed=failed,
+        created=created,
+        errors=errors,
+    )

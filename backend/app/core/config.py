@@ -66,4 +66,12 @@ class Settings(BaseSettings):
     # {username} 會被代換成登入用的 username（已做 filter escape）。
     ldap_user_search_filter: str = "(uid={username})"
 
+    # 內建的 RSS 定時抓取排程器（見 app/core/feed_scheduler.py）是否要隨應用程式啟動。這是
+    # process 層級的總開關，與管理員在後台切換的 feed_settings.fetch_enabled 是兩回事：後者是
+    # 「排程開著沒有」，這裡則是「這個 process 要不要跑排程器」。維持 crontab、或日後跑多個
+    # 副本而只想讓其中一個抓取時設成 false。測試也靠它避免在 TestClient 的 lifespan 裡
+    # 起一條真的會連外的背景迴圈。
+    feed_scheduler_enabled: bool = True
+
+
 settings = Settings()
