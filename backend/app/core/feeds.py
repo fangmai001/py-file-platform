@@ -30,6 +30,12 @@ MAX_ITEMS_PER_FETCH = 100
 # 對方回 301／302 導向另一個網址是常態（例如 http → https），但不該無限跟下去。
 MAX_REDIRECTS = 5
 
+# UA 刻意寫成傳統的 `Mozilla/5.0 (compatible; ...)` 格式，而不是裸的產品名。這不是偽裝成瀏覽器——
+# 產品名與版本仍然完整揭露，只是採用 Googlebot 等爬蟲共用的那個慣例格式。實務上有相當多來源站
+# 擋在 WAF（例如 AWS WAF／CloudFront）後面，看到不認得的裸 UA 就直接回一個挑戰頁而不是 feed，
+# 台電的來源就是這樣被擋掉的。
+USER_AGENT = "Mozilla/5.0 (compatible; py-file-platform-feed-fetcher/1.0)"
+
 # 欄位長度以資料庫的定義為準，超過就截斷——與其讓一則標題過長的項目害整批寫入失敗，
 # 不如存進截斷後的版本。
 _MAX_TITLE_LEN = 512
@@ -81,7 +87,7 @@ def _truncate(value: str | None, limit: int) -> str | None:
 def fetch_feed(url: str, etag: str | None = None, last_modified: str | None = None) -> RawFeed:
     """取回 feed 的原始位元組。帶上上次的 etag／last-modified 做條件式 GET，對方沒更新時回 304，
     我們就完全不必重新解析。"""
-    headers = {"User-Agent": "py-file-platform-feed-fetcher"}
+    headers = {"User-Agent": USER_AGENT}
     if etag:
         headers["If-None-Match"] = etag
     if last_modified:
@@ -99,6 +105,16 @@ def fetch_feed(url: str, etag: str | None = None, last_modified: str | None = No
                     return RawFeed(status="not_modified")
                 response.raise_for_status()
 
+                # 2xx 不等於「拿到 feed」。擋在 WAF 後面的站台常以 202 搭配空 body 回一個挑戰，
+                # 那不是錯誤碼、raise_for_status() 攔不下來，但裡面一則項目也沒有。放它過去的話
+                # 整批抓取會回報「成功、新增 0 則」並把上一次的錯誤訊息清掉，管理員在後台只會看到
+                # 一個永遠空白卻顯示正常的來源。
+                if response.status_code != 200:
+                    return RawFeed(
+                        status="error",
+                        error=f"來源回應 HTTP {response.status_code} 而非 200，可能被對方的防火牆攔截",
+                    )
+
                 # 串流讀取才擋得住上限：等 response.content 整份載入之後才檢查，
                 # 記憶體早就已經被吃掉了。
                 chunks: list[bytes] = []
@@ -109,9 +125,13 @@ def fetch_feed(url: str, etag: str | None = None, last_modified: str | None = No
                         return RawFeed(status="error", error=f"feed 超過 {MAX_FEED_BYTES} bytes 的大小上限")
                     chunks.append(chunk)
 
+                content = b"".join(chunks)
+                if not content:
+                    return RawFeed(status="error", error="來源回應了空白內容")
+
                 return RawFeed(
                     status="ok",
-                    content=b"".join(chunks),
+                    content=content,
                     etag=_truncate(response.headers.get("ETag"), 255),
                     last_modified=_truncate(response.headers.get("Last-Modified"), 255),
                 )
@@ -142,9 +162,11 @@ def _entry_guid(entry, title: str, published_at: datetime | None) -> str:
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()
 
 
-def parse_feed(raw: bytes) -> list[ParsedEntry]:
-    """解析 feed 的位元組內容。feedparser 本身很寬容：格式有瑕疵時它會設 bozo 旗標但仍盡量解析，
-    所以這裡不把 bozo 當成錯誤——真實世界的 feed 幾乎沒有完全合規的。"""
+def _parse(raw: bytes) -> tuple[list[ParsedEntry], str]:
+    """實際的解析工作，額外回傳 feedparser 判定的格式版本（例如 "rss20"／"atom10"）。
+
+    格式版本是「這份內容到底是不是 feed」唯一可靠的判準，見 refresh_feed() 的說明。
+    """
     parsed = feedparser.parse(raw)
 
     entries: list[ParsedEntry] = []
@@ -161,6 +183,13 @@ def parse_feed(raw: bytes) -> list[ParsedEntry]:
                 published_at=published_at,
             )
         )
+    return entries, parsed.get("version") or ""
+
+
+def parse_feed(raw: bytes) -> list[ParsedEntry]:
+    """解析 feed 的位元組內容。feedparser 本身很寬容：格式有瑕疵時它會設 bozo 旗標但仍盡量解析，
+    所以這裡不把 bozo 當成錯誤——真實世界的 feed 幾乎沒有完全合規的。"""
+    entries, _ = _parse(raw)
     return entries
 
 
@@ -182,7 +211,16 @@ def refresh_feed(db: Session, feed: Feed) -> FeedFetchResult:
         feed.last_error = raw.error
         return FeedFetchResult(status="error", error=raw.error)
 
-    entries = parse_feed(raw.content)
+    entries, version = _parse(raw.content)
+    # feedparser 對任何位元組都會回傳一個結果物件，即使餵給它的是 HTML 錯誤頁或防火牆的挑戰頁
+    # 也一樣——那種情況下它解析不出格式版本，version 會是空字串。少了這道檢查，一個回 200 卻塞了
+    # 網頁給我們的來源會被記成「成功、新增 0 則」，與真正抓到一個當下沒有新項目的 feed 無從分辨。
+    if not version:
+        message = "來源回應的內容不是 RSS／Atom feed"
+        feed.last_status = "error"
+        feed.last_error = message
+        return FeedFetchResult(status="error", error=message)
+
     # 一次撈出既有的 guid，而不是每則項目各查一次；同時也讓「新增幾則、略過幾則」算得出來。
     known_guids = {row[0] for row in db.query(FeedItem.guid).filter(FeedItem.feed_id == feed.id).all()}
 
