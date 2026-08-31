@@ -67,3 +67,19 @@ class FeedFetchResultResponse(BaseModel):
     created: int
     skipped: int
     error: str | None = None
+
+
+class BatchFetchResultResponse(BaseModel):
+    """POST /api/feeds/fetch-all 的回應。
+
+    errors 只給管理員看，理由與 FeedAdminResponse.last_error 相同：失敗訊息可能帶有對方主機
+    或內部網路的細節。這個端點本來就僅限管理員。
+    """
+
+    total: int
+    ok: int
+    not_modified: int
+    failed: int
+    created: int
+    errors: list[str]
+    summary: str

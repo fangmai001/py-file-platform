@@ -128,3 +128,26 @@ export interface FeedFetchResult {
   skipped: number;
   error: string | null;
 }
+
+/** 一次「整批」抓取的結果（排程或管理員的「全部立即抓取」）。 */
+export interface BatchFetchResult {
+  total: number;
+  ok: number;
+  not_modified: number;
+  failed: number;
+  created: number;
+  errors: string[];
+  summary: string;
+}
+
+/**
+ * 內建的定時抓取排程設定。取代部署主機上的 crontab，因此頻率改成在這裡調整，
+ * 不必登入伺服器（見 app/core/feed_scheduler.py）。
+ */
+export interface FeedSettings {
+  fetch_enabled: boolean;
+  fetch_interval_minutes: number;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  last_run_detail: string | null;
+}

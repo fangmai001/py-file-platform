@@ -8,6 +8,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.api.router import router
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.feed_scheduler import start as start_feed_scheduler
+from app.core.feed_scheduler import stop as stop_feed_scheduler
 from app.core.ldap_config import warn_if_ldap_env_config_ignored
 from app.core.seed import seed_initial_admin
 from app.core.smtp_config import warn_if_smtp_env_config_ignored
@@ -27,7 +29,14 @@ async def lifespan(app: FastAPI):
     # 不需要 db——純粹檢查部署者在 .env 裡填了什麼。
     warn_if_frontend_base_url_is_dev_default()
     check_jwt_secret_key()
-    yield
+
+    # 內建的 RSS 定時抓取排程，取代部署主機上的 crontab。頻率與開關由管理員在後台設定，
+    # 這裡只負責讓迴圈跟著應用程式的生命週期起停。
+    start_feed_scheduler()
+    try:
+        yield
+    finally:
+        await stop_feed_scheduler()
 
 
 app = FastAPI(title="py-file-platform", lifespan=lifespan)

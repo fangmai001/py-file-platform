@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user_optional, require_admin
 from app.core.audit import write_audit_log
 from app.core.database import get_db
-from app.core.feeds import refresh_feed
+from app.core.feed_schedule import record_run_result
+from app.core.feeds import refresh_all_feeds, refresh_feed
 from app.models import Feed, FeedItem, Folder, User
 from app.schemas.feed import (
+    BatchFetchResultResponse,
     FeedAdminResponse,
     FeedCreate,
     FeedFetchResultResponse,
@@ -70,6 +72,36 @@ def list_feed_items(
         .offset(offset)
         .limit(limit)
         .all()
+    )
+
+
+@router.post("/fetch-all", response_model=BatchFetchResultResponse)
+def fetch_all_feeds_now(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> BatchFetchResultResponse:
+    """管理員的「全部立即抓取」。
+
+    與單一來源的「立即抓取」一樣同步執行，理由相同：管理員需要當場看到結果，而背景工作沒有任何
+    管道把失敗原因送回畫面上。來源多的時候這個請求可能要跑數十秒（每個來源上限
+    FETCH_TIMEOUT_SECONDS），前端要據此處理按鈕狀態。
+
+    結果同樣寫進 feed_settings 的「上次執行」，與排程跑的那一批共用同一組欄位——對管理員來說
+    兩者都是「整批跑了一次」。
+    """
+    result = refresh_all_feeds(db)
+    record_run_result(db, result)
+    write_audit_log(db, actor_id=admin.id, action="feed.fetch_all", detail=result.summary)
+    db.commit()
+
+    return BatchFetchResultResponse(
+        total=result.total,
+        ok=result.ok,
+        not_modified=result.not_modified,
+        failed=result.failed,
+        created=result.created,
+        errors=result.errors,
+        summary=result.summary,
     )
 
 

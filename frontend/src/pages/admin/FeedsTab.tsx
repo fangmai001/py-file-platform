@@ -7,13 +7,21 @@ import SectionTitle from "../../components/SectionTitle";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import TableSkeleton from "./TableSkeleton";
 import VisibilityToggle from "./VisibilityToggle";
-import { NO_FOLDER, isFeedDirty, type useFeedsAdmin } from "./useFeedsAdmin";
+import {
+  MAX_FETCH_INTERVAL_MINUTES,
+  MIN_FETCH_INTERVAL_MINUTES,
+  NO_FOLDER,
+  isFeedDirty,
+  isScheduleDirty,
+  type useFeedsAdmin,
+} from "./useFeedsAdmin";
 
 const STATUS_LABEL: Record<string, string> = {
   ok: "正常",
@@ -37,6 +45,17 @@ function StatusBadge({ feed }: { feed: AdminFeedSource }) {
   );
 }
 
+/** 上一次「整批」抓取的結果。與每一列的 StatusBadge 是不同的東西：那個講的是單一來源。 */
+function LastRunBadge({ status }: { status: string | null }) {
+  if (status === null) {
+    return <Badge variant="outline">尚未執行</Badge>;
+  }
+  return (
+    <Badge variant={status === "error" ? "destructive" : "success"}>{status === "error" ? "有來源失敗" : "正常"}</Badge>
+  );
+}
+
+
 function FeedsTab(props: ReturnType<typeof useFeedsAdmin> & { folders: FolderItem[] | null }) {
   const {
     folders,
@@ -58,15 +77,70 @@ function FeedsTab(props: ReturnType<typeof useFeedsAdmin> & { folders: FolderIte
     handleSaveFeed,
     handleDeleteFeed,
     handleFetchFeed,
+    feedSettings,
+    scheduleDraft,
+    setScheduleDraft,
+    isSavingSchedule,
+    isFetchingAll,
+    handleSaveSchedule,
+    handleFetchAll,
   } = props;
 
   return (
     <>
       <Card>
         <CardContent className="flex flex-col gap-4 text-left">
+          <SectionTitle>抓取排程</SectionTitle>
+          <p className="text-sm text-muted-foreground">
+            啟用後，平台會自己按照設定的間隔抓取所有啟用中的來源，不需要在伺服器上設定 cron。
+            改完設定會立即生效。
+          </p>
+          <form className="flex flex-wrap items-end gap-4" onSubmit={handleSaveSchedule}>
+            <div className="flex items-center gap-2 pb-2">
+              <Checkbox
+                id="feed-schedule-enabled"
+                checked={scheduleDraft.fetchEnabled}
+                onCheckedChange={(checked) =>
+                  setScheduleDraft((draft) => ({ ...draft, fetchEnabled: checked === true }))
+                }
+              />
+              <Label htmlFor="feed-schedule-enabled">啟用定時抓取</Label>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feed-schedule-interval">間隔（分鐘）</Label>
+              <Input
+                id="feed-schedule-interval"
+                type="number"
+                className="w-32"
+                min={MIN_FETCH_INTERVAL_MINUTES}
+                max={MAX_FETCH_INTERVAL_MINUTES}
+                required
+                value={scheduleDraft.fetchIntervalMinutes}
+                onChange={(e) => setScheduleDraft((draft) => ({ ...draft, fetchIntervalMinutes: e.target.value }))}
+              />
+            </div>
+            {/* 名稱刻意不只是「儲存」：同一個分頁的每一列來源也各有一顆儲存按鈕，兩者同名會分不出來。 */}
+            <Button type="submit" disabled={isSavingSchedule || !isScheduleDirty(feedSettings, scheduleDraft)}>
+              {isSavingSchedule ? "儲存中…" : "儲存排程"}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleFetchAll} disabled={isFetchingAll}>
+              {isFetchingAll ? "抓取中…" : "全部立即抓取"}
+            </Button>
+          </form>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>上次執行：</span>
+            <LastRunBadge status={feedSettings?.last_run_status ?? null} />
+            {feedSettings?.last_run_at && <span>{formatDateTime(feedSettings.last_run_at)}</span>}
+            {feedSettings?.last_run_detail && <span>{feedSettings.last_run_detail}</span>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 text-left">
           <SectionTitle>新增訂閱來源</SectionTitle>
           <p className="text-sm text-muted-foreground">
-            平台會定期抓取這裡列出的 RSS／Atom 來源，並把最新文章顯示在「訂閱」頁面。新增之後請按一次
+            這裡列出的 RSS／Atom 來源會依上方的排程抓取，最新文章顯示在「訂閱」頁面。新增之後請按一次
             「立即抓取」，確認網址正確。
           </p>
           <form className="flex flex-wrap items-end gap-4" onSubmit={handleCreateFeed}>
