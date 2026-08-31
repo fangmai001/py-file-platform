@@ -1,9 +1,11 @@
+import threading
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
 from app.core import feeds as feeds_core
-from app.core.feeds import RawFeed, parse_feed, refresh_feed
+from app.core.feeds import RawFeed, fetch_feed, parse_feed, refresh_feed
 from app.models import AuditLog, Feed, FeedItem, Folder
 from tests.conftest import auth_headers, make_user
 
@@ -153,6 +155,86 @@ def test_refresh_feed_records_error_and_keeps_existing_items(db_session, fake_fe
     assert feed.last_status == "error"
     assert feed.last_error == "HTTP 500"
     assert db_session.query(FeedItem).count() == 2
+
+
+def test_refresh_feed_rejects_content_that_is_not_a_feed(db_session, fake_fetch):
+    """回 200 卻塞了一個網頁給我們的來源（防火牆挑戰頁、錯誤頁）必須記成失敗。
+
+    這是最難察覺的一種壞法：沒有錯誤碼、沒有例外，只是永遠 0 則。少了這道檢查，它與「抓到了一個
+    當下沒有新項目的 feed」在後台看起來一模一樣。
+    """
+    feed = make_feed(db_session)
+    fake_fetch(RawFeed(status="ok", content=b"<html><body>Access denied</body></html>"))
+
+    result = refresh_feed(db_session, feed)
+    db_session.commit()
+
+    assert result.status == "error"
+    assert result.created == 0
+    assert feed.last_status == "error"
+    assert feed.last_error is not None
+    assert db_session.query(FeedItem).count() == 0
+
+
+@pytest.fixture
+def stub_origin():
+    """在 loopback 上跑一個真的 HTTP server，用來測 fetch_feed 自己那層 httpx。
+
+    這一層過去完全沒有測試——測試都把 fetch_feed 整個換掉——而防火牆的挑戰回應正是從這個縫隙
+    溜過去的。綁在 127.0.0.1 上，離線的 CI 一樣跑得動。
+    """
+    responses: dict[str, tuple[int, bytes, str]] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            status, body, content_type = responses[self.path]
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if body:
+                self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def _register(path: str, status: int, body: bytes, content_type: str = "application/xml") -> str:
+        responses[path] = (status, body, content_type)
+        return f"http://127.0.0.1:{server.server_port}{path}"
+
+    yield _register
+    server.shutdown()
+
+
+def test_fetch_feed_reads_a_normal_response(stub_origin):
+    url = stub_origin("/rss", 200, RSS_XML)
+
+    raw = fetch_feed(url)
+
+    assert raw.status == "ok"
+    assert raw.content == RSS_XML
+
+
+def test_fetch_feed_treats_non_200_success_as_error(stub_origin):
+    """AWS WAF 擋下請求時回的是 202 加上空 body，不是錯誤碼——raise_for_status() 攔不到它。"""
+    url = stub_origin("/challenge", 202, b"", content_type="text/html")
+
+    raw = fetch_feed(url)
+
+    assert raw.status == "error"
+    assert "202" in raw.error
+
+
+def test_fetch_feed_treats_empty_body_as_error(stub_origin):
+    url = stub_origin("/empty", 200, b"")
+
+    raw = fetch_feed(url)
+
+    assert raw.status == "error"
+    assert raw.error is not None
 
 
 def test_guest_only_sees_public_and_active_feeds(client, db_session):
