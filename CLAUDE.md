@@ -146,12 +146,12 @@ status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main
 - `Production image` 是唯一會碰到根目錄 `Dockerfile` 與 `docker-compose.prod.yml` 的檢查。它會確認
   bundle 裡沒有被烙進 `localhost:8000`——正式環境同 origin 就靠這件事，而它平常只有在瀏覽器裡才
   看得出來壞掉。
-- 參與 PR 的那三個 workflow **刻意不加 `paths:` 過濾**，原因見 README 的「為什麼不用 `paths:` 過濾」一節：
+- 參與 PR 的那三個 workflow **刻意不加 `paths:` 過濾**，原因見 `docs/ci.md` 的「為什麼不用 `paths:` 過濾」一節：
   被路徑過濾跳過的 workflow 不會回報 status，被列為必要檢查時會永遠卡在 `Expected`。
 - 新增 workflow **不會**自動成為必要檢查，必要檢查是按 job 名稱逐一列舉的。加了新 job 之後要手動到
   `Settings → Rules → Rulesets` 補上名稱，否則它只是「會跑但擋不住任何東西」的檢查。
 
-完整說明（含各步驟的理由與尚未涵蓋的部分）在 README 的「持續整合」一節，這裡不重複。
+完整說明（含各步驟的理由與尚未涵蓋的部分）在 `docs/ci.md`，這裡不重複。
 
 ## Documentation and notes
 
@@ -177,7 +177,7 @@ status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main
 **GitHub Wiki 刻意不使用**（沒有內容 API、不隨程式碼版控、`grep` 不到），不要再提議它，也不用重新
 調查一次。上表那三個去處就是全部。
 
-完整理由（含三個去處的取捨與安全邊界）在 README 的「文件與筆記」一節，這裡不重複。
+完整理由（含三個去處的取捨與安全邊界）在 `docs/notes/README.md`，這裡不重複。
 
 ## Project overview
 
@@ -289,7 +289,7 @@ script 請沿用同一套，不要再複製一份函式。離線交付時 `scrip
 道理，還原時的 `psql` 一律要帶 `-v ON_ERROR_STOP=1`。備份的兩個檔案都先寫成 `.partial`、通過
 `gzip -t` 與大小下限檢查後才改名，所以失敗絕不會留下看似正常的檔案——驗收請看結束碼，不要看
 `backups/` 裡有沒有東西。還原走與 `backup.sh` 對稱的 `scripts/restore.sh`（`--timestamp` 一次還原
-資料庫與 `uploads/`），完整流程與手動指令寫在 README 的「5. 從備份還原」。
+資料庫與 `uploads/`），完整流程與手動指令寫在 `docs/backup-restore.md` 的「3. 從備份還原」。
 
 `APP_VERSION` 是必填且不接受 `latest`（issue #110）：它同時是 image tag、tar 檔名與 `/health` 回報的
 版本，共用一個 tag 會讓新版覆蓋舊版的 tar 與 image，離線主機因此無法回滾。未設定或設成 `latest` 時，

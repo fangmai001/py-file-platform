@@ -44,7 +44,7 @@ UPLOADS_TAR_PATH="$BACKUP_LOCAL_DIR/uploads_${TS}.tar.gz"
 
 # 兩個壓縮檔都先寫成 .partial，通過驗證後才改名，因此失敗絕不會留下一個掛著正式檔名的檔案。
 # shell 會在 pipeline 執行**之前**就先建立重導向的目標檔，所以直接寫進 db_<ts>.sql.gz 的話，
-# 任何一次 pg_dump 失敗都會留下一個 0 byte、檔名卻看起來完全正常的檔案——而它還能通過 README
+# 任何一次 pg_dump 失敗都會留下一個 0 byte、檔名卻看起來完全正常的檔案——而它還能通過 docs/backup-restore.md
 # 那句「檢查 backups/ 裡有沒有 db_*.sql.gz」的驗收。一份謊稱自己成功的備份比沒有備份更糟，
 # 因為它只會在真正需要它的那一天才被發現。
 trap 'rm -f "$DB_DUMP_PATH.partial" "$UPLOADS_TAR_PATH.partial"' EXIT
