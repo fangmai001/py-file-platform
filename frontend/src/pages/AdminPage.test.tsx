@@ -124,7 +124,7 @@ function renderAdminPage() {
 function makeFeed(overrides: Partial<AdminFeedSource> = {}): AdminFeedSource {
   return {
     id: 1,
-    title: "社團部落格",
+    title: "消息部落格",
     description: null,
     url: "https://example.com/rss",
     folder_id: null,
@@ -655,7 +655,7 @@ describe("AdminPage", () => {
     vi.mocked(listUsers).mockResolvedValue([]);
     vi.mocked(createLinkCard).mockResolvedValue({
       id: 1,
-      title: "社團官網",
+      title: "公告網站",
       description: null,
       url: "https://example.com/",
       folder_id: null,
@@ -670,13 +670,13 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("tab", { name: "連結卡片" }));
 
     await waitFor(() => expect(screen.getByLabelText("標題")).toBeInTheDocument());
-    await user.type(screen.getByLabelText("標題"), "社團官網");
+    await user.type(screen.getByLabelText("標題"), "公告網站");
     await user.type(screen.getByLabelText("目標網址"), "https://example.com");
     await user.click(screen.getByRole("button", { name: "新增" }));
 
     await waitFor(() =>
       expect(createLinkCard).toHaveBeenCalledWith({
-        title: "社團官網",
+        title: "公告網站",
         description: null,
         url: "https://example.com",
         folder_id: null,
@@ -690,7 +690,7 @@ describe("AdminPage", () => {
     vi.mocked(listLinkCards).mockResolvedValue([
       {
         id: 1,
-        title: "社團官網",
+        title: "公告網站",
         description: null,
         url: "https://example.com/",
         folder_id: null,
@@ -700,7 +700,7 @@ describe("AdminPage", () => {
     ]);
     vi.mocked(updateLinkCard).mockResolvedValue({
       id: 1,
-      title: "社團官網",
+      title: "公告網站",
       description: "官方網站",
       url: "https://example.com/",
       folder_id: null,
@@ -714,7 +714,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "連結卡片" }));
 
-    const titleInput = await screen.findByDisplayValue("社團官網");
+    const titleInput = await screen.findByDisplayValue("公告網站");
     const row = titleInput.closest("tr");
     if (!row) {
       throw new Error("link card row not found");
@@ -725,7 +725,7 @@ describe("AdminPage", () => {
 
     await waitFor(() =>
       expect(updateLinkCard).toHaveBeenCalledWith(1, {
-        title: "社團官網",
+        title: "公告網站",
         description: "官方網站",
         url: "https://example.com/",
         folder_id: null,
@@ -740,7 +740,7 @@ describe("AdminPage", () => {
     vi.mocked(listLinkCards).mockResolvedValue([
       {
         id: 1,
-        title: "社團官網",
+        title: "公告網站",
         description: "官方網站",
         url: "https://example.com/",
         folder_id: null,
@@ -755,7 +755,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "連結卡片" }));
 
-    const titleInput = await screen.findByDisplayValue("社團官網");
+    const titleInput = await screen.findByDisplayValue("公告網站");
     const row = titleInput.closest("tr");
     if (!row) {
       throw new Error("link card row not found");
@@ -774,7 +774,7 @@ describe("AdminPage", () => {
     vi.mocked(listLinkCards).mockResolvedValue([
       {
         id: 1,
-        title: "社團官網",
+        title: "公告網站",
         description: null,
         url: "https://example.com/",
         folder_id: null,
@@ -789,7 +789,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "連結卡片" }));
 
-    await waitFor(() => expect(screen.getByDisplayValue("社團官網")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("公告網站")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "刪除" }));
 
     await waitFor(() => expect(screen.getByText(/此操作無法復原/)).toBeInTheDocument());
@@ -811,13 +811,13 @@ describe("AdminPage", () => {
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
 
     await waitFor(() => expect(screen.getByLabelText("名稱")).toBeInTheDocument());
-    await user.type(screen.getByLabelText("名稱"), "社團部落格");
+    await user.type(screen.getByLabelText("名稱"), "消息部落格");
     await user.type(screen.getByLabelText("Feed 網址"), "https://example.com/rss");
     await user.click(screen.getByRole("button", { name: "新增" }));
 
     await waitFor(() =>
       expect(createFeed).toHaveBeenCalledWith({
-        title: "社團部落格",
+        title: "消息部落格",
         description: null,
         url: "https://example.com/rss",
         folder_id: null,
@@ -838,7 +838,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
-    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("消息部落格")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "立即抓取" }));
 
     await waitFor(() => expect(fetchFeedNow).toHaveBeenCalledWith(1));
@@ -859,7 +859,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
 
-    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("消息部落格")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "立即抓取" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("HTTP 404"));
@@ -876,7 +876,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
 
-    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("消息部落格")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "儲存" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "啟用中" }));
@@ -894,7 +894,7 @@ describe("AdminPage", () => {
     await waitFor(() => expect(screen.getByText("使用者列表")).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: "RSS 訂閱" }));
 
-    await waitFor(() => expect(screen.getByDisplayValue("社團部落格")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("消息部落格")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "刪除" }));
 
     await waitFor(() => expect(screen.getByText(/已抓回的文章會一併刪除/)).toBeInTheDocument());
@@ -1032,7 +1032,7 @@ describe("AdminPage", () => {
       max_upload_size_mb: 50,
     });
     vi.mocked(updateSiteSettings).mockResolvedValue({
-      brand_name: "我的社團",
+      brand_name: "我的平台",
       browser_title: "舊分頁標題",
       hero_title: "舊主標題",
       hero_subtitle: "舊副標",
@@ -1049,12 +1049,12 @@ describe("AdminPage", () => {
 
     const brandInput = await screen.findByDisplayValue("舊名稱");
     await user.clear(brandInput);
-    await user.type(brandInput, "我的社團");
+    await user.type(brandInput, "我的平台");
     await user.click(screen.getByRole("button", { name: "儲存" }));
 
     await waitFor(() =>
       expect(updateSiteSettings).toHaveBeenCalledWith({
-        brand_name: "我的社團",
+        brand_name: "我的平台",
         browser_title: "舊分頁標題",
         hero_title: "舊主標題",
         hero_subtitle: "舊副標",

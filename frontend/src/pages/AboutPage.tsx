@@ -23,7 +23,7 @@ function AboutPage() {
       <Card>
         <CardContent className="flex flex-col gap-3 text-left">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並下載公開檔案，登入後才能上傳與管理自己的檔案。
+            資訊消息平台是一個檔案管理／分享與消息發布平台：訪客無需登入即可瀏覽並下載公開檔案，登入後才能上傳與管理自己的檔案。
           </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
             本專案的主要目的是測試 Python（FastAPI）後端在前後端互動中，處理資料增刪查改（CRUD）與 API 的支援能力。

@@ -7,7 +7,7 @@
     <link rel="icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="內部文件共享平台" />
+    <meta name="description" content="資訊消息平台" />
     <!-- 淺色的 --canvas 顏色（內容 sheet 之外的表面），而不是 --background。
          刻意不綁在 prefers-color-scheme 上：已儲存的主題會蓋過系統偏好，因此用 media query
          反而會把行動裝置工具列染成錯誤主題的顏色。深色的第一次繪製由下方的 boot script 處理，
@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#f4f5f8" />
     <!-- SiteSettingsContext 會用 browser_title 覆寫它，而後者的預設值就是同一個字串——
          只改這裡會讓 hydration 前後的標題不同步。 -->
-    <title>py-file-platform</title>
+    <title>資訊消息平台</title>
     <!-- 在第一次繪製前套用主題 class，讓深色模式的使用者不會看到一閃而過的白畫面。
          必須與 src/context/ThemeContext.tsx 的 getInitialTheme() 完全一致——同一個 "theme"
          key、同樣「已儲存的值優先，否則看 prefers-color-scheme」的優先順序——否則 React

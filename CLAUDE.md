@@ -181,9 +181,14 @@ status check 才能合併**。前三個 workflow 在每個 PR 與 push 到 `main
 
 ## Project overview
 
-py-file-platform 是一個檔案管理／分享平台，定位類似社團或內部團隊的公開文件牆：訪客無需登入即可瀏覽並
-下載公開檔案；只有要上傳或管理檔案時才需要登入。它存在的主要目的，是拿 Python 後端的 CRUD／API 處理
-能力去對接 React 前端做實測。
+py-file-platform 對外顯示的網站名稱是「資訊消息平台」，是一個檔案管理／分享平台，定位為公開的文件與
+消息牆：訪客無需登入即可瀏覽並下載公開檔案；只有要上傳或管理檔案時才需要登入。它存在的主要目的，是拿
+Python 後端的 CRUD／API 處理能力去對接 React 前端做實測。
+
+網站名稱只存在於顯示層——`frontend/src/context/SiteSettingsContext.tsx` 的 `DEFAULT_BRAND_NAME`／
+`DEFAULT_BROWSER_TITLE`、`frontend/index.html` 的 `<title>` 與各處文件敘述（管理員另可在 `/admin` 的
+「站台設定」分頁覆寫，見 `site_settings` 資料表）。repo 名、image tag `py-file-platform-app` 與
+`FastAPI(title=...)` 一律維持 `py-file-platform`，改動它們會斷掉離線交付鏈。
 
 已實作：本機帳號與 LDAP 登入／JWT 驗證、檔案上傳下載（含每個檔案的公開／私密可見性與版本歷史）、
 依 folder 分組的瀏覽、link card 分類、站台品牌設定、管理員可編輯的首頁特色卡片、自助重設密碼、
