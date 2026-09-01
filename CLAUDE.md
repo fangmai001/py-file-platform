@@ -331,7 +331,10 @@ env_file 會蓋掉 image 的 `ENV`，同名的話 `/health` 只會把 `.env` 的
   `files.py`（上傳下載、版本、可見性切換、依 folder 分組的列表，並觸發上傳通知）、
   `feeds.py`（RSS／Atom 訂閱來源的 CRUD 與「立即抓取」；`GET /api/feeds` 與 `GET /api/feeds/items`
   公開，寫入與 `GET /api/feeds/admin` 僅限管理員——後者多回傳 `last_error`，公開的回應刻意不揭露
-  抓取失敗的內部訊息。`/admin`、`/items` 與 `/fetch-all` 這幾個字面路徑必須註冊在 `/{feed_id}` 之前）、
+  抓取失敗的內部訊息。`GET /api/feeds/items` 可用 `feed_id` 與 `folder_id` 篩選，兩者可並用；
+  `folder_id` 的篩選一定要留在後端，因為 `limit`／`offset` 是對「全部文章」分頁的，先取一頁再由前端
+  自行過濾會讓每頁筆數與「載入更多」都對不上。`/admin`、`/items` 與 `/fetch-all` 這幾個字面路徑
+  必須註冊在 `/{feed_id}` 之前）、
   `feed_settings.py`（定時抓取排程的開關與間隔，`GET`+`PATCH` 都僅限管理員。刻意獨立成一個
   `/api/feed-settings` router 而不是塞進 `feeds.py` 的 `/settings`，就是為了避開上面那個路徑順序陷阱）、
   `folders.py`（card CRUD，寫入操作透過 `require_admin` 限定管理員）、`link_cards.py`

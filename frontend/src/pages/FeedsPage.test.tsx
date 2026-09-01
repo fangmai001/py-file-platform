@@ -9,8 +9,13 @@ vi.mock("../api/feeds", () => ({
   listFeedArticles: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("../api/folders", () => ({
+  listFolders: vi.fn().mockResolvedValue([]),
+}));
+
 import { listFeedArticles, listFeeds } from "../api/feeds";
-import type { FeedArticle, FeedSource } from "../api/types";
+import { listFolders } from "../api/folders";
+import type { FeedArticle, FeedSource, FolderItem } from "../api/types";
 
 function makeFeed(overrides: Partial<FeedSource> = {}): FeedSource {
   return {
@@ -23,6 +28,16 @@ function makeFeed(overrides: Partial<FeedSource> = {}): FeedSource {
     is_active: true,
     last_fetched_at: null,
     last_status: "ok",
+    created_at: "2024-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function makeFolder(overrides: Partial<FolderItem> = {}): FolderItem {
+  return {
+    id: 10,
+    name: "技術文章",
+    description: null,
     created_at: "2024-01-01T00:00:00Z",
     ...overrides,
   };
@@ -49,6 +64,7 @@ describe("FeedsPage", () => {
     // 否則前一個案例留下的文章會漏進「沒有文章」的案例裡。
     vi.mocked(listFeeds).mockResolvedValue([]);
     vi.mocked(listFeedArticles).mockResolvedValue([]);
+    vi.mocked(listFolders).mockResolvedValue([]);
   });
 
   it("lists the fetched articles with their source", async () => {
@@ -103,5 +119,50 @@ describe("FeedsPage", () => {
     await waitFor(() =>
       expect(listFeedArticles).toHaveBeenLastCalledWith({ feedId: 2, limit: 20 }),
     );
+  });
+
+  it("filters the articles by folder", async () => {
+    vi.mocked(listFolders).mockResolvedValue([makeFolder()]);
+    vi.mocked(listFeeds).mockResolvedValue([makeFeed({ folder_id: 10 })]);
+    vi.mocked(listFeedArticles).mockResolvedValue([makeArticle()]);
+
+    render(<FeedsPage />);
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByLabelText("篩選分類")).toBeInTheDocument());
+    await user.click(screen.getByLabelText("篩選分類"));
+    await user.click(await screen.findByRole("option", { name: "技術文章" }));
+
+    await waitFor(() => expect(listFeedArticles).toHaveBeenLastCalledWith({ folderId: 10, limit: 20 }));
+  });
+
+  it("hides the folder filter when no source belongs to a folder", async () => {
+    // 一個永遠篩不出任何文章的分類不該出現在選單裡。
+    vi.mocked(listFolders).mockResolvedValue([makeFolder()]);
+    vi.mocked(listFeeds).mockResolvedValue([makeFeed({ folder_id: null })]);
+
+    render(<FeedsPage />);
+
+    await waitFor(() => expect(screen.getByLabelText("篩選來源")).toBeInTheDocument());
+    expect(screen.queryByLabelText("篩選分類")).not.toBeInTheDocument();
+  });
+
+  it("narrows the source list to the chosen folder", async () => {
+    vi.mocked(listFolders).mockResolvedValue([makeFolder()]);
+    vi.mocked(listFeeds).mockResolvedValue([
+      makeFeed({ folder_id: 10 }),
+      makeFeed({ id: 2, title: "未分類來源", folder_id: null }),
+    ]);
+
+    render(<FeedsPage />);
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByLabelText("篩選分類")).toBeInTheDocument());
+    await user.click(screen.getByLabelText("篩選分類"));
+    await user.click(await screen.findByRole("option", { name: "技術文章" }));
+
+    await user.click(screen.getByLabelText("篩選來源"));
+    expect(await screen.findByRole("option", { name: "消息部落格" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "未分類來源" })).not.toBeInTheDocument();
   });
 });

@@ -28,6 +28,8 @@ export interface UpdateFeedInput {
 
 export interface ListFeedArticlesOptions {
   feedId?: number | null;
+  /** 依來源所屬的資料夾篩選。與 feedId 可以並用，兩者都會套用。 */
+  folderId?: number | null;
   limit?: number;
   offset?: number;
 }
@@ -46,6 +48,9 @@ export function listFeedArticles(options: ListFeedArticlesOptions = {}): Promise
   const params = new URLSearchParams();
   if (options.feedId != null) {
     params.set("feed_id", String(options.feedId));
+  }
+  if (options.folderId != null) {
+    params.set("folder_id", String(options.folderId));
   }
   if (options.limit != null) {
     params.set("limit", String(options.limit));
