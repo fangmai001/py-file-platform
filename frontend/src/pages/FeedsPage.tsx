@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Rss } from "lucide-react";
 import { ApiError } from "../api/client";
 import { listFeedArticles, listFeeds } from "../api/feeds";
-import type { FeedArticle, FeedSource } from "../api/types";
+import { listFolders } from "../api/folders";
+import type { FeedArticle, FeedSource, FolderItem } from "../api/types";
 import { formatDateTime, formatRelativeTime } from "../lib/format";
 import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
@@ -15,7 +16,8 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 
-const ALL_FEEDS = "__all__";
+const ALL_FEEDS = "__all_feeds__";
+const ALL_FOLDERS = "__all_folders__";
 const PAGE_SIZE = 20;
 
 /**
@@ -37,9 +39,11 @@ function toPlainText(html: string): string {
 
 function FeedsPage() {
   const [feeds, setFeeds] = useState<FeedSource[]>([]);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
   const [articles, setArticles] = useState<FeedArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedFilter, setFeedFilter] = useState(ALL_FEEDS);
+  const [folderFilter, setFolderFilter] = useState(ALL_FOLDERS);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -55,11 +59,19 @@ function FeedsPage() {
   }, []);
 
   useEffect(() => {
+    // 資料夾只是用來把來源分類，載不到就退回「沒有分類」，不要因此擋住文章列表。
+    listFolders()
+      .then(setFolders)
+      .catch(() => setFolders([]));
+  }, []);
+
+  useEffect(() => {
     async function loadArticles() {
       setArticles(null);
       try {
         const data = await listFeedArticles({
           feedId: feedFilter === ALL_FEEDS ? undefined : Number(feedFilter),
+          folderId: folderFilter === ALL_FOLDERS ? undefined : Number(folderFilter),
           limit: PAGE_SIZE,
         });
         setArticles(data);
@@ -71,13 +83,14 @@ function FeedsPage() {
       }
     }
     loadArticles();
-  }, [feedFilter]);
+  }, [feedFilter, folderFilter]);
 
   async function handleLoadMore() {
     setIsLoadingMore(true);
     try {
       const next = await listFeedArticles({
         feedId: feedFilter === ALL_FEEDS ? undefined : Number(feedFilter),
+        folderId: folderFilter === ALL_FOLDERS ? undefined : Number(folderFilter),
         limit: PAGE_SIZE,
         offset: articles?.length ?? 0,
       });
@@ -92,6 +105,25 @@ function FeedsPage() {
 
   const feedTitles = new Map(feeds.map((feed) => [feed.id, feed.title]));
 
+  // 只列出真的有來源掛在底下的分類。這與 GET /api/feeds 不回傳停用來源是同一個理由：
+  // 一個永遠篩不出任何文章的選項，對讀者來說只是雜訊。
+  const usedFolders = useMemo(
+    () => folders.filter((folder) => feeds.some((feed) => feed.folder_id === folder.id)),
+    [folders, feeds],
+  );
+
+  const visibleFeeds = useMemo(
+    () => (folderFilter === ALL_FOLDERS ? feeds : feeds.filter((feed) => feed.folder_id === Number(folderFilter))),
+    [feeds, folderFilter],
+  );
+
+  // 換分類時把來源選擇歸零。留著上一個分類選到的來源，會變成兩個互相矛盾的條件，
+  // 畫面上看起來就是「明明選了分類卻一篇都沒有」。
+  function handleFolderFilterChange(value: string) {
+    setFolderFilter(value);
+    setFeedFilter(ALL_FEEDS);
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -102,25 +134,51 @@ function FeedsPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 text-left">
           <SectionTitle>訂閱來源</SectionTitle>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="feed-filter">篩選來源</Label>
-            <Select value={feedFilter} onValueChange={(value) => value && setFeedFilter(value)}>
-              <SelectTrigger id="feed-filter" className="w-56">
-                <SelectValue>
-                  {(value: string) =>
-                    value === ALL_FEEDS ? "全部來源" : (feedTitles.get(Number(value)) ?? "全部來源")
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FEEDS}>全部來源</SelectItem>
-                {feeds.map((feed) => (
-                  <SelectItem key={feed.id} value={String(feed.id)}>
-                    {feed.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-4">
+            {usedFolders.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="feed-folder-filter">篩選分類</Label>
+                <Select value={folderFilter} onValueChange={(value) => value && handleFolderFilterChange(value)}>
+                  <SelectTrigger id="feed-folder-filter" className="w-44">
+                    <SelectValue>
+                      {(value: string) =>
+                        value === ALL_FOLDERS
+                          ? "全部分類"
+                          : (usedFolders.find((folder) => String(folder.id) === value)?.name ?? "全部分類")
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FOLDERS}>全部分類</SelectItem>
+                    {usedFolders.map((folder) => (
+                      <SelectItem key={folder.id} value={String(folder.id)}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feed-filter">篩選來源</Label>
+              <Select value={feedFilter} onValueChange={(value) => value && setFeedFilter(value)}>
+                <SelectTrigger id="feed-filter" className="w-56">
+                  <SelectValue>
+                    {(value: string) =>
+                      value === ALL_FEEDS ? "全部來源" : (feedTitles.get(Number(value)) ?? "全部來源")
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FEEDS}>全部來源</SelectItem>
+                  {visibleFeeds.map((feed) => (
+                    <SelectItem key={feed.id} value={String(feed.id)}>
+                      {feed.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>

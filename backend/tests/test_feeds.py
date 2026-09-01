@@ -318,6 +318,45 @@ def test_items_are_sorted_newest_first_and_can_be_filtered(client, db_session):
     assert [item["title"] for item in response.json()] == ["新文章", "舊文章"]
 
 
+def test_items_can_be_filtered_by_folder(client, db_session):
+    folder = Folder(name="技術文章")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+
+    in_folder = make_feed(db_session, title="來源 A", url="https://example.com/a")
+    in_folder.folder_id = folder.id
+    uncategorised = make_feed(db_session, title="來源 B", url="https://example.com/b")
+    db_session.add_all(
+        [
+            FeedItem(feed_id=in_folder.id, guid="a1", title="技術文章一則"),
+            FeedItem(feed_id=uncategorised.id, guid="b1", title="未分類的一則"),
+        ]
+    )
+    db_session.commit()
+
+    response = client.get(f"/api/feeds/items?folder_id={folder.id}")
+    assert response.status_code == 200
+    assert {item["title"] for item in response.json()} == {"技術文章一則"}
+
+
+def test_folder_filter_does_not_leak_items_of_private_feeds(client, db_session):
+    """分類篩選不能繞過可見度。它只是多加一個條件，不是換一套規則。"""
+    folder = Folder(name="技術文章")
+    db_session.add(folder)
+    db_session.commit()
+    db_session.refresh(folder)
+
+    private_feed = make_feed(db_session, title="私密來源", url="https://example.com/a", is_public=False)
+    private_feed.folder_id = folder.id
+    db_session.add(FeedItem(feed_id=private_feed.id, guid="s1", title="私密文章"))
+    db_session.commit()
+
+    response = client.get(f"/api/feeds/items?folder_id={folder.id}")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_non_admin_cannot_write_feeds(client, db_session):
     user = make_user(db_session)
     feed = make_feed(db_session)

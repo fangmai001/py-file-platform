@@ -50,6 +50,7 @@ def list_feeds_for_admin(
 @router.get("/items", response_model=list[FeedItemResponse])
 def list_feed_items(
     feed_id: int | None = None,
+    folder_id: int | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -64,6 +65,12 @@ def list_feed_items(
 
     if feed_id is not None:
         query = query.filter(FeedItem.feed_id == feed_id)
+
+    # 依來源所屬的資料夾篩選。這個篩選必須在後端做，不能讓前端抓一頁回去自己濾——
+    # limit／offset 是對「全部文章」分頁的，先取 20 篇再濾掉其他分類，會得到一頁只剩
+    # 兩三篇、而且「載入更多」永遠對不上的結果。
+    if folder_id is not None:
+        query = query.filter(Feed.folder_id == folder_id)
 
     # 有些 feed 根本不給日期，published_at 會是 NULL；用 fetched_at 決勝，讓它們排在
     # 有日期的項目之間而不是全部沉底。id 是最後的決勝條件，確保分頁時順序穩定。
