@@ -7,24 +7,26 @@
 
 ## 📸 畫面截圖 (Screenshots)
 
-|                                                       |                                                         |
-| ----------------------------------------------------- | ------------------------------------------------------- |
-| **首頁公開檔案牆**（含檔案依資料夾分組與連結卡片）         | **登入頁**                                               |
-| ![首頁](docs/screenshots/home.png)                     | ![登入頁](docs/screenshots/login.png)                    |
-| **上傳頁**                                             | **管理後台－使用者**                                     |
-| ![上傳頁](docs/screenshots/upload.png)                 | ![管理後台使用者列表](docs/screenshots/admin-users.png)  |
-| **管理後台－資料夾**                                     | **管理後台－連結卡片**                                   |
-| ![管理後台資料夾列表](docs/screenshots/admin-folders.png) | ![管理後台連結卡片列表](docs/screenshots/admin-link-cards.png) |
-| **管理後台－檔案**                                     | **管理後台－操作紀錄**                                   |
-| ![管理後台檔案列表](docs/screenshots/admin-files.png)  | ![管理後台操作紀錄](docs/screenshots/admin-audit-logs.png) |
-| **管理後台－站台設定**                                 | **管理後台－LDAP 設定**                                  |
+|  |  |
+| --- | --- |
+| **首頁公開檔案牆**（含檔案依資料夾分組與連結卡片） | **登入頁** |
+| ![首頁](docs/screenshots/home.png) | ![登入頁](docs/screenshots/login.png) |
+| **訂閱文章頁**（RSS／Atom 來源抓回的最新文章） | **上傳頁** |
+| ![訂閱文章頁](docs/screenshots/feeds.png) | ![上傳頁](docs/screenshots/upload.png) |
+| **管理後台－使用者** | **管理後台－資料夾** |
+| ![管理後台使用者列表](docs/screenshots/admin-users.png) | ![管理後台資料夾列表](docs/screenshots/admin-folders.png) |
+| **管理後台－連結卡片** | **管理後台－RSS 訂閱** |
+| ![管理後台連結卡片列表](docs/screenshots/admin-link-cards.png) | ![管理後台 RSS 訂閱來源](docs/screenshots/admin-feeds.png) |
+| **管理後台－檔案** | **管理後台－操作紀錄** |
+| ![管理後台檔案列表](docs/screenshots/admin-files.png) | ![管理後台操作紀錄](docs/screenshots/admin-audit-logs.png) |
+| **管理後台－站台設定** | **管理後台－LDAP 設定** |
 | ![管理後台站台設定](docs/screenshots/admin-site-settings.png) | ![管理後台 LDAP 設定](docs/screenshots/admin-ldap-settings.png) |
-| **管理後台－Email SMTP 設定**                          | **個人資料頁**                                           |
+| **管理後台－Email SMTP 設定** | **個人資料頁** |
 | ![管理後台 Email SMTP 設定](docs/screenshots/admin-smtp-settings.png) | ![個人資料頁](docs/screenshots/profile.png) |
-| **管理後台－首頁特色**                                 | **通知中心**                                             |
-| ![管理後台首頁特色](docs/screenshots/admin-highlights.png) | ![通知中心](docs/screenshots/notifications.png)       |
-| **首頁（深色模式）**                                   | **管理後台－使用者（深色模式）**                         |
-| ![首頁深色模式](docs/screenshots/home-dark.png)        | ![管理後台使用者列表深色模式](docs/screenshots/admin-users-dark.png) |
+| **管理後台－首頁特色** | **通知中心** |
+| ![管理後台首頁特色](docs/screenshots/admin-highlights.png) | ![通知中心](docs/screenshots/notifications.png) |
+| **首頁（深色模式）** | **管理後台－使用者（深色模式）** |
+| ![首頁深色模式](docs/screenshots/home-dark.png) | ![管理後台使用者列表深色模式](docs/screenshots/admin-users-dark.png) |
 
 ## 🌟 專案特點
 
